@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flame/components.dart' as flame_comp;
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
@@ -11,8 +12,15 @@ import '../../core/services/chat_service.dart';
 import '../../core/services/livekit_service.dart';
 import '../../core/services/world_sync_service.dart';
 import '../auth/auth_service.dart';
+import '../../core/services/space_service.dart';
 import 'game/components/furniture_item.dart';
 import 'game/world_game.dart';
+import '../../core/models/companion_model.dart';
+import '../../core/services/companion_service.dart';
+import '../companion/companion_modal.dart';
+import 'package:flutter/services.dart';
+import '../../core/models/playlist_model.dart';
+import '../../core/services/playlist_service.dart';
 
 final List<({FurnitureType type, String label, String icon, String subtitle})> _furnitureCatalog = [
   (type: FurnitureType.pineTree, label: "Pine Tree", icon: "🌲", subtitle: "Forest Tree"),
@@ -48,6 +56,22 @@ class WorldScreen extends StatefulWidget {
 }
 
 class _WorldScreenState extends State<WorldScreen> {
+  static final ValueNotifier<List<String>> debugLogStream = ValueNotifier<List<String>>([]);
+
+  void _logDebug(String msg) {
+    debugPrint(msg);
+    final formatted = "[${DateTime.now().toIso8601String().substring(11, 19)}] $msg";
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final current = debugLogStream.value;
+      if (current.length >= 8) {
+        debugLogStream.value = [...current.sublist(1), formatted];
+      } else {
+        debugLogStream.value = [...current, formatted];
+      }
+    });
+  }
+
   late final WorldGame _game;
   String _activeZone = "Verdant Village";
 
@@ -60,8 +84,9 @@ class _WorldScreenState extends State<WorldScreen> {
   // Realtime World Sync & LiveKit Proximity Audio/Video
   late final WorldSyncService _worldSyncService;
   late final LiveKitService _liveKitService;
+  final FocusNode _gameFocusNode = FocusNode();
 
-  // Discord Chat & Speech State
+  // Roblox-Style Chat & Speech State
   bool _isChatOpen = false;
   bool _isPipExpanded = false;
   String _activeChannel = 'general';
@@ -69,7 +94,78 @@ class _WorldScreenState extends State<WorldScreen> {
   final TextEditingController _chatController = TextEditingController();
   final TextEditingController _speechController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
+  final ScrollController _companionChatScrollController = ScrollController();
   RealtimeChannel? _chatSubscription;
+
+  void _openCompanionModal() {
+    final isGuest = AuthService.currentSession?.isGuest == true;
+    final hasAi = AuthService.currentSession?.hasAiCompanion ?? false;
+    if (isGuest || !hasAi) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("AI Companion is a Member feature! Create an account to unlock your personal AI companion."),
+          backgroundColor: Color(0xFF7C3AED),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CompanionModal(
+        userName: widget.displayName,
+        currentZone: _activeZone,
+        onDismiss: () {
+          _gameFocusNode.requestFocus();
+          _game.clearPressedKeys();
+        },
+      ),
+    ).then((_) {
+      _gameFocusNode.requestFocus();
+      _game.clearPressedKeys();
+    });
+  }
+
+  void _onCompanionChanged() {
+    final comp = CompanionService.currentCompanion.value;
+    final isGuest = AuthService.currentSession?.isGuest == true;
+    final hasAi = AuthService.currentSession?.hasAiCompanion ?? false;
+    if (!isGuest && hasAi && comp != null) {
+      _game.setCompanion(comp, onTap: _openCompanionModal);
+    } else {
+      _game.setCompanion(null);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _initCompanion(String userId, String displayName) async {
+    final isGuest = AuthService.currentSession?.isGuest == true;
+    final hasAi = AuthService.currentSession?.hasAiCompanion ?? false;
+    if (isGuest || !hasAi) {
+      _game.setCompanion(null);
+      CompanionService.currentCompanion.value = null;
+      return;
+    }
+
+    try {
+      final companion = await CompanionService.loadOrCreateCompanion(
+        userId: userId,
+        displayName: displayName,
+      );
+      if (mounted) {
+        if (companion != null) {
+          _game.setCompanion(companion, onTap: _openCompanionModal);
+        } else {
+          _game.setCompanion(null);
+        }
+      }
+    } catch (e) {
+      _logDebug(">>> [WorldScreen] Companion init error: $e");
+    }
+  }
 
   void _toggleBuildMode() {
     setState(() {
@@ -89,6 +185,8 @@ class _WorldScreenState extends State<WorldScreen> {
   @override
   void initState() {
     super.initState();
+    _logDebug(">>> [WorldScreen] initState() called");
+
     final isMobile = defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
     _showOnScreenJoystick = isMobile;
@@ -103,15 +201,10 @@ class _WorldScreenState extends State<WorldScreen> {
       displayName: widget.displayName,
       avatarConfig: widget.avatarConfig,
     );
-    _worldSyncService.connect(initialX: 300, initialY: 260);
 
     _liveKitService = LiveKitService();
-    _liveKitService.joinSpaceRoom(
-      spaceId: spaceId,
-      userId: currentUserId,
-      displayName: widget.displayName,
-    );
 
+    // Initialize Flame WorldGame immediately so it is guaranteed to be ready
     _game = WorldGame(
       displayName: widget.displayName,
       status: widget.status,
@@ -120,11 +213,79 @@ class _WorldScreenState extends State<WorldScreen> {
       syncService: _worldSyncService,
       liveKitService: _liveKitService,
       onZoneChanged: (zone) {
-        if (mounted) setState(() => _activeZone = zone);
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _activeZone = zone);
+          });
+          final comp = CompanionService.currentCompanion.value;
+          if (comp != null) {
+            final greetings = {
+              'Verdant Village': "Welcome back to Verdant Village!",
+              'Whispering Woods': "The trees are whispering... stay alert!",
+              'Adventure Camp': "Ah, the campfire smells great here.",
+              'Craggy Ridge': "Watch your step on these rocky ridges!",
+              'Crystal Bay': "The ocean looks so clear today! Fancy a swim?",
+              'River Crossing': "The river water is refreshing, or cross the bridge smoothly!",
+            };
+            final greeting = greetings[zone];
+            if (greeting != null) {
+              _game.companionAvatar?.showSpeechBubble(greeting);
+            }
+          }
+        }
       },
     );
+    _logDebug(">>> [WorldScreen] WorldGame initialized successfully!");
 
-    _initChat();
+    _game.loaded.then((_) {
+      if (mounted) {
+        setState(() {});
+        _logDebug(">>> [WorldScreen] WorldGame loaded successfully! isLoaded=${_game.isLoaded}");
+      }
+    });
+
+    // Listen to AI Companion changes (e.g. style/persona update in modal)
+    CompanionService.currentCompanion.addListener(_onCompanionChanged);
+    CompanionService.messages.addListener(_onCompanionMessagesChanged);
+
+    // Initialize AI Companion
+    _initCompanion(currentUserId, widget.displayName);
+
+    // Initialize Sound Tripping Jukebox for this space
+    PlaylistService.loadPlaylist(spaceId);
+
+    // Asynchronously connect external network services with error guards
+    _connectServices(spaceId, currentUserId);
+  }
+
+  Future<void> _connectServices(String spaceId, String currentUserId) async {
+    try {
+      _logDebug(">>> [WorldScreen] Connecting WorldSyncService...");
+      await _worldSyncService.connect(initialX: 300, initialY: 260);
+      _logDebug(">>> [WorldScreen] WorldSyncService connected.");
+    } catch (e) {
+      _logDebug(">>> [WorldScreen] WorldSyncService connect error: $e");
+    }
+
+    try {
+      _logDebug(">>> [WorldScreen] Joining LiveKit space room...");
+      await _liveKitService.joinSpaceRoom(
+        spaceId: spaceId,
+        userId: currentUserId,
+        displayName: widget.displayName,
+      );
+      _logDebug(">>> [WorldScreen] LiveKit room joined.");
+    } catch (e) {
+      _logDebug(">>> [WorldScreen] LiveKit error: $e");
+    }
+
+    try {
+      _logDebug(">>> [WorldScreen] Initializing Chat...");
+      await _initChat();
+      _logDebug(">>> [WorldScreen] Chat initialized.");
+    } catch (e) {
+      _logDebug(">>> [WorldScreen] Chat init error: $e");
+    }
   }
 
   Future<void> _initChat() async {
@@ -153,13 +314,22 @@ class _WorldScreenState extends State<WorldScreen> {
   }
 
   void _switchChannel(String channelId) {
+    if (channelId == 'companion' &&
+        (AuthService.currentSession?.isGuest == true ||
+            AuthService.currentSession?.hasAiCompanion == false)) {
+      return;
+    }
     if (_activeChannel == channelId) return;
     _chatSubscription?.unsubscribe();
     setState(() {
       _activeChannel = channelId;
       _messages.clear();
     });
-    _initChat();
+    if (channelId != 'companion') {
+      _initChat();
+    } else {
+      _scrollToBottomCompanion(animate: false);
+    }
   }
 
   void _scrollToBottom() {
@@ -174,10 +344,59 @@ class _WorldScreenState extends State<WorldScreen> {
     });
   }
 
+  void _onCompanionMessagesChanged() {
+    if (_isChatOpen && _activeChannel == 'companion') {
+      _scrollToBottomCompanion(animate: true);
+    }
+  }
+
+  void _scrollToBottomCompanion({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_companionChatScrollController.hasClients) {
+        final target = _companionChatScrollController.position.maxScrollExtent;
+        if (animate) {
+          _companionChatScrollController.animateTo(
+            target,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _companionChatScrollController.jumpTo(target);
+        }
+      }
+    });
+  }
+
   Future<void> _sendChatMessage() async {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
     _chatController.clear();
+
+    // Automatically release text field focus and restore WASD keyboard movement!
+    FocusScope.of(context).unfocus();
+    _gameFocusNode.requestFocus();
+    _game.clearPressedKeys();
+
+    if (_activeChannel == 'companion') {
+      if (AuthService.currentSession?.isGuest == true ||
+          AuthService.currentSession?.hasAiCompanion == false) {
+        return;
+      }
+      final comp = CompanionService.currentCompanion.value;
+      if (comp != null) {
+        _scrollToBottomCompanion(animate: true);
+        final reply = await CompanionService.sendMessage(
+          userText: text,
+          currentZone: _activeZone,
+          userName: widget.displayName,
+        );
+        if (mounted) {
+          _game.companionAvatar?.showSpeechBubble(reply);
+          _scrollToBottomCompanion(animate: true);
+        }
+      }
+      return;
+    }
 
     _worldSyncService.broadcastSpeech(text);
     _game.player.showSpeechBubble(text);
@@ -204,16 +423,25 @@ class _WorldScreenState extends State<WorldScreen> {
     if (text.isEmpty) return;
     _speechController.clear();
 
+    // Automatically release text field focus and restore WASD keyboard movement!
+    FocusScope.of(context).unfocus();
+    _gameFocusNode.requestFocus();
+    _game.clearPressedKeys();
+
     _worldSyncService.broadcastSpeech(text);
     _game.player.showSpeechBubble(text);
   }
 
   @override
   void dispose() {
+    CompanionService.currentCompanion.removeListener(_onCompanionChanged);
+    CompanionService.messages.removeListener(_onCompanionMessagesChanged);
+    _gameFocusNode.dispose();
     _chatSubscription?.unsubscribe();
     _chatController.dispose();
     _speechController.dispose();
     _chatScrollController.dispose();
+    _companionChatScrollController.dispose();
     _worldSyncService.disconnect();
     _liveKitService.leaveSpaceRoom();
     super.dispose();
@@ -259,67 +487,144 @@ class _WorldScreenState extends State<WorldScreen> {
     }
   }
 
+  bool _isLeavingWorld = false;
+
+  Future<bool> _confirmLeaveGuestWorld() async {
+    if (_isLeavingWorld) return true;
+    if (widget.space?.isTemporary == true && AuthService.currentSession?.isGuest == true) {
+      final shouldQuit = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.darkCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFEF4444), width: 2),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+              SizedBox(width: 8),
+              Text("Quit Temporary Map?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: const Text(
+            "Since you are in Guest Mode, your temporary map will be deleted upon quitting. Upgrade to a paid account to save permanent worlds.",
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Stay", style: TextStyle(color: Colors.white60)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Quit & Delete Map", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldQuit == true) {
+        _isLeavingWorld = true;
+        SpaceService.clearGuestMaps();
+        return true;
+      }
+      return false;
+    }
+    _isLeavingWorld = true;
+    return true;
+  }
+
+  Future<void> _handleLeaveWorld() async {
+    final allowLeave = await _confirmLeaveGuestWorld();
+    if (allowLeave && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _logDebug(">>> [WorldScreen] build() executed | activeZone=$_activeZone | game.isLoaded=${_game.isLoaded}");
     final zoneColor = _getZoneColor(_activeZone);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return WillPopScope(
+      onWillPop: _confirmLeaveGuestWorld,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // 1. Flame Game Engine Canvas (with Build Mode tap detector)
+          // 1. Flame Game Engine Canvas (with Build Mode tap detector & Focus Restorer)
           Positioned.fill(
             child: Builder(
               builder: (context) {
                 return GestureDetector(
-                  // Only block default gestures when in Build Mode so that
-                  // normal movement / keyboard / joystick are unaffected.
-                  behavior: _isBuildMode
-                      ? HitTestBehavior.opaque
-                      : HitTestBehavior.translucent,
-                  onTapUp: _isBuildMode
-                      ? (details) {
-                          final box =
-                              context.findRenderObject() as RenderBox?;
-                          final size = box?.size ?? MediaQuery.of(context).size;
-                          _game.placeFurnitureAtScreen(
-                            details.localPosition.dx,
-                            details.localPosition.dy,
-                            size,
-                          );
-                        }
-                      : null,
+                  // Focus restoration on tap so keyboard controls immediately resume
+                  behavior: HitTestBehavior.translucent,
+                  onTapDown: (_) {
+                    FocusScope.of(context).unfocus();
+                    _gameFocusNode.requestFocus();
+                    _game.clearPressedKeys();
+                  },
+                  onTapUp: (details) {
+                    FocusScope.of(context).unfocus();
+                    _gameFocusNode.requestFocus();
+                    _game.clearPressedKeys();
+                    if (_isBuildMode) {
+                      final box =
+                          context.findRenderObject() as RenderBox?;
+                      final size = box?.size ?? MediaQuery.of(context).size;
+                      _game.placeFurnitureAtScreen(
+                        details.localPosition.dx,
+                        details.localPosition.dy,
+                        size,
+                      );
+                    }
+                  },
                   child: GameWidget(
                     game: _game,
+                    focusNode: _gameFocusNode,
+                    autofocus: true,
                     loadingBuilder: (context) {
-                      debugPrint(">>> [WorldScreen] GameWidget waiting on game.isLoaded (loadingBuilder showing)...");
+                      _logDebug(">>> [WorldScreen] GameWidget loadingBuilder active... game.isLoaded=${_game.isLoaded}");
                       return Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                          constraints: const BoxConstraints(maxWidth: 440),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.primary, width: 1.5),
+                            color: AppColors.surface.withOpacity(0.96),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.primary, width: 2),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 8)),
+                            ],
                           ),
-                          child: const Row(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
+                              const SizedBox(
+                                width: 36,
+                                height: 36,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
+                                  strokeWidth: 3.0,
                                   color: AppColors.primary,
                                 ),
                               ),
-                              SizedBox(width: 14),
-                              Text(
-                                "Loading Overworld...",
+                              const SizedBox(height: 16),
+                              const Text(
+                                "Loading Overworld Game Engine...",
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
                                 ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Waiting for Flame onLoad()... game.isLoaded = ${_game.isLoaded}",
+                                style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
@@ -327,33 +632,37 @@ class _WorldScreenState extends State<WorldScreen> {
                       );
                     },
                     errorBuilder: (context, error) {
-                      debugPrint(">>> [WorldScreen] GameWidget FATAL ERROR: $error");
+                      _logDebug(">>> [WorldScreen] GameWidget FATAL ERROR: $error");
                       return Center(
                         child: Container(
                           padding: const EdgeInsets.all(24),
                           margin: const EdgeInsets.all(24),
+                          constraints: const BoxConstraints(maxWidth: 500),
                           decoration: BoxDecoration(
-                            color: AppColors.surface,
+                            color: const Color(0xFF1E1010),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.redAccent, width: 2),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black54, blurRadius: 16),
+                            ],
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 44),
                               const SizedBox(height: 12),
                               const Text(
                                 "World Engine Error",
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 17,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Text(
                                 "$error",
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
                                 textAlign: TextAlign.center,
                               ),
                             ],
@@ -382,9 +691,12 @@ class _WorldScreenState extends State<WorldScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Left Side: World & Zone Pill + LiveKit Audio Pill + Explorers Count
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                    Flexible(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                         // World & Zone Pill
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -420,6 +732,33 @@ class _WorldScreenState extends State<WorldScreen> {
                                 Text(
                                   widget.space?.name ?? "Emerald Isle Overworld",
                                   style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                              if (widget.space?.isTemporary == true) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444).withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.timer_outlined, size: 11, color: Color(0xFFEF4444)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "TEMPORARY MAP (GUEST)",
+                                        style: TextStyle(
+                                          color: Color(0xFFEF4444),
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ],
@@ -505,6 +844,8 @@ class _WorldScreenState extends State<WorldScreen> {
                         ),
                       ],
                     ),
+                  ),
+                ),
 
                     // Right Actions
                     Row(
@@ -560,16 +901,81 @@ class _WorldScreenState extends State<WorldScreen> {
                         ),
                         const SizedBox(width: 8),
 
-                        // Discord Chat Toggle Button
+                        // AI Companion Persona Button (Members only)
+                        if (AuthService.currentSession?.isGuest != true &&
+                            (AuthService.currentSession?.hasAiCompanion ?? true)) ...[
+                          ValueListenableBuilder<CompanionModel?>(
+                            valueListenable: CompanionService.currentCompanion,
+                            builder: (context, companion, _) {
+                              return FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7C3AED).withOpacity(0.9),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    side: const BorderSide(color: AppColors.inkBlack, width: 1.5),
+                                  ),
+                                ),
+                                onPressed: _openCompanionModal,
+                                icon: const Text("🤖", style: TextStyle(fontSize: 14)),
+                                label: Text(
+                                  isCompact ? "AI" : (companion?.name ?? "Companion"),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+
+                        // Sound Tripping Jukebox Button
+                        ValueListenableBuilder<bool>(
+                          valueListenable: PlaylistService.isPlaying,
+                          builder: (context, playing, _) {
+                            return IconButton(
+                              tooltip: "Sound Tripping (Jukebox)",
+                              style: IconButton.styleFrom(
+                                backgroundColor: playing
+                                    ? const Color(0xFFF59E0B)
+                                    : AppColors.surface.withOpacity(0.9),
+                              ),
+                              icon: Icon(
+                                Icons.music_note,
+                                color: playing ? AppColors.inkBlack : Colors.white,
+                                size: 20,
+                              ),
+                              onPressed: _showSoundTrippingModal,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Invite Friends & Room Code Button
                         IconButton(
-                          tooltip: _isChatOpen ? "Close Chat" : "Open Discord Chat",
+                          tooltip: "Invite Friends & Share Link",
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.surface.withOpacity(0.9),
+                          ),
+                          icon: const Icon(
+                            Icons.share_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: _showInviteModal,
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Roblox Chat Toggle Button
+                        IconButton(
+                          tooltip: _isChatOpen ? "Close Chat" : "Open Chat",
                           style: IconButton.styleFrom(
                             backgroundColor: _isChatOpen
                                 ? AppColors.primary
                                 : AppColors.surface.withOpacity(0.9),
                           ),
                           icon: Icon(
-                            Icons.forum_outlined,
+                            Icons.chat_bubble_outline,
                             color: _isChatOpen ? AppColors.inkBlack : Colors.white,
                             size: 20,
                           ),
@@ -602,7 +1008,7 @@ class _WorldScreenState extends State<WorldScreen> {
                             backgroundColor: AppColors.surface.withOpacity(0.9),
                           ),
                           icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _handleLeaveWorld,
                         ),
                       ],
                     ),
@@ -784,10 +1190,659 @@ class _WorldScreenState extends State<WorldScreen> {
           if (!_isBuildMode)
             _buildBottomDock(context),
 
-          // 7. Slide-Out Discord-Style Chat Drawer
-          _buildDiscordChatDrawer(context),
+          // 7. Roblox-Style Floating In-Game Messaging Overlay (Top-Left, Non-intrusive)
+          _buildRobloxStyleChat(context),
         ],
       ),
+    ),
+  );
+  }
+
+  void _showInviteModal() {
+    final space = widget.space;
+    final spaceName = space?.name ?? "Verdant Village HQ";
+    final spaceId = space?.id ?? "b6941fa2-8305-4e00-833c-ca3cd5f08c9b";
+    final spaceCode = space?.joinCode ?? space?.slug ?? spaceId;
+    final origin = Uri.base.origin;
+    final inviteUrl = "$origin/?space=$spaceCode";
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 440,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.primary, width: 2.2),
+              boxShadow: const [
+                BoxShadow(color: Colors.black87, blurRadius: 20, offset: Offset(4, 5)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.primary, width: 1.5),
+                          ),
+                          child: const Icon(Icons.share, color: AppColors.primary, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Invite Friends",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              spaceName,
+                              style: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "SHAREABLE INVITE LINK",
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          inviteUrl,
+                          style: const TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.inkBlack,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: inviteUrl));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("🔗 Invite link copied to clipboard!"),
+                              backgroundColor: Color(0xFF10B981),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 14),
+                        label: const Text("Copy Link", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "SPACE ROOM CODE",
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          spaceCode,
+                          style: const TextStyle(
+                            color: Color(0xFFFDE047),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF334155),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: spaceCode));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("📋 Room code copied!"),
+                              backgroundColor: Color(0xFF6366F1),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.content_copy, size: 14),
+                        label: const Text("Copy Code", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Friends can join via the link or enter the code from the Dashboard.",
+                  style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11.5),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSoundTrippingModal() {
+    final space = widget.space;
+    final spaceId = space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
+    final isGuest = AuthService.currentSession?.isGuest == true;
+    final isCreator = !isGuest && (space?.ownerId == null || space?.ownerId == AuthService.currentSession?.id || AuthService.currentSession != null);
+
+    bool isUploading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border(
+                  top: BorderSide(color: Color(0xFFF59E0B), width: 3),
+                  left: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                  right: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                ),
+                boxShadow: [
+                  BoxShadow(color: Colors.black87, blurRadius: 25, offset: Offset(0, -6)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Drag Handle & Header
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                              ),
+                              child: const Text("📻", style: TextStyle(fontSize: 20)),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "SOUND TRIPPING JUKEBOX",
+                                  style: TextStyle(
+                                    color: Color(0xFFF59E0B),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                Text(
+                                  space?.name ?? "Space Audio",
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+
+                  // Player Card (Current Track, Visualizer, Controls, Volume)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5), width: 1.8),
+                      ),
+                      child: Column(
+                        children: [
+                          ValueListenableBuilder<PlaylistTrack?>(
+                            valueListenable: PlaylistService.currentTrack,
+                            builder: (context, track, _) {
+                              return ValueListenableBuilder<bool>(
+                                valueListenable: PlaylistService.isPlaying,
+                                builder: (context, playing, _) {
+                                  return Row(
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: playing ? const Color(0xFFF59E0B) : const Color(0xFF334155),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.white24, width: 1.5),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            playing ? "🎶" : "⏸️",
+                                            style: const TextStyle(fontSize: 22),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              track?.title ?? "No track selected",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              track?.artist ?? "Sound Tripping Ambient Beats",
+                                              style: const TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Controls: Prev, Play/Pause, Next, Loop
+                          ValueListenableBuilder<bool>(
+                            valueListenable: PlaylistService.isPlaying,
+                            builder: (context, playing, _) {
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const IconButton(
+                                    icon: Icon(Icons.skip_previous, color: Colors.white, size: 28),
+                                    onPressed: PlaylistService.previousTrack,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: PlaylistService.togglePlayPause,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF59E0B),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: AppColors.inkBlack, width: 2),
+                                        boxShadow: const [
+                                          BoxShadow(color: Colors.black45, blurRadius: 8, offset: Offset(2, 2)),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        playing ? Icons.pause : Icons.play_arrow,
+                                        color: AppColors.inkBlack,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const IconButton(
+                                    icon: Icon(Icons.skip_next, color: Colors.white, size: 28),
+                                    onPressed: PlaylistService.nextTrack,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: PlaylistService.isLooping,
+                                    builder: (context, looping, _) {
+                                      return IconButton(
+                                        icon: Icon(
+                                          looping ? Icons.repeat : Icons.repeat_one,
+                                          color: looping ? const Color(0xFFF59E0B) : Colors.white38,
+                                          size: 22,
+                                        ),
+                                        tooltip: looping ? "Loop All" : "Single Track",
+                                        onPressed: () {
+                                          PlaylistService.isLooping.value = !PlaylistService.isLooping.value;
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Volume Slider
+                          ValueListenableBuilder<double>(
+                            valueListenable: PlaylistService.volume,
+                            builder: (context, vol, _) {
+                              return Row(
+                                children: [
+                                  Icon(
+                                    vol == 0 ? Icons.volume_off : (vol < 0.5 ? Icons.volume_down : Icons.volume_up),
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        activeTrackColor: const Color(0xFFF59E0B),
+                                        thumbColor: const Color(0xFFF59E0B),
+                                        inactiveTrackColor: Colors.white12,
+                                        trackHeight: 3,
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                      ),
+                                      child: Slider(
+                                        value: vol,
+                                        min: 0.0,
+                                        max: 1.0,
+                                        onChanged: (val) => PlaylistService.volume.value = val,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    "${(vol * 100).toInt()}%",
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Upload MP3 Button for Account Creators
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "SPACE PLAYLIST TRACKS",
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        if (isCreator)
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: AppColors.inkBlack,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: isUploading
+                                ? null
+                                : () async {
+                                    setModalState(() => isUploading = true);
+                                    try {
+                                      final newTrack = await PlaylistService.uploadMp3Track(spaceId);
+                                      if (newTrack != null && mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text("🎵 '${newTrack.title}' added to Sound Tripping!"),
+                                            backgroundColor: const Color(0xFF10B981),
+                                          ),
+                                        );
+                                      }
+                                    } finally {
+                                      if (mounted) setModalState(() => isUploading = false);
+                                    }
+                                  },
+                            icon: isUploading
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.inkBlack),
+                                  )
+                                : const Icon(Icons.upload_file, size: 16),
+                            label: Text(
+                              isUploading ? "Uploading..." : "+ Upload MP3",
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              "Members can upload MP3s",
+                              style: TextStyle(color: Colors.white54, fontSize: 10),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Track list
+                  Expanded(
+                    child: ValueListenableBuilder<List<PlaylistTrack>>(
+                      valueListenable: PlaylistService.playlist,
+                      builder: (context, tracks, _) {
+                        if (tracks.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              "No tracks in playlist yet.",
+                              style: TextStyle(color: Colors.white38),
+                            ),
+                          );
+                        }
+                        return ValueListenableBuilder<PlaylistTrack?>(
+                          valueListenable: PlaylistService.currentTrack,
+                          builder: (context, current, _) {
+                            return ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              itemCount: tracks.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final track = tracks[index];
+                                final isSel = current?.id == track.id;
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSel ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSel ? const Color(0xFFF59E0B) : Colors.white12,
+                                      width: isSel ? 1.8 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isSel && PlaylistService.isPlaying.value
+                                              ? Icons.pause_circle_filled
+                                              : Icons.play_circle_fill,
+                                          color: isSel ? const Color(0xFFF59E0B) : Colors.white70,
+                                          size: 26,
+                                        ),
+                                        onPressed: () {
+                                          if (isSel) {
+                                            PlaylistService.togglePlayPause();
+                                          } else {
+                                            PlaylistService.playTrack(track);
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              track.title,
+                                              style: TextStyle(
+                                                color: isSel ? const Color(0xFFFDE047) : Colors.white,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 13,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              "${track.artist} • ${track.isDefaultPreset ? 'Ambient Preset' : 'MP3 Upload'}",
+                                              style: TextStyle(
+                                                color: isSel ? Colors.white70 : const Color(0xFF94A3B8),
+                                                fontSize: 11,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (!track.isDefaultPreset && isCreator)
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                                          tooltip: "Remove Track",
+                                          onPressed: () async {
+                                            await PlaylistService.deleteTrack(track);
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text("Removed '${track.title}'"),
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1008,12 +2063,26 @@ class _WorldScreenState extends State<WorldScreen> {
                 Container(width: 1.5, height: 28, color: Colors.white24),
                 const SizedBox(width: 12),
 
-                // Discord Chat Drawer Toggle
+                // AI Companion Persona Button (Members only)
+                if (AuthService.currentSession?.isGuest != true &&
+                    (AuthService.currentSession?.hasAiCompanion ?? true)) ...[
+                  _DockIconButton(
+                    tooltip: "AI Companion Persona",
+                    icon: Icons.smart_toy_outlined,
+                    isActive: false,
+                    activeColor: const Color(0xFFC084FC),
+                    inactiveColor: Colors.white70,
+                    onPressed: _openCompanionModal,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+
+                // Roblox Chat Toggle
                 _DockIconButton(
-                  tooltip: _isChatOpen ? "Close Discord Chat" : "Open Discord Chat",
-                  icon: Icons.forum_outlined,
+                  tooltip: _isChatOpen ? "Close Chat" : "Open Chat",
+                  icon: Icons.chat_bubble_outline,
                   isActive: _isChatOpen,
-                  activeColor: AppColors.accent,
+                  activeColor: AppColors.primary,
                   inactiveColor: Colors.white70,
                   onPressed: () {
                     setState(() => _isChatOpen = !_isChatOpen);
@@ -1028,246 +2097,200 @@ class _WorldScreenState extends State<WorldScreen> {
     );
   }
 
-  Widget _buildDiscordChatDrawer(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final drawerWidth = width < 500 ? width * 0.92 : 380.0;
+  Widget _buildRobloxStyleChat(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final chatWidth = screenWidth < 420 ? screenWidth - 32 : 360.0;
+    final topPadding = MediaQuery.of(context).padding.top + 58;
 
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      top: 0,
-      bottom: 0,
-      right: _isChatOpen ? 0 : -drawerWidth - 40,
-      width: drawerWidth,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: const Border(
-            left: BorderSide(color: AppColors.inkBlack, width: 3),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 24,
-              offset: const Offset(-4, 0),
+    if (!_isChatOpen) {
+      return Positioned(
+        top: topPadding,
+        left: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              setState(() => _isChatOpen = true);
+              if (_activeChannel == 'companion') {
+                _scrollToBottomCompanion(animate: false);
+              } else {
+                _scrollToBottom();
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xCC0F172A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.inkBlack, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black45,
+                    offset: Offset(2, 2),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 16),
+                  const SizedBox(width: 6),
+                  const Text(
+                    "Chat",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _activeChannel == 'companion'
+                          ? "${CompanionService.messages.value.length}"
+                          : "${_messages.length}",
+                      style: const TextStyle(
+                        color: AppColors.inkBlack,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-        child: SafeArea(
+      );
+    }
+
+    return Positioned(
+      top: topPadding,
+      left: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: chatWidth,
+          height: 250,
+          decoration: BoxDecoration(
+            color: const Color(0xDC0F172A),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.inkBlack, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                offset: Offset(3, 3),
+                blurRadius: 0,
+              ),
+            ],
+          ),
           child: Column(
             children: [
-              // Header
+              // Header bar with channel tabs and minimize button
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: const BoxDecoration(
-                  color: AppColors.surfaceLight,
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.inkBlack, width: 2),
+                  color: Color(0xFF1E293B),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                    _buildRobloxChannelPill("general", "All"),
+                    const SizedBox(width: 4),
+                    _buildRobloxChannelPill("campfire", "🔥 Camp"),
+                    if (AuthService.currentSession?.isGuest != true &&
+                        (AuthService.currentSession?.hasAiCompanion ?? true)) ...[
+                      const SizedBox(width: 4),
+                      _buildRobloxChannelPill("companion", "🤖 AI"),
+                    ],
+                    const Spacer(),
+                    InkWell(
+                      onTap: () => setState(() => _isChatOpen = false),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.close, size: 14, color: Colors.white70),
                       ),
-                      child: const Text("💬", style: TextStyle(fontSize: 16)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                "# $_activeChannel",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF22C55E).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  "REALTIME",
-                                  style: TextStyle(
-                                    color: Color(0xFF22C55E),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            widget.space?.name ?? "Emerald Isle Space",
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => setState(() => _isChatOpen = false),
                     ),
                   ],
                 ),
               ),
+              const Divider(height: 1.5, thickness: 1.5, color: AppColors.inkBlack),
 
-              // Channel Switcher Tabs
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                color: AppColors.surface,
-                child: Row(
-                  children: [
-                    _buildChannelTab("general", "General"),
-                    const SizedBox(width: 6),
-                    _buildChannelTab("campfire", "🔥 Campfire"),
-                    const SizedBox(width: 6),
-                    _buildChannelTab("lounge", "Lounge"),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-
-              // Online Presence Explorer Mini-Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                color: AppColors.surfaceLight.withOpacity(0.4),
-                child: ValueListenableBuilder<Map<String, RemotePlayerState>>(
-                  valueListenable: _worldSyncService.remotePlayers,
-                  builder: (context, players, _) {
-                    return Row(
-                      children: [
-                        const Text(
-                          "ONLINE:",
-                          style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                _buildExplorerBadge(widget.displayName, isSelf: true),
-                                ...players.values.map(
-                                  (p) => _buildExplorerBadge(p.displayName, isSelf: false),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              const Divider(color: Colors.white12, height: 1),
-
-              // Message List
+              // Message Body
               Expanded(
-                child: _messages.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text("🏕️", style: TextStyle(fontSize: 32)),
-                            const SizedBox(height: 8),
-                            Text(
-                              "Welcome to #$_activeChannel!",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              "Send a message or speak in the 2D world.",
-                              style: TextStyle(color: Colors.white38, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _chatScrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[index];
-                          final isSelf = msg.senderName == widget.displayName ||
-                              msg.senderId == AuthService.currentSession?.id;
-                          return _buildChatMessageItem(msg, isSelf);
-                        },
-                      ),
+                child: (_activeChannel == 'companion' &&
+                        AuthService.currentSession?.isGuest != true &&
+                        (AuthService.currentSession?.hasAiCompanion ?? true))
+                    ? _buildCompanionChatStream()
+                    : _buildRoomChatStream(),
               ),
 
-              // Chat Input Bar
+              // Input Row
+              const Divider(height: 1.5, thickness: 1.5, color: AppColors.inkBlack),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: const BoxDecoration(
-                  color: AppColors.surfaceLight,
-                  border: Border(
-                    top: BorderSide(color: AppColors.inkBlack, width: 2),
+                  color: Color(0xFF1E293B),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
                   ),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.white12),
                         ),
                         child: TextField(
                           controller: _chatController,
                           onSubmitted: (_) => _sendChatMessage(),
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
                           decoration: InputDecoration(
-                            hintText: "Message #$_activeChannel...",
-                            hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.5),
+                            hintText: _activeChannel == 'companion'
+                                ? "Ask or teach your AI companion..."
+                                : "Type a message... (Enter to send)",
+                            hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
                             border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 7),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.inkBlack, width: 2),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: AppColors.inkBlack,
-                            offset: Offset(2, 2),
-                            blurRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.send, color: AppColors.inkBlack, size: 18),
-                        onPressed: _sendChatMessage,
-                        tooltip: "Send Message",
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: _sendChatMessage,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 32,
+                        width: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.inkBlack, width: 1.5),
+                        ),
+                        child: const Icon(Icons.arrow_upward, size: 16, color: AppColors.inkBlack),
                       ),
                     ),
                   ],
@@ -1280,140 +2303,145 @@ class _WorldScreenState extends State<WorldScreen> {
     );
   }
 
-  Widget _buildChannelTab(String channelId, String label) {
+  Widget _buildRobloxChannelPill(String channelId, String label) {
     final isSelected = _activeChannel == channelId;
     return InkWell(
       onTap: () => _switchChannel(channelId),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.white12,
+            color: isSelected ? AppColors.inkBlack : Colors.white24,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? AppColors.primary : Colors.white60,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? AppColors.inkBlack : Colors.white70,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildExplorerBadge(String name, {required bool isSelf}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: isSelf ? AppColors.primary.withOpacity(0.15) : AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelf ? AppColors.primary : Colors.white12,
+  Widget _buildRoomChatStream() {
+    if (_messages.isEmpty) {
+      return Center(
+        child: Text(
+          "No messages in #$_activeChannel yet.\nSay hello!",
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isSelf ? AppColors.primary : const Color(0xFF38BDF8),
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            isSelf ? "$name (You)" : name,
-            style: TextStyle(
-              color: isSelf ? AppColors.primary : Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChatMessageItem(ChatMessageModel msg, bool isSelf) {
-    final timeStr = "${msg.createdAt.hour.toString().padLeft(2, '0')}:${msg.createdAt.minute.toString().padLeft(2, '0')}";
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isSelf ? AppColors.primary : const Color(0xFF38BDF8),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.inkBlack, width: 1.5),
-            ),
-            child: Center(
-              child: Text(
-                msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: AppColors.inkBlack,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      );
+    }
+    return ListView.builder(
+      controller: _chatScrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      itemCount: _messages.length,
+      itemBuilder: (context, index) {
+        final msg = _messages[index];
+        final isSelf = msg.senderName == widget.displayName ||
+            msg.senderId == AuthService.currentSession?.id;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: RichText(
+            text: TextSpan(
               children: [
-                Row(
-                  children: [
-                    Text(
-                      msg.senderName,
-                      style: TextStyle(
-                        color: isSelf ? AppColors.primary : const Color(0xFF38BDF8),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      timeStr,
-                      style: const TextStyle(color: Colors.white30, fontSize: 10),
-                    ),
-                  ],
+                TextSpan(
+                  text: "${msg.senderName}: ",
+                  style: TextStyle(
+                    color: isSelf ? AppColors.primary : const Color(0xFF38BDF8),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Text(
-                    msg.content,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      height: 1.3,
-                    ),
-                  ),
+                TextSpan(
+                  text: msg.content,
+                  style: const TextStyle(color: Colors.white, fontSize: 11.5),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCompanionChatStream() {
+    return ValueListenableBuilder<List<CompanionMessageModel>>(
+      valueListenable: CompanionService.messages,
+      builder: (context, compMsgs, _) {
+        final isThinking = CompanionService.isThinking.value;
+        if (compMsgs.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("🤖", style: TextStyle(fontSize: 20)),
+                  SizedBox(height: 4),
+                  Text(
+                    "Your AI Companion is ready!",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    "I learn your preferences and habits from scratch.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white54, fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return ListView.builder(
+          controller: _companionChatScrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          itemCount: compMsgs.length + (isThinking ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == compMsgs.length && isThinking) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  "🤖 Companion is thinking...",
+                  style: TextStyle(color: AppColors.accent, fontSize: 11, fontStyle: FontStyle.italic),
+                ),
+              );
+            }
+            final msg = compMsgs[index];
+            final isAi = msg.isAi;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: isAi ? "🤖 ${CompanionService.currentCompanion.value?.name ?? 'Companion'}: " : "You: ",
+                      style: TextStyle(
+                        color: isAi ? const Color(0xFFC084FC) : AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                    TextSpan(
+                      text: msg.content,
+                      style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

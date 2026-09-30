@@ -160,6 +160,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameController = TextEditingController();
   bool _isSignUpModal = false;
   bool _isLoading = false;
+  bool _isEnteringGuest = false;
   String? _errorMessage;
 
   // ── Navigation & Section Scroll Keys ───────────────────────────
@@ -218,20 +219,44 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  void _handleEnterGuest() {
-    AuthService.signInGuest();
+  Future<void> _handleEnterGuest([void Function(void Function())? setModalState]) async {
+    if (_isEnteringGuest) return;
+    void updateState(VoidCallback fn) {
+      if (setModalState != null) {
+        setModalState(fn);
+      }
+      if (mounted) {
+        setState(fn);
+      }
+    }
+
+    updateState(() => _isEnteringGuest = true);
+    try {
+      await AuthService.signInGuest();
+    } finally {
+      updateState(() => _isEnteringGuest = false);
+    }
   }
 
-  Future<void> _handleAccountSubmit() async {
+  Future<void> _handleAccountSubmit([void Function(void Function())? setModalState]) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    void updateState(VoidCallback fn) {
+      if (setModalState != null) {
+        setModalState(fn);
+      }
+      if (mounted) {
+        setState(fn);
+      }
+    }
+
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = "Please enter both email and password.");
+      updateState(() => _errorMessage = "Please enter both email and password.");
       return;
     }
 
-    setState(() {
+    updateState(() {
       _isLoading = true;
       _errorMessage = null;
     });
@@ -257,9 +282,9 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
-      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+      updateState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      updateState(() => _isLoading = false);
     }
   }
 
@@ -365,7 +390,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setDialogState(() {
+                                onTap: _isLoading ? null : () => setDialogState(() {
                                   _isSignUpModal = false;
                                   _errorMessage = null;
                                 }),
@@ -393,7 +418,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setDialogState(() {
+                                onTap: _isLoading ? null : () => setDialogState(() {
                                   _isSignUpModal = true;
                                   _errorMessage = null;
                                 }),
@@ -485,10 +510,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
                       // Submit button
                       NeoButton(
-                        onPressed: _isLoading ? null : () async {
-                          await _handleAccountSubmit();
-                          setDialogState(() {});
-                        },
+                        onPressed: _isLoading ? null : () => _handleAccountSubmit(setDialogState),
+                        isLoading: _isLoading,
+                        loadingText: _isSignUpModal ? "Creating Persona..." : "Signing In...",
+                        loadingColor: isDark
+                            ? AppColors.inkBlack
+                            : (_isSignUpModal ? Colors.white : AppColors.inkBlack),
                         isFullWidth: true,
                         backgroundColor: isDark
                             ? AppColors.neonLime
@@ -496,34 +523,27 @@ class _AuthScreenState extends State<AuthScreen> {
                         textColor: isDark
                             ? AppColors.inkBlack
                             : (_isSignUpModal ? Colors.white : AppColors.inkBlack),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                              )
-                            : Text(
-                                _isSignUpModal ? "Create Persona & Enter" : "Sign In & Enter",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                  color: Colors.black,
-                                ),
-                              ),
+                        text: _isSignUpModal ? "Create Persona & Enter" : "Sign In & Enter",
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
                       const SizedBox(height: 12),
 
                       // Quick guest switch
                       Center(
                         child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _handleEnterGuest();
-                          },
+                          onPressed: (_isLoading || _isEnteringGuest)
+                              ? null
+                              : () async {
+                                  Navigator.pop(ctx);
+                                  await _handleEnterGuest();
+                                },
                           child: Text(
                             "Skip for now & enter as Guest →",
                             style: TextStyle(
-                              color: isDark ? AppColors.darkInkMuted : AppColors.inkMuted,
+                              color: (_isLoading || _isEnteringGuest)
+                                  ? (isDark ? Colors.white38 : AppColors.inkMuted.withOpacity(0.5))
+                                  : (isDark ? AppColors.darkInkMuted : AppColors.inkMuted),
                               fontWeight: FontWeight.w700,
                               fontSize: 12.5,
                             ),
@@ -1201,6 +1221,8 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             NeoButton(
               text: "Enter as Guest",
+              loadingText: "Entering...",
+              isLoading: _isEnteringGuest,
               backgroundColor: isDark ? AppColors.darkPillBg : Colors.white,
               textColor: isDark ? Colors.white : AppColors.inkBlack,
               borderColor: isDark ? Colors.white : AppColors.inkBlack,
@@ -1209,7 +1231,7 @@ class _AuthScreenState extends State<AuthScreen> {
               fontWeight: FontWeight.w800,
               borderRadius: 999,
               shadowOffset: const Offset(3, 3.5),
-              onPressed: _handleEnterGuest,
+              onPressed: _isEnteringGuest ? null : () => _handleEnterGuest(),
             ),
             NeoButton(
               text: "💎 Pricing",
@@ -1650,76 +1672,55 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 26),
 
-        // Plans Layout
+        // Plans Layout (2-Tier Model: Free Guest vs Paid Member + AI Companion)
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 760;
             final cards = [
               _buildPricingTierCard(
-                title: "Starter",
-                badge: "FREE FOREVER",
+                title: "Guest Pass",
+                badge: "FREE TIER",
                 badgeColor: const Color(0xFF10B981),
                 price: "\$0",
-                period: "/ month",
-                description: "Best for hangouts, study rooms & gaming squads.",
+                period: "forever",
+                description: "Join spaces instantly as a guest without an account.",
                 features: const [
-                  "Up to 15 concurrent avatars",
-                  "Unlimited public & private spaces",
-                  "2D Town Square & Campfire maps",
+                  "Join any space instantly as Guest",
+                  "No account registration needed",
+                  "2D Virtual world & river swimming",
                   "Proximity spatial voice audio",
-                  "Retro 8-bit avatars & styles",
-                  "Instant 1-click guest invite links",
+                  "In-world messaging & campfire chat",
+                  "❌ No AI companion persona",
+                  "❌ No persistent account or space saves",
                 ],
-                ctaText: "Start Free Space",
+                ctaText: "Join as Guest",
                 ctaColor: isDark ? AppColors.darkCardInner : Colors.white,
                 ctaTextColor: isDark ? Colors.white : AppColors.inkBlack,
                 isDark: isDark,
                 isPopular: false,
-                onCta: () => _handleOpenSpace(),
+                onCta: () => _handleEnterGuest(),
               ),
               _buildPricingTierCard(
-                title: "Pro Builder",
-                badge: "MOST POPULAR",
+                title: "Member + AI",
+                badge: "PAID TIER • ALL-INCLUSIVE",
                 badgeColor: isDark ? AppColors.neonLime : AppColors.amberButton,
                 price: _isPricingAnnual ? "\$9" : "\$12",
-                period: "/ space / mo",
-                description: "For active communities, creators & remote teams.",
+                period: "/ month",
+                description: "Full persistent account with your personalized AI Companion.",
                 features: const [
-                  "Up to 75 concurrent avatars",
-                  "Everything in Starter",
-                  "Custom map designer & room builder",
-                  "Interactive whiteboards & screen share",
-                  "Custom domain link (teemchat.app/crew)",
-                  "Password protection & room locks",
-                  "High-bitrate low-latency audio",
+                  "Full registered account & profile",
+                  "🤖 Personal AI Companion (learns from scratch)",
+                  "Custom AI Persona, memories & sprite avatar",
+                  "Permanent cloud spaces & world decorator",
+                  "Interactive screen sharing & video calls",
+                  "High-bitrate low-latency spatial voice",
+                  "Custom retro outfits & accessories",
                 ],
-                ctaText: "Choose Pro Plan",
+                ctaText: "Create Account (Free Beta)",
                 ctaColor: isDark ? AppColors.neonLime : AppColors.amberButton,
                 ctaTextColor: AppColors.inkBlack,
                 isDark: isDark,
                 isPopular: true,
-                onCta: () => _showAuthModal(isSignUp: true),
-              ),
-              _buildPricingTierCard(
-                title: "Studio",
-                badge: "ORGANIZATION",
-                badgeColor: const Color(0xFF38BDF8),
-                price: _isPricingAnnual ? "\$29" : "\$39",
-                period: "/ space / mo",
-                description: "For companies, events & large all-hands spaces.",
-                features: const [
-                  "Unlimited concurrent avatars",
-                  "Everything in Pro",
-                  "Custom branded avatars & assets",
-                  "SAML SSO & Google Workspace login",
-                  "Space analytics & admin moderation",
-                  "99.9% uptime SLA & priority support",
-                ],
-                ctaText: "Upgrade to Studio",
-                ctaColor: isDark ? AppColors.darkHeroMagenta : const Color(0xFF38BDF8),
-                ctaTextColor: isDark ? Colors.white : AppColors.inkBlack,
-                isDark: isDark,
-                isPopular: false,
                 onCta: () => _showAuthModal(isSignUp: true),
               ),
             ];
@@ -1730,10 +1731,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: cards[0]),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 16),
                     Expanded(child: cards[1]),
-                    const SizedBox(width: 14),
-                    Expanded(child: cards[2]),
                   ],
                 ),
               );
@@ -1741,10 +1740,8 @@ class _AuthScreenState extends State<AuthScreen> {
               return Column(
                 children: [
                   cards[0],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   cards[1],
-                  const SizedBox(height: 14),
-                  cards[2],
                 ],
               );
             }

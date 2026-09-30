@@ -4,10 +4,12 @@ import 'package:flame/game.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import '../../../core/models/avatar_model.dart';
+import '../../../core/models/companion_model.dart';
 import '../../../core/models/space_model.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/services/space_service.dart';
 import '../../../core/services/world_sync_service.dart';
+import 'components/companion_avatar.dart';
 import 'components/furniture_item.dart';
 import 'components/player_avatar.dart';
 import 'components/remote_player_avatar.dart';
@@ -26,6 +28,10 @@ class WorldGame extends FlameGame
   late final PlayerAvatar player;
   late final WorldMapComponent map;
 
+  CompanionAvatar? companionAvatar;
+  CompanionModel? _pendingCompanion;
+  VoidCallback? _onCompanionTap;
+
   final Set<LogicalKeyboardKey> _pressedKeys = {};
   Vector2 _joystickDirection = Vector2.zero();
   String _currentZone = "Verdant Village";
@@ -35,6 +41,40 @@ class WorldGame extends FlameGame
   FurnitureType? selectedBuildType;
   final List<FurnitureComponent> userPlacedItems = [];
   final Map<String, RemotePlayerAvatar> remoteAvatars = {};
+
+  void setCompanion(CompanionModel? companion, {VoidCallback? onTap}) {
+    _onCompanionTap = onTap;
+    if (companion == null || !companion.isActive) {
+      if (companionAvatar != null) {
+        remove(companionAvatar!);
+        companionAvatar = null;
+      }
+      _pendingCompanion = null;
+      return;
+    }
+
+    _pendingCompanion = companion;
+    if (!isLoaded) return;
+
+    if (companionAvatar != null) {
+      companionAvatar!.updateCompanionData(companion);
+    } else {
+      companionAvatar = CompanionAvatar(
+        player: player,
+        companion: companion,
+        onTap: _onCompanionTap,
+      );
+      add(companionAvatar!);
+    }
+  }
+
+  void clearPressedKeys() {
+    _pressedKeys.clear();
+    _joystickDirection = Vector2.zero();
+    if (isLoaded) {
+      player.updateMovementInput(Vector2.zero());
+    }
+  }
 
   WorldGame({
     required this.displayName,
@@ -152,17 +192,33 @@ class WorldGame extends FlameGame
     }
   }
 
+  int frameCount = 0;
+  int updateCount = 0;
+
+  @override
+  void onMount() {
+    super.onMount();
+    debugPrint(">>> [WorldGame] onMount() called! hasLayout = $hasLayout");
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    debugPrint(">>> [WorldGame] onGameResize() size = $size");
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    debugPrint(">>> [WorldGame] onLoad() started...");
 
     try {
-      debugPrint(">>> [WorldGame] Loading WorldMapComponent...");
+      debugPrint(">>> [WorldGame] Loading WorldMapComponent (size: ${WorldMapComponent.mapWidth}x${WorldMapComponent.mapHeight})...");
       map = WorldMapComponent();
       await add(map);
+      debugPrint(">>> [WorldGame] WorldMapComponent added & loaded.");
 
-      debugPrint(">>> [WorldGame] Spawning PlayerAvatar...");
-      // Initial spawn point in Verdant Village
+      debugPrint(">>> [WorldGame] Spawning PlayerAvatar at (300, 260)...");
       player = PlayerAvatar(
         position: Vector2(300, 260),
         displayName: displayName,
@@ -170,6 +226,7 @@ class WorldGame extends FlameGame
         config: avatarConfig,
       );
       await add(player);
+      debugPrint(">>> [WorldGame] PlayerAvatar added & loaded.");
 
       camera.worldBounds = const Rect.fromLTWH(
         0,
@@ -179,7 +236,7 @@ class WorldGame extends FlameGame
       );
       camera.followComponent(player);
       camera.zoom = 1.25;
-      debugPrint(">>> [WorldGame] PlayerAvatar spawned and camera attached.");
+      debugPrint(">>> [WorldGame] Camera attached. Position=${camera.position}, Zoom=${camera.zoom}");
 
       // Connect to real-time sync service listener
       syncService?.remotePlayers.addListener(_onRemotePlayersChanged);
@@ -190,11 +247,27 @@ class WorldGame extends FlameGame
           debugPrint("Could not fetch cloud objects: $e");
         });
       }
-      debugPrint(">>> [WorldGame] onLoad completed successfully!");
+
+      // Attach pending AI companion if configured
+      if (_pendingCompanion != null) {
+        setCompanion(_pendingCompanion, onTap: _onCompanionTap);
+      }
+
+      debugPrint(">>> [WorldGame] onLoad completed successfully! isLoaded=$isLoaded");
     } catch (e, st) {
-      debugPrint("WorldGame onLoad error: $e\n$st");
+      debugPrint(">>> [WorldGame] FATAL onLoad error: $e\n$st");
       rethrow;
     }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    frameCount++;
+    if (frameCount <= 5 || frameCount % 180 == 0) {
+      final cSize = hasLayout ? canvasSize : Vector2.zero();
+      debugPrint(">>> [WorldGame] render() frame #$frameCount | canvasSize: $cSize | camera.pos: ${camera.position} | player: ${player.position}");
+    }
+    super.render(canvas);
   }
 
   void _onRemotePlayersChanged() {
@@ -247,22 +320,40 @@ class WorldGame extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
+    updateCount++;
+    if (updateCount <= 5 || updateCount % 180 == 0) {
+      debugPrint(">>> [WorldGame] update() tick #$updateCount | dt: ${dt.toStringAsFixed(3)} | player: ${player.position}");
+    }
+
+    // Update swimming status based on world tile under player feet
+    final inWater = WorldMapComponent.isPositionInWater(player.position);
+    if (player.isSwimming != inWater) {
+      player.isSwimming = inWater;
+    }
 
     // Broadcast local player movement to other players in the space
-    syncService?.broadcastMovement(
-      x: player.position.x,
-      y: player.position.y,
-      direction: player.facing.name,
-      isMoving: player.isMoving,
-    );
+    try {
+      syncService?.broadcastMovement(
+        x: player.position.x,
+        y: player.position.y,
+        direction: player.facing.name,
+        isMoving: player.isMoving,
+      );
+    } catch (e) {
+      debugPrint(">>> [WorldGame] broadcastMovement error: $e");
+    }
 
     // Calculate proximity audio distances to all remote players for LiveKit spatial audio
-    if (liveKitService != null && remoteAvatars.isNotEmpty) {
-      final Map<String, double> distances = {};
-      for (final entry in remoteAvatars.entries) {
-        distances[entry.key] = player.position.distanceTo(entry.value.position);
+    try {
+      if (liveKitService != null && remoteAvatars.isNotEmpty) {
+        final Map<String, double> distances = {};
+        for (final entry in remoteAvatars.entries) {
+          distances[entry.key] = player.position.distanceTo(entry.value.position);
+        }
+        liveKitService!.updateProximityAudio(distances);
       }
-      liveKitService!.updateProximityAudio(distances);
+    } catch (e) {
+      debugPrint(">>> [WorldGame] updateProximityAudio error: $e");
     }
 
     // Track active zone and notify HUD

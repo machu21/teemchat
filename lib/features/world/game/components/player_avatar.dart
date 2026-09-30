@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
   final AvatarConfig config;
 
   final double moveSpeed = 180.0;
+  bool isSwimming = false;
+  double get effectiveSpeed => isSwimming ? 100.0 : moveSpeed;
   Vector2 velocity = Vector2.zero();
 
   FacingDirection facing = FacingDirection.down;
@@ -53,7 +56,7 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
 
   void updateMovementInput(Vector2 direction) {
     if (direction.length > 0.05) {
-      velocity = direction.normalized() * moveSpeed;
+      velocity = direction.normalized() * effectiveSpeed;
       isMoving = true;
       if (direction.y.abs() > direction.x.abs()) {
         facing = direction.y > 0 ? FacingDirection.down : FacingDirection.up;
@@ -70,10 +73,11 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
   void update(double dt) {
     super.update(dt);
     if (isMoving) {
-      _animationTime += dt * 6.5;
+      velocity = velocity.normalized() * effectiveSpeed;
+      _animationTime += dt * (isSwimming ? 4.5 : 6.5);
       position += velocity * dt;
     } else {
-      _animationTime = 0.0;
+      _animationTime += dt * (isSwimming ? 2.0 : 0.0);
     }
 
     if (speechBubble != null &&
@@ -132,8 +136,20 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
     ..filterQuality = FilterQuality.none;
 
   @override
+  void onMount() {
+    super.onMount();
+    debugPrint(">>> [PlayerAvatar] onMount() called! position=$position, size=$size, displayName=$displayName");
+  }
+
+  static int _avatarRenderCount = 0;
+
+  @override
   void render(Canvas canvas) {
     super.render(canvas);
+    _avatarRenderCount++;
+    if (_avatarRenderCount <= 5 || _avatarRenderCount % 180 == 0) {
+      debugPrint(">>> [PlayerAvatar] render() frame #$_avatarRenderCount | position=$position | facing=$facing | isMoving=$isMoving");
+    }
 
     // Walk frame: 0 = stand, 1 = step-left, 2 = stand, 3 = step-right
     final int frame = isMoving ? (((_animationTime).floor()) % 4) : 0;
@@ -179,9 +195,38 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
     const shoeDk = Color(0xFF0891B2);
     const white = Color(0xFFFFFFFF);
 
-    // ── Drop Shadow ──────────────────────────────────────────────
-    _spritePaint.color = const Color(0x40000000);
-    canvas.drawRect(const Rect.fromLTWH(ox + 4.0, oy + 42.0, 24.0, 3.5), _spritePaint);
+    // ── Drop Shadow or Swimming Ripple ───────────────────────────
+    if (isSwimming) {
+      final ripplePulse = math.sin(_animationTime * 2.8) * 2.5;
+      final ripplePaint = Paint()
+        ..color = const Color(0xAA38BDF8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: const Offset(ox + 16, oy + 32),
+          width: 34 + ripplePulse,
+          height: 16 + ripplePulse * 0.4,
+        ),
+        ripplePaint,
+      );
+
+      final foamPaint = Paint()
+        ..color = Colors.white.withOpacity(0.75)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: const Offset(ox + 16, oy + 32),
+          width: 22 + ripplePulse * 0.5,
+          height: 9 + ripplePulse * 0.25,
+        ),
+        foamPaint,
+      );
+    } else {
+      _spritePaint.color = const Color(0x40000000);
+      canvas.drawRect(const Rect.fromLTWH(ox + 4.0, oy + 42.0, 24.0, 3.5), _spritePaint);
+    }
 
     // ── Render Direction ─────────────────────────────────────────
     switch (facing) {
@@ -350,25 +395,37 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
     p(3, 14, outline); p(12, 14, outline);
     p(3, 15, outline); p(12, 15, outline);
 
-    // ── LEGS & SNEAKERS (Walk Cycle) ─────────────────────────────
-    if (frame == 0 || frame == 2) {
-      // Standing
-      span(16, 4, 6, pants); span(16, 9, 11, pants);
-      span(17, 4, 6, shoe);  span(17, 9, 11, shoe);
-      span(18, 4, 6, shoeDk); span(18, 9, 11, shoeDk);
-      span(19, 3, 6, outline); span(19, 9, 12, outline);
-    } else if (frame == 1) {
-      // Left leg forward / step
-      span(16, 3, 5, pants); span(16, 9, 11, pants);
-      span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
-      span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
-      span(19, 2, 5, outline); span(19, 10, 13, outline);
+    // ── LEGS & SNEAKERS (Walk Cycle or Swimming) ─────────────────
+    if (isSwimming) {
+      const waterTop = Color(0xFF67E8F9);
+      const waterMid = Color(0xFF0284C7);
+      final splash = (frame % 2 == 0) ? 0 : 1;
+      span(15, 2, 13, waterTop);
+      span(16, 1, 14, waterMid);
+      p(1 - splash, 15, white);
+      p(14 + splash, 15, white);
+      p(3, 16, white);
+      p(12, 16, white);
     } else {
-      // Right leg forward / step
-      span(16, 4, 6, pants); span(16, 10, 12, pants);
-      span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
-      span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
-      span(19, 2, 5, outline); span(19, 10, 13, outline);
+      if (frame == 0 || frame == 2) {
+        // Standing
+        span(16, 4, 6, pants); span(16, 9, 11, pants);
+        span(17, 4, 6, shoe);  span(17, 9, 11, shoe);
+        span(18, 4, 6, shoeDk); span(18, 9, 11, shoeDk);
+        span(19, 3, 6, outline); span(19, 9, 12, outline);
+      } else if (frame == 1) {
+        // Left leg forward / step
+        span(16, 3, 5, pants); span(16, 9, 11, pants);
+        span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
+        span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
+        span(19, 2, 5, outline); span(19, 10, 13, outline);
+      } else {
+        // Right leg forward / step
+        span(16, 4, 6, pants); span(16, 10, 12, pants);
+        span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
+        span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
+        span(19, 2, 5, outline); span(19, 10, 13, outline);
+      }
     }
 
     // ── ACCESSORIES (Front) ──────────────────────────────────────
@@ -455,22 +512,34 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
     p(7, 13, pantsDk); p(8, 13, pantsDk);
     p(7, 14, pantsDk); p(8, 14, pantsDk);
 
-    // Legs
-    if (frame == 0 || frame == 2) {
-      span(16, 4, 6, pants); span(16, 9, 11, pants);
-      span(17, 4, 6, shoe);  span(17, 9, 11, shoe);
-      span(18, 4, 6, shoeDk); span(18, 9, 11, shoeDk);
-      span(19, 3, 6, outline); span(19, 9, 12, outline);
-    } else if (frame == 1) {
-      span(16, 3, 5, pants); span(16, 9, 11, pants);
-      span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
-      span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
-      span(19, 2, 5, outline); span(19, 10, 13, outline);
+    // Legs (or Swimming)
+    if (isSwimming) {
+      const waterTop = Color(0xFF67E8F9);
+      const waterMid = Color(0xFF0284C7);
+      final splash = (frame % 2 == 0) ? 0 : 1;
+      span(15, 2, 13, waterTop);
+      span(16, 1, 14, waterMid);
+      p(1 - splash, 15, white);
+      p(14 + splash, 15, white);
+      p(4, 16, white);
+      p(11, 16, white);
     } else {
-      span(16, 4, 6, pants); span(16, 10, 12, pants);
-      span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
-      span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
-      span(19, 2, 5, outline); span(19, 10, 13, outline);
+      if (frame == 0 || frame == 2) {
+        span(16, 4, 6, pants); span(16, 9, 11, pants);
+        span(17, 4, 6, shoe);  span(17, 9, 11, shoe);
+        span(18, 4, 6, shoeDk); span(18, 9, 11, shoeDk);
+        span(19, 3, 6, outline); span(19, 9, 12, outline);
+      } else if (frame == 1) {
+        span(16, 3, 5, pants); span(16, 9, 11, pants);
+        span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
+        span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
+        span(19, 2, 5, outline); span(19, 10, 13, outline);
+      } else {
+        span(16, 4, 6, pants); span(16, 10, 12, pants);
+        span(17, 3, 5, shoe);  span(17, 10, 12, shoe);
+        span(18, 3, 5, shoeDk); span(18, 10, 12, shoeDk);
+        span(19, 2, 5, outline); span(19, 10, 13, outline);
+      }
     }
   }
 
@@ -565,24 +634,36 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
     sspan(14, 4, 10, pants);
     sspan(15, 4, 9, pants);
 
-    // Step cycle in side profile
-    if (frame == 0 || frame == 2) {
-      sspan(16, 5, 8, pants);
-      sspan(17, 5, 8, shoe);
-      sspan(18, 5, 9, shoeDk);
-      sspan(19, 4, 9, outline);
-    } else if (frame == 1) {
-      // Forward stride
-      sspan(16, 7, 10, pants);
-      sspan(17, 8, 11, shoe);
-      sspan(18, 8, 12, shoeDk);
-      sspan(19, 7, 12, outline);
+    // Step cycle in side profile (or Swimming)
+    if (isSwimming) {
+      const waterTop = Color(0xFF67E8F9);
+      const waterMid = Color(0xFF0284C7);
+      final splash = (frame % 2 == 0) ? 0 : 1;
+      sspan(15, 2, 12, waterTop);
+      sspan(16, 1, 13, waterMid);
+      sp(1 - splash, 15, white);
+      sp(13 + splash, 15, white);
+      sp(5, 16, white);
+      sp(9, 16, white);
     } else {
-      // Back stride
-      sspan(16, 3, 6, pants);
-      sspan(17, 2, 6, shoe);
-      sspan(18, 2, 6, shoeDk);
-      sspan(19, 1, 6, outline);
+      if (frame == 0 || frame == 2) {
+        sspan(16, 5, 8, pants);
+        sspan(17, 5, 8, shoe);
+        sspan(18, 5, 9, shoeDk);
+        sspan(19, 4, 9, outline);
+      } else if (frame == 1) {
+        // Forward stride
+        sspan(16, 7, 10, pants);
+        sspan(17, 8, 11, shoe);
+        sspan(18, 8, 12, shoeDk);
+        sspan(19, 7, 12, outline);
+      } else {
+        // Back stride
+        sspan(16, 3, 6, pants);
+        sspan(17, 2, 6, shoe);
+        sspan(18, 2, 6, shoeDk);
+        sspan(19, 1, 6, outline);
+      }
     }
   }
 

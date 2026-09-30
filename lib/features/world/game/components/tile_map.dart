@@ -43,12 +43,24 @@ class WorldMapComponent extends PositionComponent {
   }
 
   @override
+  void onMount() {
+    super.onMount();
+    debugPrint(">>> [WorldMapComponent] onMount() called! position=$position, size=$size, children=${children.length}");
+  }
+
+  @override
   Future<void> onLoad() async {
+    debugPrint(">>> [WorldMapComponent] onLoad() starting...");
     await super.onLoad();
-    _addBoundaryWalls();
-    _addBuildingHitboxes();
-    _addWaterBarriers();
-    _addWorldProps();
+    try {
+      _addBoundaryWalls();
+      _addBuildingHitboxes();
+      _addWaterBarriers();
+      _addWorldProps();
+      debugPrint(">>> [WorldMapComponent] onLoad() completed successfully! ${children.length} sub-components added.");
+    } catch (e, st) {
+      debugPrint(">>> [WorldMapComponent] onLoad error: $e\n$st");
+    }
   }
 
   void _addBoundaryWalls() {
@@ -64,8 +76,31 @@ class WorldMapComponent extends PositionComponent {
   }
 
   void _addWaterBarriers() {
-    add(ObstacleWall(position: Vector2(G*85, G*2), size: Vector2(G*2, mapHeight), isVisible: false));
-    add(ObstacleWall(position: Vector2(G*46, G*26), size: Vector2(G*4, mapHeight - G*26), isVisible: false));
+    // Water areas (river and ocean) now support smooth swimming instead of hard wall collision!
+    // The outer boundary walls prevent leaving the map, while bridge and river crossing are seamless.
+  }
+
+  /// Checks if a world position is inside swimmable water (and not on a bridge or pier)
+  static bool isPositionInWater(Vector2 pos) {
+    // Bridge deck (wooden planks):
+    final bool isOnBridge = pos.x >= 710 && pos.x <= 826 && pos.y >= 660 && pos.y <= 745;
+    if (isOnBridge) return false;
+
+    // Wooden Pier in Crystal Bay:
+    final bool isOnPier = pos.x >= 1290 && pos.x <= 1590 && pos.y >= 458 && pos.y <= 534;
+    if (isOnPier) return false;
+
+    // River stream:
+    if (pos.x >= 730 && pos.x <= 806 && pos.y >= 414 && pos.y <= mapHeight) {
+      return true;
+    }
+
+    // Crystal Bay ocean / surf:
+    if (pos.x >= 1392 && pos.x <= mapWidth - wallThick) {
+      return true;
+    }
+
+    return false;
   }
 
   void _addWorldProps() {
@@ -130,8 +165,14 @@ class WorldMapComponent extends PositionComponent {
   // ----------------------------------------------------------------
   // RENDER: Direct 60fps native GPU speed — ultra-lightweight draw calls
   // ----------------------------------------------------------------
+  static int _mapRenderCount = 0;
+
   @override
   void render(Canvas canvas) {
+    _mapRenderCount++;
+    if (_mapRenderCount <= 5 || _mapRenderCount % 180 == 0) {
+      debugPrint(">>> [WorldMapComponent] render() frame #$_mapRenderCount | size=$size | pos=$position");
+    }
     try {
       canvas.save();
       canvas.scale(2.0, 2.0);
@@ -148,7 +189,7 @@ class WorldMapComponent extends PositionComponent {
       _drawLabels(canvas);
       canvas.restore();
     } catch (e, st) {
-      debugPrint("WorldMapComponent render error: $e\n$st");
+      debugPrint(">>> [WorldMapComponent] render error: $e\n$st");
     }
   }
 

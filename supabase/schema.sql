@@ -121,6 +121,12 @@ drop policy if exists "Space owners can update their spaces" on public.spaces;
 create policy "Space owners can update their spaces" on public.spaces
   for update using (auth.uid() = owner_id);
 
+drop policy if exists "Space owners can delete their spaces" on public.spaces;
+create policy "Space owners can delete their spaces" on public.spaces
+  for delete using (auth.uid() = owner_id);
+
+alter table public.spaces add column if not exists map_theme text not null default 'village';
+
 -- ==========================================================
 -- 4. SPACE MEMBERS & ROLES
 -- ==========================================================
@@ -493,3 +499,231 @@ values (
   'public'
 )
 on conflict (slug) do nothing;
+
+-- ==========================================================
+-- 13. AI COMPANIONS & USER TIERS (Learned Knowledge & Personality)
+-- ==========================================================
+alter table public.profiles add column if not exists tier text not null default 'paid';
+alter table public.profiles add column if not exists is_paid boolean not null default true;
+alter table public.profiles add column if not exists has_ai_companion boolean not null default true;
+
+create table if not exists public.ai_companions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade unique not null,
+  name text not null default 'Pixel Companion',
+  persona text not null default 'A friendly, insightful AI companion who travels the virtual world with you and learns your style.',
+  companion_type text not null default 'robot', -- 'robot', 'cyber_cat', 'retro_dog', 'mystic_wisp'
+  avatar_style text not null default 'bot_blue',
+  learned_context jsonb not null default '{"interests": [], "personality_traits": [], "memories": []}'::jsonb,
+  is_active boolean not null default true,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter table public.ai_companions enable row level security;
+
+drop policy if exists "Users can view their own companion" on public.ai_companions;
+create policy "Users can view their own companion" on public.ai_companions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own companion" on public.ai_companions;
+create policy "Users can insert their own companion" on public.ai_companions
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own companion" on public.ai_companions;
+create policy "Users can update their own companion" on public.ai_companions
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own companion" on public.ai_companions;
+create policy "Users can delete their own companion" on public.ai_companions
+  for delete using (auth.uid() = user_id);
+
+create table if not exists public.companion_memories (
+  id uuid default gen_random_uuid() primary key,
+  companion_id uuid references public.ai_companions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  memory_key text not null,
+  memory_value text not null,
+  category text not null default 'general',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter table public.companion_memories enable row level security;
+
+drop policy if exists "Users can view their companion memories" on public.companion_memories;
+create policy "Users can view their companion memories" on public.companion_memories
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their companion memories" on public.companion_memories;
+create policy "Users can insert their companion memories" on public.companion_memories
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their companion memories" on public.companion_memories;
+create policy "Users can update their companion memories" on public.companion_memories
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their companion memories" on public.companion_memories;
+create policy "Users can delete their companion memories" on public.companion_memories
+  for delete using (auth.uid() = user_id);
+
+create table if not exists public.companion_messages (
+  id uuid default gen_random_uuid() primary key,
+  companion_id uuid references public.ai_companions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  role text not null check (role in ('user', 'assistant', 'system')),
+  content text not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter table public.companion_messages enable row level security;
+
+drop policy if exists "Users can view their companion chat history" on public.companion_messages;
+create policy "Users can view their companion chat history" on public.companion_messages
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert companion chat history" on public.companion_messages;
+create policy "Users can insert companion chat history" on public.companion_messages
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete companion chat history" on public.companion_messages;
+create policy "Users can delete companion chat history" on public.companion_messages
+  for delete using (auth.uid() = user_id);
+
+create index if not exists idx_companion_user on public.ai_companions(user_id);
+create index if not exists idx_companion_memories_user on public.companion_memories(user_id);
+create index if not exists idx_companion_messages_comp on public.companion_messages(companion_id, created_at asc);
+
+-- ==========================================================
+-- 14. RAG (RETRIEVAL-AUGMENTED GENERATION) FOR AI COMPANION
+-- ==========================================================
+-- Upgrades companion_memories to use pgvector for semantic
+-- similarity search — the core of the RAG pipeline.
+-- Embeddings are generated by Gemini text-embedding-004 (768-dim).
+-- ==========================================================
+
+-- Enable pgvector extension
+create extension if not exists vector;
+
+-- Add vector embedding column (768-dim for Gemini text-embedding-004)
+alter table public.companion_memories
+  add column if not exists embedding vector(768);
+
+-- Add importance score for weighted retrieval ranking
+alter table public.companion_memories
+  add column if not exists importance_score float not null default 0.5;
+
+-- Add updated_at for staleness tracking
+alter table public.companion_memories
+  add column if not exists updated_at timestamptz default timezone('utc'::text, now()) not null;
+
+-- HNSW index for fast approximate nearest-neighbor cosine search
+-- HNSW preferred over IVFFlat for < 1M rows; no training required
+create index if not exists idx_companion_memories_embedding
+  on public.companion_memories
+  using hnsw (embedding vector_cosine_ops)
+  with (m = 16, ef_construction = 64);
+
+-- Composite index for per-companion ordered lookup
+create index if not exists idx_companion_memories_companion_created
+  on public.companion_memories (companion_id, created_at desc);
+
+-- RPC: Semantic similarity search (primary RAG retrieval path)
+-- Called by Flutter client with query embedding to find relevant memories
+create or replace function public.match_companion_memories(
+  p_companion_id uuid,
+  p_query_embedding vector(768),
+  p_match_count int default 6,
+  p_min_similarity float default 0.65
+)
+returns table (
+  id uuid,
+  memory_key text,
+  memory_value text,
+  category text,
+  importance_score float,
+  similarity float,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    cm.id,
+    cm.memory_key,
+    cm.memory_value,
+    cm.category,
+    cm.importance_score,
+    1 - (cm.embedding <=> p_query_embedding) as similarity,
+    cm.created_at
+  from public.companion_memories cm
+  where
+    cm.companion_id = p_companion_id
+    and cm.embedding is not null
+    and 1 - (cm.embedding <=> p_query_embedding) >= p_min_similarity
+  order by cm.embedding <=> p_query_embedding
+  limit p_match_count;
+$$;
+
+-- RPC: Fallback — fetch most important recent memories (cold start / no embedding)
+create or replace function public.get_recent_companion_memories(
+  p_companion_id uuid,
+  p_limit int default 10
+)
+returns table (
+  id uuid,
+  memory_key text,
+  memory_value text,
+  category text,
+  importance_score float,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    id,
+    memory_key,
+    memory_value,
+    category,
+    importance_score,
+    created_at
+  from public.companion_memories
+  where companion_id = p_companion_id
+  order by importance_score desc, created_at desc
+  limit p_limit;
+$$;
+
+-- ==========================================================
+-- 10. SPACE PLAYLISTS & SOUND TRIPPING TRACKS
+-- ==========================================================
+create table if not exists public.space_playlists (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  created_by uuid references public.profiles(id) on delete set null,
+  title text not null,
+  artist text default 'Custom Upload',
+  audio_url text not null,
+  duration_seconds int default 0,
+  order_index int default 0,
+  is_active boolean default true,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter table public.space_playlists enable row level security;
+
+drop policy if exists "Playlists are viewable by everyone" on public.space_playlists;
+create policy "Playlists are viewable by everyone" on public.space_playlists
+  for select using (true);
+
+drop policy if exists "Authenticated users can insert playlist tracks" on public.space_playlists;
+create policy "Authenticated users can insert playlist tracks" on public.space_playlists
+  for insert with check (auth.uid() is not null);
+
+drop policy if exists "Creators or space owners can delete playlist tracks" on public.space_playlists;
+create policy "Creators or space owners can delete playlist tracks" on public.space_playlists
+  for delete using (auth.uid() = created_by or auth.uid() in (select owner_id from public.spaces where id = space_id));
+

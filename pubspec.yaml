@@ -38,6 +38,7 @@ dependencies:
   livekit_client: ^2.1.0
   dart_jsonwebtoken: ^2.17.0
   crypto: ^3.0.3
+  http: ^1.1.0
 
 dependency_overrides:
   pointycastle: 3.7.4

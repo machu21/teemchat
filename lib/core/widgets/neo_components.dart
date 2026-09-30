@@ -20,6 +20,9 @@ class NeoButton extends StatefulWidget {
   final IconData? icon;
   final double fontSize;
   final FontWeight fontWeight;
+  final bool isLoading;
+  final String? loadingText;
+  final Color? loadingColor;
 
   const NeoButton({
     super.key,
@@ -39,6 +42,9 @@ class NeoButton extends StatefulWidget {
     this.icon,
     this.fontSize = 14.5,
     this.fontWeight = FontWeight.w800,
+    this.isLoading = false,
+    this.loadingText,
+    this.loadingColor,
   });
 
   @override
@@ -51,6 +57,8 @@ class _NeoButtonState extends State<NeoButton> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isInteractive = !widget.isLoading && widget.onPressed != null;
+
     final effectiveShadow = _isPressed
         ? const Offset(0.5, 1.0)
         : (_isHovered
@@ -58,19 +66,32 @@ class _NeoButtonState extends State<NeoButton> {
             : widget.shadowOffset);
 
     final transformOffset = _isPressed ? const Offset(1.5, 1.8) : Offset.zero;
+    final effectiveLoadingColor = widget.loadingColor ?? widget.textColor;
+    final double spinnerSize = math.min(18.0, widget.fontSize + 2.0);
 
-    Widget content = widget.child ??
-        Row(
+    Widget content;
+    if (widget.isLoading) {
+      final spinner = SizedBox(
+        width: spinnerSize,
+        height: spinnerSize,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.2,
+          valueColor: AlwaysStoppedAnimation<Color>(effectiveLoadingColor),
+        ),
+      );
+
+      final label = widget.loadingText ?? widget.text;
+
+      if (label != null && label.isNotEmpty) {
+        content = Row(
           mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (widget.icon != null) ...[
-              Icon(widget.icon, size: 18, color: widget.textColor),
-              const SizedBox(width: 8),
-            ],
+            spinner,
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
-                widget.text ?? '',
+                label,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: TextStyle(
@@ -83,16 +104,57 @@ class _NeoButtonState extends State<NeoButton> {
             ),
           ],
         );
+      } else {
+        content = Center(child: spinner);
+      }
+    } else {
+      content = widget.child ??
+          Row(
+            mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 18, color: widget.textColor),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  widget.text ?? '',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: widget.textColor,
+                    fontWeight: widget.fontWeight,
+                    fontSize: widget.fontSize,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          );
+    }
 
     return MouseRegion(
-      cursor: widget.onPressed != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      cursor: widget.isLoading
+          ? SystemMouseCursors.wait
+          : (isInteractive ? SystemMouseCursors.click : SystemMouseCursors.basic),
+      onEnter: (_) {
+        if (isInteractive) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (isInteractive) setState(() => _isHovered = false);
+      },
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onPressed,
+        onTapDown: (_) {
+          if (isInteractive) setState(() => _isPressed = true);
+        },
+        onTapUp: (_) {
+          if (isInteractive) setState(() => _isPressed = false);
+        },
+        onTapCancel: () {
+          if (isInteractive) setState(() => _isPressed = false);
+        },
+        onTap: isInteractive ? widget.onPressed : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 70),
           transform: Matrix4.translationValues(transformOffset.dx, transformOffset.dy, 0),

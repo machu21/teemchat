@@ -84,12 +84,14 @@ class SpaceModel {
   final String category;
   final String visibility;
   final SpaceTier tier;
+  final String mapTheme;
   final String? joinCode;
   final String? ownerId;
   final int maxCapacity;
   final int memberCount;
   final int paletteIndex;
   final bool isActive;
+  final bool isTemporary;
   final DateTime? createdAt;
 
   const SpaceModel({
@@ -100,12 +102,14 @@ class SpaceModel {
     this.category = 'Gaming',
     this.visibility = 'public',
     this.tier = SpaceTier.free,
+    this.mapTheme = 'village',
     this.joinCode,
     this.ownerId,
     this.maxCapacity = 15,
     this.memberCount = 1,
     this.paletteIndex = 0,
     this.isActive = true,
+    this.isTemporary = false,
     this.createdAt,
   });
 
@@ -123,6 +127,7 @@ class SpaceModel {
       category: 'Gaming',
       visibility: 'public',
       tier: SpaceTier.free,
+      mapTheme: 'village',
       maxCapacity: 15,
       memberCount: 1,
     );
@@ -138,29 +143,34 @@ class SpaceModel {
       category: 'Explore',
       visibility: 'unlisted',
       tier: SpaceTier.free,
+      mapTheme: 'village',
       maxCapacity: 10,
       memberCount: 1,
+      isTemporary: true,
     );
   }
 
   factory SpaceModel.fromJson(Map<String, dynamic> json) {
     final tierStr = (json['tier'] as String?) ?? 'free';
     final tier = SpaceTier.fromString(tierStr);
+    final id = json['id'] as String? ?? '';
 
     return SpaceModel(
-      id: json['id'] as String? ?? '',
+      id: id,
       name: json['name'] as String? ?? 'Unnamed Space',
       slug: json['slug'] as String? ?? 'space',
       description: json['description'] as String?,
       category: json['category'] as String? ?? 'Gaming',
       visibility: json['visibility'] as String? ?? 'public',
       tier: tier,
+      mapTheme: (json['map_theme'] as String?) ?? 'village',
       joinCode: json['join_code'] as String?,
       ownerId: json['owner_id'] as String?,
       maxCapacity: (json['max_capacity'] as num?)?.toInt() ?? tier.defaultCapacity,
       memberCount: (json['member_count'] as num?)?.toInt() ?? 1,
       paletteIndex: (json['palette_index'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] as bool? ?? true,
+      isTemporary: json['is_temporary'] as bool? ?? (id.startsWith('guest-') || id.startsWith('temp-')),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }
@@ -174,12 +184,14 @@ class SpaceModel {
       'category': category,
       'visibility': visibility,
       'tier': tier.id,
+      'map_theme': mapTheme,
       'join_code': joinCode,
       'owner_id': ownerId,
       'max_capacity': maxCapacity,
       'member_count': memberCount,
       'palette_index': paletteIndex,
       'is_active': isActive,
+      'is_temporary': isTemporary,
     };
   }
 
@@ -191,12 +203,14 @@ class SpaceModel {
     String? category,
     String? visibility,
     SpaceTier? tier,
+    String? mapTheme,
     String? joinCode,
     String? ownerId,
     int? maxCapacity,
     int? memberCount,
     int? paletteIndex,
     bool? isActive,
+    bool? isTemporary,
     DateTime? createdAt,
   }) {
     return SpaceModel(
@@ -207,12 +221,14 @@ class SpaceModel {
       category: category ?? this.category,
       visibility: visibility ?? this.visibility,
       tier: tier ?? this.tier,
+      mapTheme: mapTheme ?? this.mapTheme,
       joinCode: joinCode ?? this.joinCode,
       ownerId: ownerId ?? this.ownerId,
       maxCapacity: maxCapacity ?? this.maxCapacity,
       memberCount: memberCount ?? this.memberCount,
       paletteIndex: paletteIndex ?? this.paletteIndex,
       isActive: isActive ?? this.isActive,
+      isTemporary: isTemporary ?? this.isTemporary,
       createdAt: createdAt ?? this.createdAt,
     );
   }

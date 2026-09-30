@@ -167,15 +167,21 @@ class WorldSyncService {
         },
       );
 
-      _channel!.subscribe();
-
-      // Track our own presence
-      await _channel!.track({
-        'user_id': currentUserId,
-        'display_name': displayName,
-        'avatar_config': avatarConfig.toJson(),
-        'x': initialX,
-        'y': initialY,
+      _channel!.subscribe((status, [error]) async {
+        if (status == 'SUBSCRIBED') {
+          try {
+            // Track our own presence
+            await _channel!.track({
+              'user_id': currentUserId,
+              'display_name': displayName,
+              'avatar_config': avatarConfig.toJson(),
+              'x': initialX,
+              'y': initialY,
+            });
+          } catch (e) {
+            debugPrint("Error tracking presence: $e");
+          }
+        }
       });
     } catch (e) {
       debugPrint("Error connecting to WorldSyncService: $e");

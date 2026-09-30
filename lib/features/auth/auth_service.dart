@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/avatar_model.dart';
+import '../../core/services/space_service.dart';
 
 class UserSession {
   final String id;
@@ -10,6 +11,9 @@ class UserSession {
   final String status;
   final AvatarConfig avatarConfig;
   final bool isGuest;
+  final String tier; // 'free' or 'paid'
+  final bool isPaid;
+  final bool hasAiCompanion;
 
   UserSession({
     required this.id,
@@ -19,6 +23,9 @@ class UserSession {
     this.status = 'available',
     this.avatarConfig = const AvatarConfig(),
     this.isGuest = false,
+    this.tier = 'paid',
+    this.isPaid = true,
+    this.hasAiCompanion = true,
   });
 
   UserSession copyWith({
@@ -26,6 +33,9 @@ class UserSession {
     String? username,
     String? status,
     AvatarConfig? avatarConfig,
+    String? tier,
+    bool? isPaid,
+    bool? hasAiCompanion,
   }) {
     return UserSession(
       id: id,
@@ -35,6 +45,9 @@ class UserSession {
       status: status ?? this.status,
       avatarConfig: avatarConfig ?? this.avatarConfig,
       isGuest: isGuest,
+      tier: tier ?? this.tier,
+      isPaid: isPaid ?? this.isPaid,
+      hasAiCompanion: hasAiCompanion ?? this.hasAiCompanion,
     );
   }
 }
@@ -45,6 +58,7 @@ class AuthService {
 
   static final ValueNotifier<UserSession?> sessionNotifier = ValueNotifier<UserSession?>(null);
   static UserSession? get currentSession => sessionNotifier.value;
+  static bool get isPaid => currentSession != null && currentSession!.isPaid;
 
   static void initSessionListener() {
     if (!isInitialized || client == null) return;
@@ -61,6 +75,10 @@ class AuthService {
             ? AvatarConfig.fromJson(profile!['avatar_config'])
             : const AvatarConfig();
 
+        final isPaid = profile?['is_paid'] as bool? ?? true;
+        final tier = profile?['tier'] as String? ?? (isPaid ? 'paid' : 'free');
+        final hasAi = profile?['has_ai_companion'] as bool? ?? isPaid;
+
         sessionNotifier.value = UserSession(
           id: session.user.id,
           displayName: displayName,
@@ -69,6 +87,9 @@ class AuthService {
           status: status,
           avatarConfig: avatarConfig,
           isGuest: false,
+          tier: tier,
+          isPaid: isPaid,
+          hasAiCompanion: hasAi,
         );
       } else if (sessionNotifier.value != null && !sessionNotifier.value!.isGuest) {
         sessionNotifier.value = null;
@@ -83,6 +104,9 @@ class AuthService {
         await client!.auth.signOut();
       } catch (_) {}
     }
+
+    // Always clear out any stale guest temporary maps on fresh guest sign-in
+    SpaceService.clearGuestMaps();
 
     final randomId = (DateTime.now().millisecondsSinceEpoch % 9000) + 1000;
     final guestName = (name != null && name.trim().isNotEmpty && name != 'The Crew HQ')
@@ -108,6 +132,9 @@ class AuthService {
       status: 'available',
       avatarConfig: AvatarConfig(shirtColor: color),
       isGuest: true,
+      tier: 'free',
+      isPaid: false,
+      hasAiCompanion: false,
     );
   }
 
@@ -137,6 +164,9 @@ class AuthService {
           'username': username,
           'display_name': displayName,
           'status': 'available',
+          'tier': 'paid',
+          'is_paid': true,
+          'has_ai_companion': true,
           'avatar_config': const AvatarConfig().toJson(),
         });
       } catch (_) {
@@ -151,6 +181,9 @@ class AuthService {
         status: 'available',
         avatarConfig: const AvatarConfig(),
         isGuest: false,
+        tier: 'paid',
+        isPaid: true,
+        hasAiCompanion: true,
       );
     }
   }
@@ -177,6 +210,9 @@ class AuthService {
       final avatarConfig = profile?['avatar_config'] != null
           ? AvatarConfig.fromJson(profile!['avatar_config'])
           : const AvatarConfig();
+      final isPaid = profile?['is_paid'] as bool? ?? true;
+      final tier = profile?['tier'] as String? ?? (isPaid ? 'paid' : 'free');
+      final hasAi = profile?['has_ai_companion'] as bool? ?? isPaid;
 
       sessionNotifier.value = UserSession(
         id: res.user!.id,
@@ -186,6 +222,9 @@ class AuthService {
         status: status,
         avatarConfig: avatarConfig,
         isGuest: false,
+        tier: tier,
+        isPaid: isPaid,
+        hasAiCompanion: hasAi,
       );
     }
   }
@@ -220,12 +259,39 @@ class AuthService {
   }
 
   static Future<void> signOut() async {
+    // Clear out any temporary maps for guest users upon quitting
+    SpaceService.clearGuestMaps();
+
     if (isInitialized && client != null) {
       try {
         await client!.auth.signOut();
       } catch (_) {}
     }
     sessionNotifier.value = null;
+  }
+
+  /// Upgrades a free registered user to paid tier (unlocking multiple spaces and AI companion)
+  static Future<void> upgradeToPaid() async {
+    final current = sessionNotifier.value;
+    if (current == null) return;
+    sessionNotifier.value = current.copyWith(
+      tier: 'paid',
+      isPaid: true,
+      hasAiCompanion: true,
+    );
+    if (!current.isGuest && isInitialized && client != null) {
+      try {
+        await client!.from('profiles').upsert({
+          'id': current.id,
+          'tier': 'paid',
+          'is_paid': true,
+          'has_ai_companion': true,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint("Error upgrading profile to paid in Supabase: $e");
+      }
+    }
   }
 
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
