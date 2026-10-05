@@ -26,6 +26,51 @@ class CompanionService {
   static final ValueNotifier<bool> isThinking = ValueNotifier<bool>(false);
 
   // ──────────────────────────────────────────────
+  // DAILY QUOTA LIMITS (50 messages / day)
+  // ──────────────────────────────────────────────
+  static const int defaultDailyLimit = 50;
+
+  /// Remaining messages for current UTC day
+  static final ValueNotifier<int> remainingDailyMessages =
+      ValueNotifier<int>(defaultDailyLimit);
+
+  /// Maximum daily messages allowed
+  static final ValueNotifier<int> maxDailyMessages =
+      ValueNotifier<int>(defaultDailyLimit);
+
+  /// When the daily quota resets (midnight UTC)
+  static final ValueNotifier<DateTime?> quotaResetsAt =
+      ValueNotifier<DateTime?>(null);
+
+  /// Refreshes the daily usage status from Supabase RPC
+  static Future<void> refreshUsageStatus() async {
+    final client = AuthService.client;
+    final isGuest = AuthService.currentSession?.isGuest == true;
+    if (client == null || isGuest) return;
+
+    try {
+      final res = await client.rpc(
+        'get_ai_usage_status',
+        params: {'p_daily_limit': defaultDailyLimit},
+      );
+
+      if (res != null && res is Map<String, dynamic>) {
+        final remaining = res['remaining'] as int? ?? defaultDailyLimit;
+        final limit = res['daily_limit'] as int? ?? defaultDailyLimit;
+        final resetsAtStr = res['resets_at'] as String?;
+
+        remainingDailyMessages.value = remaining;
+        maxDailyMessages.value = limit;
+        if (resetsAtStr != null) {
+          quotaResetsAt.value = DateTime.tryParse(resetsAtStr)?.toLocal();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing AI usage status: $e');
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // COMPANION INITIALIZATION
   // ──────────────────────────────────────────────
 
@@ -59,6 +104,7 @@ class CompanionService {
         currentCompanion.value = comp;
         await _loadRecentMemories(comp.id, userId);
         await _loadMessages(comp.id, userId);
+        await refreshUsageStatus();
         return comp;
       } else {
         // Create new companion row WITHOUT specifying 'id' so Postgres generates a real UUID
@@ -79,6 +125,7 @@ class CompanionService {
 
         final comp = CompanionModel.fromJson(inserted);
         currentCompanion.value = comp;
+        await refreshUsageStatus();
         return comp;
       }
     } catch (e) {
@@ -230,6 +277,53 @@ class CompanionService {
     isThinking.value = true;
 
     try {
+      // Quota Enforcement: Check and increment usage atomically on Supabase
+      final client = AuthService.client;
+      final isGuest = AuthService.currentSession?.isGuest == true;
+
+      if (client != null && !isGuest) {
+        try {
+          final usageRes = await client.rpc(
+            'check_and_increment_ai_usage',
+            params: {'p_daily_limit': defaultDailyLimit},
+          );
+
+          if (usageRes != null && usageRes is Map<String, dynamic>) {
+            final allowed = usageRes['allowed'] as bool? ?? true;
+            final remaining = usageRes['remaining'] as int? ?? 0;
+            final limit = usageRes['daily_limit'] as int? ?? defaultDailyLimit;
+            final resetsAtStr = usageRes['resets_at'] as String?;
+
+            remainingDailyMessages.value = remaining;
+            maxDailyMessages.value = limit;
+            if (resetsAtStr != null) {
+              quotaResetsAt.value = DateTime.tryParse(resetsAtStr)?.toLocal();
+            }
+
+            if (!allowed) {
+              isThinking.value = false;
+              final exhaustedText =
+                  "⚡ I've reached my daily energy limit ($limit/$limit messages). Energy recharges at midnight UTC! Let's chat again tomorrow.";
+
+              final assistantMsg = CompanionMessageModel(
+                id: 'reply-limit-${DateTime.now().millisecondsSinceEpoch}',
+                companionId: companion.id,
+                userId: companion.userId,
+                role: 'assistant',
+                content: exhaustedText,
+                createdAt: DateTime.now(),
+              );
+
+              messages.value = [...messages.value, assistantMsg];
+              _persistMessages([userMsg, assistantMsg]);
+              return exhaustedText;
+            }
+          }
+        } catch (rpcErr) {
+          debugPrint('AI quota check RPC warning: $rpcErr');
+        }
+      }
+
       // RAG Step 2: Retrieve semantically relevant memories
       final ragMemories = await _retrieveRelevantMemories(
         companion.id,

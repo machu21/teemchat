@@ -43,6 +43,23 @@ class ChatMessageModel {
       isDirectMessage: json['conversation_id'] != null,
     );
   }
+
+  factory ChatMessageModel.fromMap(Map<String, dynamic> map, {String fallbackName = 'Explorer'}) {
+    return ChatMessageModel.fromJson(map, fallbackName: fallbackName);
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'room_id': roomId,
+      'space_id': spaceId,
+      'sender_id': senderId,
+      'sender_name': senderName,
+      'content': content,
+      'created_at': createdAt.toIso8601String(),
+      'is_direct': isDirectMessage,
+    };
+  }
 }
 
 class ChatService {
@@ -68,6 +85,11 @@ class ChatService {
     }
   }
 
+  static final Map<String, String> _profileNameCache = {};
+  static final RegExp _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
   static Future<ChatMessageModel?> sendMessage({
     required String roomId,
     required String spaceId,
@@ -87,7 +109,9 @@ class ChatService {
       createdAt: DateTime.now(),
     );
 
-    if (client == null || session == null || session.isGuest) {
+    final isValidUuid = _uuidRegex.hasMatch(spaceId);
+
+    if (client == null || session == null || session.isGuest || !isValidUuid) {
       return fallbackMsg;
     }
 
@@ -124,10 +148,34 @@ class ChatService {
               table: 'messages',
               filter: 'room_id=eq.$roomId',
             ),
-            (payload, [ref]) {
+            (payload, [ref]) async {
               final newRecord = payload['new'] as Map<String, dynamic>?;
               if (newRecord != null) {
-                final message = ChatMessageModel.fromJson(newRecord);
+                final senderId = newRecord['sender_id'] as String?;
+                String senderName = 'Explorer';
+
+                if (senderId != null) {
+                  if (_profileNameCache.containsKey(senderId)) {
+                    senderName = _profileNameCache[senderId]!;
+                  } else {
+                    try {
+                      final profile = await client
+                          .from('profiles')
+                          .select('display_name')
+                          .eq('id', senderId)
+                          .maybeSingle();
+                      if (profile != null && profile['display_name'] != null) {
+                        senderName = profile['display_name'] as String;
+                        _profileNameCache[senderId] = senderName;
+                      }
+                    } catch (_) {}
+                  }
+                }
+
+                final message = ChatMessageModel.fromJson(
+                  newRecord,
+                  fallbackName: senderName,
+                );
                 onMessage(message);
               }
             },
@@ -137,6 +185,19 @@ class ChatService {
     } catch (e) {
       debugPrint("Error subscribing to room messages: $e");
       return null;
+    }
+  }
+
+  static Future<void> unsubscribeRoomMessages(RealtimeChannel? channel) async {
+    if (channel == null) return;
+    try {
+      await channel.unsubscribe();
+      final client = AuthService.client;
+      if (client != null) {
+        client.removeChannel(channel);
+      }
+    } catch (e) {
+      debugPrint(">>> [ChatService] Error cleaning up channel: $e");
     }
   }
 

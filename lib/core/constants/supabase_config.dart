@@ -2,13 +2,13 @@ class SupabaseConfig {
   /// Supabase Project URL (can be overridden at build time via --dart-define=SUPABASE_URL=...)
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://pirpqkbdayorovfzczpq.supabase.co',
+    defaultValue: '',
   );
 
   /// Supabase Publishable / Anon Key (can be overridden via --dart-define=SUPABASE_ANON_KEY=...)
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_KykCg3hBNO0j6o3EuNCyaQ_DowctW6v',
+    defaultValue: '',
   );
 
   /// Check if a valid Supabase project has been configured

@@ -2,7 +2,7 @@ class GeminiConfig {
   /// Gemini API Key from environment or default from .env
   static const String apiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
-    defaultValue: 'AIzaSyDWKQlctTuR0eNbj9if4bnUi3upxJLFn2I',
+    defaultValue: '',
   );
 
   /// Gemini model for companion intelligence

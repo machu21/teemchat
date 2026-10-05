@@ -28,6 +28,8 @@ class UserSession {
     this.hasAiCompanion = true,
   });
 
+  String get userId => id;
+
   UserSession copyWith({
     String? displayName,
     String? username,

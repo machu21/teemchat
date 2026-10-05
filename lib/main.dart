@@ -3,12 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/supabase_config.dart';
+import 'core/services/invite_link_service.dart';
+import 'core/utils/url_strategy/url_strategy.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'features/dashboard/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureUrlStrategy();
+  InviteLinkService.initDeepLink();
 
   if (SupabaseConfig.isConfigured) {
     try {

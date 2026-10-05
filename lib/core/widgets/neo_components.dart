@@ -233,6 +233,66 @@ class NeoCard extends StatelessWidget {
   }
 }
 
+/// Neo-Brutalist Badge with subtle border and bold typography
+class NeoBadge extends StatelessWidget {
+  final String text;
+  final Color backgroundColor;
+  final Color textColor;
+  final Color? borderColor;
+  final double borderWidth;
+  final double borderRadius;
+  final EdgeInsetsGeometry padding;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final Widget? icon;
+
+  const NeoBadge({
+    super.key,
+    required this.text,
+    this.backgroundColor = const Color(0xFFF3F4F6),
+    this.textColor = AppColors.inkBlack,
+    this.borderColor,
+    this.borderWidth = 1.2,
+    this.borderRadius = 8.0,
+    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    this.fontSize = 11.0,
+    this.fontWeight = FontWeight.w700,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: borderColor != null
+            ? Border.all(color: borderColor!, width: borderWidth)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            icon!,
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: fontWeight,
+              color: textColor,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Custom painter for the diagonal striped pattern banner on room cards
 class DiagonalStripesPainter extends CustomPainter {
   final Color baseColor;

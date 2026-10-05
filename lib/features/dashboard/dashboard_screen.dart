@@ -8,6 +8,7 @@ import '../../core/widgets/neo_components.dart';
 import '../../core/widgets/pixel_avatar_widget.dart';
 import '../auth/auth_service.dart';
 import '../world/world_screen.dart';
+import '../../core/services/invite_link_service.dart';
 import '../../main.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -32,26 +33,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  void _checkInviteLink() {
+  void _checkInviteLink() async {
     try {
-      final spaceParam = Uri.base.queryParameters['space'];
+      final spaceParam = InviteLinkService.pendingInviteCode ??
+          InviteLinkService.extractCodeFromUri(Uri.base);
       if (spaceParam != null && spaceParam.isNotEmpty) {
         debugPrint(">>> [DashboardScreen] Deep link invite parameter found: $spaceParam");
-        SpaceService.getSpaceByCodeOrSlug(spaceParam).then((space) {
-          if (space != null && mounted) {
-            final session = AuthService.currentSession;
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => WorldScreen(
-                  displayName: session?.displayName ?? 'Explorer',
-                  status: session?.status ?? 'available',
-                  avatarConfig: session?.avatarConfig ?? const AvatarConfig(),
-                  space: space,
-                ),
+        final space = await SpaceService.getSpaceByCodeOrSlug(spaceParam);
+        InviteLinkService.clearPendingInvite();
+        if (space != null && mounted) {
+          final session = AuthService.currentSession;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => WorldScreen(
+                displayName: session?.displayName ?? 'Explorer',
+                status: session?.status ?? 'available',
+                avatarConfig: session?.avatarConfig ?? const AvatarConfig(),
+                space: space,
               ),
-            );
-          }
-        });
+            ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Space not found for '$spaceParam'. Please check the room code or invite link."),
+              backgroundColor: const Color(0xFFEF4444),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint(">>> [DashboardScreen] Error checking invite link: $e");
@@ -806,13 +816,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             });
 
                             // Extract space query if a URL was pasted
-                            String query = raw;
-                            try {
-                              if (raw.contains('?space=') || raw.contains('&space=')) {
-                                final uri = Uri.parse(raw);
-                                query = uri.queryParameters['space'] ?? raw;
-                              }
-                            } catch (_) {}
+                            final query = InviteLinkService.extractCode(raw) ?? raw;
 
                             try {
                               final space = await SpaceService.getSpaceByCodeOrSlug(query);

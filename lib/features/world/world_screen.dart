@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:math' as math;
 import 'package:flame/components.dart' as flame_comp;
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/models/avatar_model.dart';
 import '../../core/models/space_model.dart';
 import '../../core/services/chat_service.dart';
+import '../../core/services/invite_link_service.dart';
 import '../../core/services/livekit_service.dart';
 import '../../core/services/world_sync_service.dart';
 import '../auth/auth_service.dart';
@@ -91,10 +93,12 @@ class _WorldScreenState extends State<WorldScreen> {
   bool _isPipExpanded = false;
   String _activeChannel = 'general';
   final List<ChatMessageModel> _messages = [];
+  final Map<String, List<ChatMessageModel>> _roomMessagesCache = {};
   final TextEditingController _chatController = TextEditingController();
   final TextEditingController _speechController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
   final ScrollController _companionChatScrollController = ScrollController();
+  final FocusNode _chatFocusNode = FocusNode();
   RealtimeChannel? _chatSubscription;
 
   void _openCompanionModal() {
@@ -201,6 +205,7 @@ class _WorldScreenState extends State<WorldScreen> {
       displayName: widget.displayName,
       avatarConfig: widget.avatarConfig,
     );
+    _worldSyncService.onChatMessage = _handleIncomingChatMessage;
 
     _liveKitService = LiveKitService();
 
@@ -288,27 +293,60 @@ class _WorldScreenState extends State<WorldScreen> {
     }
   }
 
+  void _handleIncomingChatMessage(ChatMessageModel message) {
+    if (!mounted) return;
+    final spaceId = widget.space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
+    final currentRoomId = "$spaceId-$_activeChannel";
+
+    final targetRoom = message.roomId;
+    _roomMessagesCache.putIfAbsent(targetRoom, () => []);
+    if (!_roomMessagesCache[targetRoom]!.any((m) => m.id == message.id)) {
+      _roomMessagesCache[targetRoom]!.add(message);
+    }
+
+    if (message.roomId == currentRoomId) {
+      setState(() {
+        if (!_messages.any((m) => m.id == message.id)) {
+          _messages.add(message);
+        }
+      });
+      _scrollToBottom();
+    }
+  }
+
   Future<void> _initChat() async {
     final spaceId = widget.space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
     final roomId = "$spaceId-$_activeChannel";
-    final msgs = await ChatService.fetchMessages(roomId);
-    if (mounted) {
-      setState(() {
-        _messages.clear();
-        _messages.addAll(msgs);
-      });
-      _scrollToBottom();
+
+    if (_chatSubscription != null) {
+      ChatService.unsubscribeRoomMessages(_chatSubscription);
+      _chatSubscription = null;
+    }
+
+    if (_roomMessagesCache.containsKey(roomId) && _roomMessagesCache[roomId]!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(_roomMessagesCache[roomId]!);
+        });
+        _scrollToBottom();
+      }
+    } else {
+      final msgs = await ChatService.fetchMessages(roomId);
+      if (mounted) {
+        _roomMessagesCache[roomId] = List.from(msgs);
+        setState(() {
+          _messages.clear();
+          _messages.addAll(msgs);
+        });
+        _scrollToBottom();
+      }
     }
 
     _chatSubscription = ChatService.listenToRoomMessages(
       roomId: roomId,
       onMessage: (message) {
-        if (mounted) {
-          setState(() {
-            _messages.add(message);
-          });
-          _scrollToBottom();
-        }
+        _handleIncomingChatMessage(message);
       },
     );
   }
@@ -320,11 +358,23 @@ class _WorldScreenState extends State<WorldScreen> {
       return;
     }
     if (_activeChannel == channelId) return;
-    _chatSubscription?.unsubscribe();
+
+    if (_chatSubscription != null) {
+      ChatService.unsubscribeRoomMessages(_chatSubscription);
+      _chatSubscription = null;
+    }
+
+    final spaceId = widget.space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
+    final newRoomId = "$spaceId-$channelId";
+
     setState(() {
       _activeChannel = channelId;
       _messages.clear();
+      if (_roomMessagesCache.containsKey(newRoomId)) {
+        _messages.addAll(_roomMessagesCache[newRoomId]!);
+      }
     });
+
     if (channelId != 'companion') {
       _initChat();
     } else {
@@ -372,11 +422,6 @@ class _WorldScreenState extends State<WorldScreen> {
     if (text.isEmpty) return;
     _chatController.clear();
 
-    // Automatically release text field focus and restore WASD keyboard movement!
-    FocusScope.of(context).unfocus();
-    _gameFocusNode.requestFocus();
-    _game.clearPressedKeys();
-
     if (_activeChannel == 'companion') {
       if (AuthService.currentSession?.isGuest == true ||
           AuthService.currentSession?.hasAiCompanion == false) {
@@ -403,18 +448,42 @@ class _WorldScreenState extends State<WorldScreen> {
 
     final spaceId = widget.space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
     final roomId = "$spaceId-$_activeChannel";
-    final sent = await ChatService.sendMessage(
+    final session = AuthService.currentSession;
+    final currentUserId = session?.userId ?? session?.id ?? 'user-${DateTime.now().millisecondsSinceEpoch}';
+
+    final localMsg = ChatMessageModel(
+      id: 'msg-${DateTime.now().millisecondsSinceEpoch}-${math.Random().nextInt(9999)}',
       roomId: roomId,
       spaceId: spaceId,
+      senderId: currentUserId,
+      senderName: widget.displayName,
       content: text,
+      createdAt: DateTime.now(),
     );
-    if (sent != null && mounted) {
+
+    // 1. Broadcast to all users in the space via realtime WebSocket channel
+    _worldSyncService.broadcastChatMessage(localMsg);
+
+    // 2. Add to local room cache & messages
+    _roomMessagesCache.putIfAbsent(roomId, () => []);
+    _roomMessagesCache[roomId]!.add(localMsg);
+    if (mounted) {
       setState(() {
-        if (!_messages.any((m) => m.id == sent.id)) {
-          _messages.add(sent);
+        if (!_messages.any((m) => m.id == localMsg.id)) {
+          _messages.add(localMsg);
         }
       });
       _scrollToBottom();
+      _chatFocusNode.requestFocus();
+    }
+
+    // 3. Persist to Supabase if authenticated (not guest)
+    if (session != null && !session.isGuest) {
+      ChatService.sendMessage(
+        roomId: roomId,
+        spaceId: spaceId,
+        content: text,
+      ).ignore();
     }
   }
 
@@ -437,7 +506,11 @@ class _WorldScreenState extends State<WorldScreen> {
     CompanionService.currentCompanion.removeListener(_onCompanionChanged);
     CompanionService.messages.removeListener(_onCompanionMessagesChanged);
     _gameFocusNode.dispose();
-    _chatSubscription?.unsubscribe();
+    _chatFocusNode.dispose();
+    if (_chatSubscription != null) {
+      ChatService.unsubscribeRoomMessages(_chatSubscription);
+      _chatSubscription = null;
+    }
     _chatController.dispose();
     _speechController.dispose();
     _chatScrollController.dispose();
@@ -981,7 +1054,13 @@ class _WorldScreenState extends State<WorldScreen> {
                           ),
                           onPressed: () {
                             setState(() => _isChatOpen = !_isChatOpen);
-                            if (_isChatOpen) _scrollToBottom();
+                            if (_isChatOpen) {
+                              _scrollToBottom();
+                              _chatFocusNode.requestFocus();
+                            } else {
+                              _gameFocusNode.requestFocus();
+                              _game.clearPressedKeys();
+                            }
                           },
                         ),
                         const SizedBox(width: 8),
@@ -1203,8 +1282,7 @@ class _WorldScreenState extends State<WorldScreen> {
     final spaceName = space?.name ?? "Verdant Village HQ";
     final spaceId = space?.id ?? "b6941fa2-8305-4e00-833c-ca3cd5f08c9b";
     final spaceCode = space?.joinCode ?? space?.slug ?? spaceId;
-    final origin = Uri.base.origin;
-    final inviteUrl = "$origin/?space=$spaceCode";
+    final inviteUrl = InviteLinkService.generateInviteUrl(spaceCode);
 
     showDialog(
       context: context,
@@ -2086,7 +2164,13 @@ class _WorldScreenState extends State<WorldScreen> {
                   inactiveColor: Colors.white70,
                   onPressed: () {
                     setState(() => _isChatOpen = !_isChatOpen);
-                    if (_isChatOpen) _scrollToBottom();
+                    if (_isChatOpen) {
+                      _scrollToBottom();
+                      _chatFocusNode.requestFocus();
+                    } else {
+                      _gameFocusNode.requestFocus();
+                      _game.clearPressedKeys();
+                    }
                   },
                 ),
               ],
@@ -2116,6 +2200,7 @@ class _WorldScreenState extends State<WorldScreen> {
               } else {
                 _scrollToBottom();
               }
+              _chatFocusNode.requestFocus();
             },
             borderRadius: BorderRadius.circular(12),
             child: Container(
@@ -2215,7 +2300,11 @@ class _WorldScreenState extends State<WorldScreen> {
                     ],
                     const Spacer(),
                     InkWell(
-                      onTap: () => setState(() => _isChatOpen = false),
+                      onTap: () {
+                        setState(() => _isChatOpen = false);
+                        _gameFocusNode.requestFocus();
+                        _game.clearPressedKeys();
+                      },
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.all(3),
@@ -2263,6 +2352,7 @@ class _WorldScreenState extends State<WorldScreen> {
                           border: Border.all(color: Colors.white12),
                         ),
                         child: TextField(
+                          focusNode: _chatFocusNode,
                           controller: _chatController,
                           onSubmitted: (_) => _sendChatMessage(),
                           style: const TextStyle(color: Colors.white, fontSize: 12),

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/models/space_model.dart';
+import '../../core/services/invite_link_service.dart';
 import '../../core/widgets/neo_components.dart';
 import '../../main.dart';
 import 'auth_service.dart';
@@ -844,6 +846,25 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        // Pending Space Invite Banner (Auto-detected from URL)
+                        ValueListenableBuilder<String?>(
+                          valueListenable: InviteLinkService.pendingInviteNotifier,
+                          builder: (context, pendingCode, _) {
+                            if (pendingCode == null || pendingCode.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 28),
+                              child: ValueListenableBuilder<SpaceModel?>(
+                                valueListenable: InviteLinkService.resolvedInviteSpace,
+                                builder: (context, resolvedSpace, _) {
+                                  return _buildInviteBanner(pendingCode, resolvedSpace, isDark);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+
                         // Section 1: Hero Header & Interactive Stage
                         KeyedSubtree(
                           key: _tryItKey,
@@ -2804,6 +2825,116 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildInviteBanner(String code, SpaceModel? space, bool isDark) {
+    final title = space?.name ?? "Space #$code";
+    final category = space?.category ?? "Hangout";
+    return NeoCard(
+      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+      borderColor: isDark ? AppColors.neonLime : AppColors.amberButton,
+      borderWidth: 2.5,
+      borderRadius: 20,
+      shadowOffset: const Offset(3.5, 4.5),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.inkBlack, width: 1.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("🔗 ", style: TextStyle(fontSize: 12)),
+                    Text(
+                      "SPACE INVITATION",
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.inkBlack,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              NeoBadge(
+                text: category,
+                backgroundColor: isDark ? Colors.white12 : Colors.black.withOpacity(0.06),
+                textColor: isDark ? Colors.white70 : AppColors.inkBlack,
+                borderRadius: 8,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: "Dismiss invite",
+                onPressed: () => InviteLinkService.clearPendingInvite(),
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "You're invited to $title!",
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : AppColors.inkBlack,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Hop right in to explore, talk in proximity voice, and hang out with friends.",
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white70 : const Color(0xFF52525B),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              NeoButton(
+                text: "Join Instantly as Guest",
+                icon: Icons.flash_on,
+                backgroundColor: AppColors.primary,
+                textColor: AppColors.inkBlack,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w900,
+                borderRadius: 12,
+                borderWidth: 2,
+                shadowOffset: const Offset(2.5, 3),
+                isLoading: _isEnteringGuest,
+                onPressed: () => _handleEnterGuest(),
+              ),
+              NeoButton(
+                text: "Sign In / Register",
+                icon: Icons.login,
+                backgroundColor: isDark ? const Color(0xFF334155) : Colors.white,
+                textColor: isDark ? Colors.white : AppColors.inkBlack,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                borderRadius: 12,
+                borderWidth: 2,
+                shadowOffset: const Offset(2.5, 3),
+                onPressed: () => _showAuthModal(isSignUp: false),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -216,46 +216,91 @@ class SpaceService {
     }
   }
 
+  static final RegExp _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
   static Future<SpaceModel?> getSpaceByCodeOrSlug(String codeOrSlug) async {
     final client = AuthService.client;
     final query = codeOrSlug.trim();
     if (query.isEmpty) return null;
 
     if (_guestTemporaryMap != null) {
-      if (_guestTemporaryMap!.slug == query ||
+      if (_guestTemporaryMap!.slug.toLowerCase() == query.toLowerCase() ||
           _guestTemporaryMap!.id == query ||
-          _guestTemporaryMap!.joinCode == query) {
+          (_guestTemporaryMap!.joinCode != null &&
+              _guestTemporaryMap!.joinCode!.toLowerCase() == query.toLowerCase())) {
         return _guestTemporaryMap;
       }
     }
 
+    // Default HQ check
+    if (query.toLowerCase() == 'main-hq' ||
+        query == 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b') {
+      return SpaceModel.defaultHQ();
+    }
+
     if (client == null) {
-      if (query == 'main-hq' || query == 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b') {
-        return SpaceModel.defaultHQ();
-      }
       return null;
     }
 
+    // 1. Try slug (exact and lowercase)
     try {
-      // 1. Try slug
-      var res = await client.from('spaces').select().eq('slug', query).maybeSingle();
+      final res = await client
+          .from('spaces')
+          .select()
+          .ilike('slug', query)
+          .maybeSingle();
       if (res != null) return SpaceModel.fromJson(res);
-
-      // 2. Try ID (if UUID format or 32+ chars)
-      if (query.length >= 32) {
-        res = await client.from('spaces').select().eq('id', query).maybeSingle();
-        if (res != null) return SpaceModel.fromJson(res);
-      }
-
-      // 3. Try join_code
-      res = await client.from('spaces').select().eq('join_code', query).maybeSingle();
-      if (res != null) return SpaceModel.fromJson(res);
-
-      return null;
     } catch (e) {
-      debugPrint('Error looking up space: $e');
-      return null;
+      debugPrint('>>> [SpaceService] Slug lookup error: $e');
     }
+
+    // 2. Try ID if valid UUID format
+    if (_uuidRegex.hasMatch(query)) {
+      try {
+        final res = await client.from('spaces').select().eq('id', query).maybeSingle();
+        if (res != null) return SpaceModel.fromJson(res);
+      } catch (e) {
+        debugPrint('>>> [SpaceService] ID lookup error: $e');
+      }
+    }
+
+    // 3. Try join_code
+    try {
+      final res = await client
+          .from('spaces')
+          .select()
+          .ilike('join_code', query)
+          .maybeSingle();
+      if (res != null) return SpaceModel.fromJson(res);
+    } catch (e) {
+      debugPrint('>>> [SpaceService] Join code lookup error: $e');
+    }
+
+    // 4. Try space_invites table
+    try {
+      final inviteRes = await client
+          .from('space_invites')
+          .select('space_id, expires_at')
+          .eq('code', query)
+          .maybeSingle();
+      if (inviteRes != null) {
+        final spaceId = inviteRes['space_id'] as String?;
+        final expiresAtStr = inviteRes['expires_at'] as String?;
+        final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
+        if (expiresAt == null || expiresAt.isAfter(DateTime.now())) {
+          if (spaceId != null) {
+            final spaceRes = await client.from('spaces').select().eq('id', spaceId).maybeSingle();
+            if (spaceRes != null) return SpaceModel.fromJson(spaceRes);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [SpaceService] Invite table lookup error: $e');
+    }
+
+    return null;
   }
 
   static Future<List<WorldObjectModel>> fetchWorldObjects(String spaceId) async {

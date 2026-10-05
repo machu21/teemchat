@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/avatar_model.dart';
 import '../../features/auth/auth_service.dart';
+import 'chat_service.dart';
 
 class RemotePlayerState {
   final String userId;
@@ -44,6 +45,8 @@ class WorldSyncService {
       ValueNotifier<Map<String, RemotePlayerState>>({});
 
   DateTime _lastBroadcastTime = DateTime.now();
+
+  void Function(ChatMessageModel message)? onChatMessage;
 
   WorldSyncService({
     required this.spaceId,
@@ -125,7 +128,36 @@ class WorldSyncService {
         },
       );
 
-      // 3. Presence sync for join / leave
+      // 3. Listen for in-room broadcast chat messages (instant delivery across all players)
+      _channel!.on(
+        RealtimeListenTypes.broadcast,
+        ChannelFilter(event: 'chat'),
+        (payload, [ref]) {
+          final data = payload as Map<String, dynamic>;
+          final senderId = data['sender_id'] as String?;
+          final content = data['content'] as String?;
+          if (senderId == null || content == null || content.isEmpty) return;
+
+          final message = ChatMessageModel(
+            id: data['id'] as String? ?? 'msg-${DateTime.now().millisecondsSinceEpoch}',
+            roomId: data['room_id'] as String? ?? '',
+            spaceId: data['space_id'] as String? ?? spaceId,
+            senderId: senderId,
+            senderName: data['sender_name'] as String? ?? 'Explorer',
+            content: content,
+            createdAt: data['created_at'] != null
+                ? DateTime.tryParse(data['created_at'] as String) ?? DateTime.now()
+                : DateTime.now(),
+            isDirectMessage: data['is_direct'] as bool? ?? false,
+          );
+
+          if (onChatMessage != null) {
+            onChatMessage!(message);
+          }
+        },
+      );
+
+      // 4. Presence sync for join / leave
       _channel!.on(
         RealtimeListenTypes.presence,
         ChannelFilter(event: 'sync'),
@@ -237,6 +269,29 @@ class WorldSyncService {
       );
     } catch (e) {
       debugPrint("Error broadcasting speech: $e");
+    }
+  }
+
+  void broadcastChatMessage(ChatMessageModel message) {
+    if (_channel == null || message.content.trim().isEmpty) return;
+
+    try {
+      _channel!.send(
+        type: RealtimeListenTypes.broadcast,
+        event: 'chat',
+        payload: {
+          'id': message.id,
+          'room_id': message.roomId,
+          'space_id': message.spaceId,
+          'sender_id': message.senderId,
+          'sender_name': message.senderName,
+          'content': message.content.trim(),
+          'created_at': message.createdAt.toIso8601String(),
+          'is_direct': message.isDirectMessage,
+        },
+      );
+    } catch (e) {
+      debugPrint("Error broadcasting chat message: $e");
     }
   }
 

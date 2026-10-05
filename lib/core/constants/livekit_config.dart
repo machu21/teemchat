@@ -3,17 +3,17 @@ import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 class LiveKitConfig {
   static const String liveKitUrl = String.fromEnvironment(
     'LIVEKIT_URL',
-    defaultValue: 'wss://teemchat-chenfw1y.livekit.cloud',
+    defaultValue: '',
   );
 
   static const String liveKitApiKey = String.fromEnvironment(
     'LIVEKIT_API_KEY',
-    defaultValue: 'APICpKKK7Wc4UhH',
+    defaultValue: '',
   );
 
   static const String liveKitApiSecret = String.fromEnvironment(
     'LIVEKIT_API_SECRET',
-    defaultValue: 'ixQQYBZbCiAuofCMnkedKs3BhD8EVy1lkyZhrkWgZc7',
+    defaultValue: '',
   );
 
   static bool get isConfigured =>
@@ -24,8 +24,12 @@ class LiveKitConfig {
     required String roomName,
     required String participantIdentity,
     required String participantName,
+    String? apiKey,
+    String? apiSecret,
     Duration validFor = const Duration(hours: 24),
   }) {
+    final effectiveApiKey = (apiKey != null && apiKey.isNotEmpty) ? apiKey : liveKitApiKey;
+    final effectiveApiSecret = (apiSecret != null && apiSecret.isNotEmpty) ? apiSecret : liveKitApiSecret;
     final jwt = JWT(
       {
         'video': {
@@ -37,12 +41,12 @@ class LiveKitConfig {
         },
         'name': participantName,
       },
-      issuer: liveKitApiKey,
+      issuer: effectiveApiKey,
       subject: participantIdentity,
     );
 
     return jwt.sign(
-      SecretKey(liveKitApiSecret),
+      SecretKey(effectiveApiSecret),
       algorithm: JWTAlgorithm.HS256,
       expiresIn: validFor,
     );

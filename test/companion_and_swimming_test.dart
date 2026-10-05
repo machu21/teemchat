@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:virtual_world/core/models/companion_model.dart';
+import 'package:virtual_world/core/services/companion_service.dart';
 import 'package:virtual_world/core/services/gemini_service.dart';
 import 'package:virtual_world/core/services/tts/tts_service.dart';
 import 'package:virtual_world/features/companion/companion_modal.dart';
@@ -326,6 +327,19 @@ Also note that `solve(1, -3, 2)` gives the roots!
         DetailLevel.balanced,
       );
     });
+
+    test('CompanionService daily quota notifiers initialize and track limits correctly', () {
+      expect(CompanionService.defaultDailyLimit, 50);
+      expect(CompanionService.maxDailyMessages.value, 50);
+
+      // Verify reactive updates
+      CompanionService.remainingDailyMessages.value = 42;
+      expect(CompanionService.remainingDailyMessages.value, 42);
+
+      // Reset for cleanliness
+      CompanionService.remainingDailyMessages.value = 50;
+    });
   });
 }
+
 
