@@ -20,7 +20,10 @@ void main() {
         'LIVEKIT_URL=\n'
         'LIVEKIT_API_KEY=\n'
         'LIVEKIT_API_SECRET=\n'
-        'GEMINI_API_KEY=\n',
+        'GEMINI_API_KEY=\n'
+        'STRIPE_PUBLISHABLE_KEY=\n'
+        'STRIPE_SECRET_KEY=\n'
+        'STRIPE_WEBHOOK_SECRET=\n',
       );
     }
   }

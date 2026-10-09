@@ -46,6 +46,7 @@ class PlayerAvatar extends PositionComponent with CollisionCallbacks {
           position: position,
           size: Vector2(36, 48),
           anchor: Anchor.center,
+          priority: 10,
         ) {
     add(RectangleHitbox(
       position: Vector2(5, 34),

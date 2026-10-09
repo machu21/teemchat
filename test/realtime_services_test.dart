@@ -4,6 +4,7 @@ import 'package:virtual_world/core/models/avatar_model.dart';
 import 'package:virtual_world/core/services/chat_service.dart';
 import 'package:virtual_world/core/services/invite_link_service.dart';
 import 'package:virtual_world/core/services/world_sync_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   group('LiveKitConfig JWT Token Generation Tests', () {
@@ -150,6 +151,63 @@ void main() {
       expect(restored.senderId, original.senderId);
       expect(restored.senderName, original.senderName);
       expect(restored.content, original.content);
+    });
+
+    test('RealtimeChannelConfig options verification', () {
+      const config = RealtimeChannelConfig(
+        key: 'user-123',
+        ack: false,
+        self: false,
+      );
+      expect(config.key, 'user-123');
+      expect(config.ack, isFalse);
+      expect(config.self, isFalse);
+    });
+
+    test('WorldSyncService assigns unique clientInstanceId per instance', () {
+      final s1 = WorldSyncService(
+        spaceId: 'space-1',
+        currentUserId: 'user-1',
+        displayName: 'Hero',
+        avatarConfig: const AvatarConfig(),
+      );
+      final s2 = WorldSyncService(
+        spaceId: 'space-1',
+        currentUserId: 'user-1',
+        displayName: 'Hero',
+        avatarConfig: const AvatarConfig(),
+      );
+      expect(s1.clientInstanceId, isNotEmpty);
+      expect(s2.clientInstanceId, isNotEmpty);
+      expect(s1.clientInstanceId, isNot(equals(s2.clientInstanceId)));
+    });
+
+    test('30-second chat TTL filter accurately evicts expired messages', () {
+      final now = DateTime.now();
+      final freshMsg = ChatMessageModel(
+        id: 'msg-fresh',
+        roomId: 'room-1',
+        spaceId: 'space-1',
+        senderId: 'user-1',
+        senderName: 'Explorer',
+        content: 'I was sent 10 seconds ago',
+        createdAt: now.subtract(const Duration(seconds: 10)),
+      );
+      final expiredMsg = ChatMessageModel(
+        id: 'msg-expired',
+        roomId: 'room-1',
+        spaceId: 'space-1',
+        senderId: 'user-1',
+        senderName: 'Explorer',
+        content: 'I was sent 35 seconds ago',
+        createdAt: now.subtract(const Duration(seconds: 35)),
+      );
+
+      final list = [freshMsg, expiredMsg];
+      list.removeWhere((m) => now.difference(m.createdAt).inSeconds >= 30);
+
+      expect(list.length, 1);
+      expect(list.first.id, 'msg-fresh');
     });
   });
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/companion_model.dart';
 import '../../core/services/companion_service.dart';
+import '../../core/services/subscription_service.dart';
 import '../../core/services/tts/tts_service.dart';
+import '../subscription/widgets/upgrade_modal.dart';
 import 'widgets/formatted_chat_bubble.dart';
 
 class CompanionModal extends StatefulWidget {
@@ -38,6 +40,7 @@ class _CompanionModalState extends State<CompanionModal>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabChanged);
     CompanionService.messages.addListener(_handleMessagesChanged);
+    SubscriptionService.initialize();
 
     final current = CompanionService.currentCompanion.value;
     _nameController =
@@ -100,16 +103,9 @@ class _CompanionModalState extends State<CompanionModal>
     final text = quickText ?? _inputController.text.trim();
     if (text.isEmpty) return;
 
-    if (CompanionService.remainingDailyMessages.value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "⚡ Daily companion limit reached (50/50). Energy resets at midnight UTC!",
-          ),
-          backgroundColor: Color(0xFFEF4444),
-          duration: Duration(seconds: 3),
-        ),
-      );
+    if (!SubscriptionService.isUnlimited &&
+        CompanionService.remainingDailyMessages.value <= 0) {
+      UpgradeModal.show(context);
       return;
     }
 
@@ -420,53 +416,117 @@ class _CompanionModalState extends State<CompanionModal>
                 },
               ),
               const SizedBox(width: 8),
-              // Daily Quota Tracker Badge
-              ValueListenableBuilder<int>(
-                valueListenable: CompanionService.remainingDailyMessages,
-                builder: (context, remaining, _) {
-                  final limit = CompanionService.maxDailyMessages.value;
-                  final isExhausted = remaining <= 0;
-                  return Tooltip(
-                    message: isExhausted
-                        ? "Daily quota exhausted ($limit/$limit used). Resets at midnight UTC."
-                        : "$remaining of $limit companion messages remaining today. Resets at midnight UTC.",
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isExhausted
-                            ? const Color(0xFFEF4444).withOpacity(0.18)
-                            : const Color(0xFF10B981).withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isExhausted
-                              ? const Color(0xFFEF4444).withOpacity(0.6)
-                              : const Color(0xFF10B981).withOpacity(0.6),
+              // Quota Tracker or Unlimited Pro Badge
+              ValueListenableBuilder<UserSubscriptionModel>(
+                valueListenable: SubscriptionService.subscription,
+                builder: (context, sub, _) {
+                  final isUnlimited = sub.isActive && sub.hasAiUnlimited;
+                  if (isUnlimited) {
+                    return GestureDetector(
+                      onTap: () => UpgradeModal.show(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF10B981),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text("⚡", style: TextStyle(fontSize: 11)),
+                            SizedBox(width: 4),
+                            Text(
+                              "UNLIMITED",
+                              style: TextStyle(
+                                color: Color(0xFF6EE7B7),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            isExhausted ? "⚠️" : "⚡",
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "$remaining/$limit",
-                            style: TextStyle(
+                    );
+                  }
+
+                  return ValueListenableBuilder<int>(
+                    valueListenable: CompanionService.remainingDailyMessages,
+                    builder: (context, remaining, _) {
+                      final limit = CompanionService.maxDailyMessages.value;
+                      final isExhausted = remaining <= 0;
+                      return GestureDetector(
+                        onTap: () => UpgradeModal.show(context),
+                        child: Tooltip(
+                          message: isExhausted
+                              ? "Daily quota exhausted ($limit/$limit used). Resets at midnight UTC. Click to upgrade!"
+                              : "$remaining of $limit companion messages remaining today. Click to upgrade to Unlimited!",
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
                               color: isExhausted
-                                  ? const Color(0xFFFCA5A5)
-                                  : const Color(0xFF6EE7B7),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
+                                  ? const Color(0xFFEF4444).withOpacity(0.18)
+                                  : const Color(0xFF10B981).withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isExhausted
+                                    ? const Color(0xFFEF4444).withOpacity(0.6)
+                                    : const Color(0xFF10B981).withOpacity(0.6),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  isExhausted ? "⚠️" : "⚡",
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  "$remaining/$limit",
+                                  style: TextStyle(
+                                    color: isExhausted
+                                        ? const Color(0xFFFCA5A5)
+                                        : const Color(0xFF6EE7B7),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    "PRO",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -634,17 +694,7 @@ class _CompanionModalState extends State<CompanionModal>
                         size: 18,
                       ),
                       onPressed: isExhausted
-                          ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "⚡ Daily companion quota reached (50/50). Energy resets at midnight UTC!",
-                                  ),
-                                  backgroundColor: Color(0xFFEF4444),
-                                  duration: Duration(seconds: 3),
-                                ),
-                              );
-                            }
+                          ? () => UpgradeModal.show(context)
                           : _sendMessage,
                     ),
                   ),

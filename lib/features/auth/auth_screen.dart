@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/space_model.dart';
 import '../../core/services/invite_link_service.dart';
@@ -223,6 +224,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _handleEnterGuest([void Function(void Function())? setModalState]) async {
     if (_isEnteringGuest) return;
+    debugPrint(">>> [AuthScreen] Enter as Guest action triggered. Creating guest user...");
     void updateState(VoidCallback fn) {
       if (setModalState != null) {
         setModalState(fn);
@@ -235,6 +237,7 @@ class _AuthScreenState extends State<AuthScreen> {
     updateState(() => _isEnteringGuest = true);
     try {
       await AuthService.signInGuest();
+      debugPrint(">>> [AuthScreen] Guest user session established: ${AuthService.currentSession?.displayName} (${AuthService.currentSession?.id})");
     } finally {
       updateState(() => _isEnteringGuest = false);
     }
@@ -255,6 +258,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       updateState(() => _errorMessage = "Please enter both email and password.");
+      return;
+    }
+
+    if (password.length < 6) {
+      updateState(() => _errorMessage = "Password must be at least 6 characters.");
       return;
     }
 
@@ -284,7 +292,20 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
-      updateState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+      String msg = e.toString().replaceAll('Exception: ', '');
+      if (e is AuthException) {
+        final lower = e.message.toLowerCase();
+        if (lower.contains('invalid login credentials')) {
+          msg = "Invalid email or password. Please verify your credentials.";
+        } else if (lower.contains('email not confirmed')) {
+          msg = "Your email has not been verified yet. Please check your inbox or try again.";
+        } else if (lower.contains('user already registered')) {
+          msg = "An account with this email already exists. Please switch to Sign In.";
+        } else {
+          msg = e.message;
+        }
+      }
+      updateState(() => _errorMessage = msg);
     } finally {
       updateState(() => _isLoading = false);
     }

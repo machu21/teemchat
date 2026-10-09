@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/avatar_model.dart';
 import '../../core/services/space_service.dart';
+import '../../core/utils/guest_lifecycle/guest_lifecycle.dart';
 
 class UserSession {
   final String id;
@@ -56,6 +57,7 @@ class UserSession {
 
 class AuthService {
   static bool isInitialized = false;
+  static bool _isCurrentSessionGuest = false;
   static SupabaseClient? get client => isInitialized ? Supabase.instance.client : null;
 
   static final ValueNotifier<UserSession?> sessionNotifier = ValueNotifier<UserSession?>(null);
@@ -65,19 +67,43 @@ class AuthService {
   static void initSessionListener() {
     if (!isInitialized || client == null) return;
 
+    registerGuestBrowserExitListener(() {
+      if (sessionNotifier.value?.isGuest == true) {
+        cleanupGuestSessionSync();
+      }
+    });
+
     client!.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
       if (session != null) {
-        final profile = await getProfile(session.user.id);
         final meta = session.user.userMetadata ?? {};
-        final displayName = profile?['display_name'] ?? meta['display_name'] ?? session.user.email?.split('@').first ?? 'Explorer';
+        final appMeta = session.user.appMetadata;
+        final isGuest = appMeta['is_guest'] == true ||
+            meta['is_guest'] == true ||
+            (session.user.email?.endsWith('@guest.teemchat.local') ?? false);
+
+        if (isGuest && !_isCurrentSessionGuest) {
+          // Stale guest session restored from persistent storage on fresh browser open.
+          // Discard and delete it as requested so guest sessions are strictly ephemeral per browser exit.
+          try {
+            await client!.rpc('delete_guest_account');
+          } catch (_) {}
+          try {
+            await client!.auth.signOut();
+          } catch (_) {}
+          sessionNotifier.value = null;
+          return;
+        }
+
+        final profile = await getProfile(session.user.id);
+        final displayName = profile?['display_name'] ?? meta['display_name'] ?? session.user.email?.split('@').first ?? (isGuest ? 'Guest' : 'Explorer');
         final username = profile?['username'] ?? meta['username'] ?? 'user_${session.user.id.substring(0, 5)}';
         final status = profile?['status'] ?? 'available';
         final avatarConfig = profile?['avatar_config'] != null
             ? AvatarConfig.fromJson(profile!['avatar_config'])
             : const AvatarConfig();
 
-        final isPaid = profile?['is_paid'] as bool? ?? true;
+        final isPaid = profile?['is_paid'] as bool? ?? (!isGuest);
         final tier = profile?['tier'] as String? ?? (isPaid ? 'paid' : 'free');
         final hasAi = profile?['has_ai_companion'] as bool? ?? isPaid;
 
@@ -88,7 +114,7 @@ class AuthService {
           email: session.user.email ?? '',
           status: status,
           avatarConfig: avatarConfig,
-          isGuest: false,
+          isGuest: isGuest,
           tier: tier,
           isPaid: isPaid,
           hasAiCompanion: hasAi,
@@ -100,6 +126,8 @@ class AuthService {
   }
 
   static Future<void> signInGuest([String? name]) async {
+    debugPrint('>>> [AuthService] Guest sign-in requested: displayName=${name ?? "auto"}');
+
     // If a user was previously signed in with Supabase auth, sign out cleanly to decouple guest session
     if (client != null && client!.auth.currentSession != null) {
       try {
@@ -125,6 +153,43 @@ class AuthService {
       Color(0xFF3B82F6),
     ];
     final color = guestColors[randomId % guestColors.length];
+    final avatar = AvatarConfig(shirtColor: color);
+
+    _isCurrentSessionGuest = true;
+
+    if (isInitialized && client != null) {
+      try {
+        final guestPw = 'Guest_${DateTime.now().millisecondsSinceEpoch}_$randomId!';
+        final res = await client!.rpc('provision_guest_account', params: {
+          'p_display_name': guestName,
+          'p_password': guestPw,
+          'p_avatar_config': avatar.toJson(),
+        });
+
+        if (res != null && res is Map) {
+          final email = res['email'] as String;
+          final authRes = await client!.auth.signInWithPassword(email: email, password: guestPw);
+          if (authRes.user != null) {
+            sessionNotifier.value = UserSession(
+              id: authRes.user!.id,
+              displayName: guestName,
+              username: res['username'] as String? ?? 'guest_$randomId',
+              email: email,
+              status: 'available',
+              avatarConfig: avatar,
+              isGuest: true,
+              tier: 'free',
+              isPaid: false,
+              hasAiCompanion: false,
+            );
+            debugPrint('>>> [AuthService] Guest user created & provisioned via Supabase: id=${authRes.user!.id}, displayName=$guestName, username=${res['username'] as String? ?? 'guest_$randomId'}, email=$email, isGuest=true');
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('>>> [AuthService] Provision guest session error: $e. Falling back to local guest.');
+      }
+    }
 
     sessionNotifier.value = UserSession(
       id: 'guest_${DateTime.now().millisecondsSinceEpoch}_$randomId',
@@ -132,12 +197,13 @@ class AuthService {
       username: 'guest_$randomId',
       email: 'guest_$randomId@virtualworld.local',
       status: 'available',
-      avatarConfig: AvatarConfig(shirtColor: color),
+      avatarConfig: avatar,
       isGuest: true,
       tier: 'free',
       isPaid: false,
       hasAiCompanion: false,
     );
+    debugPrint('>>> [AuthService] Guest user created locally: id=${sessionNotifier.value!.id}, displayName=$guestName, username=guest_$randomId, email=guest_$randomId@virtualworld.local, isGuest=true');
   }
 
   static Future<void> signUp({
@@ -150,6 +216,15 @@ class AuthService {
       throw Exception("Supabase is not configured yet. You can sign in using 'Continue as Guest'.");
     }
 
+    // Decouple any previous guest or stale session cleanly
+    if (client!.auth.currentSession != null) {
+      try {
+        await client!.auth.signOut();
+      } catch (_) {}
+    }
+    _isCurrentSessionGuest = false;
+    SpaceService.clearGuestMaps();
+
     final res = await client!.auth.signUp(
       email: email,
       password: password,
@@ -160,6 +235,25 @@ class AuthService {
     );
 
     if (res.user != null) {
+      // If email confirmation is required and no session was issued yet, try logging in
+      // or instruct the user accordingly.
+      if (res.session == null) {
+        try {
+          final loginRes = await client!.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+          if (loginRes.session == null) {
+            throw Exception("Account created! Please check your email to confirm your account before logging in.");
+          }
+        } catch (e) {
+          if (e.toString().contains("Email not confirmed")) {
+            throw Exception("Account created! Please verify your email before logging in.");
+          }
+          rethrow;
+        }
+      }
+
       try {
         await client!.from('profiles').upsert({
           'id': res.user!.id,
@@ -172,7 +266,7 @@ class AuthService {
           'avatar_config': const AvatarConfig().toJson(),
         });
       } catch (_) {
-        // Table may not exist yet if migrations haven't run
+        // Table may not exist yet or trigger might have already inserted it
       }
 
       sessionNotifier.value = UserSession(
@@ -198,13 +292,23 @@ class AuthService {
       throw Exception("Supabase is not configured yet. You can sign in using 'Continue as Guest'.");
     }
 
+    // Decouple any previous guest session cleanly before authenticating
+    if (client!.auth.currentSession != null) {
+      try {
+        await client!.auth.signOut();
+      } catch (_) {}
+    }
+    _isCurrentSessionGuest = false;
+    SpaceService.clearGuestMaps();
+
     final res = await client!.auth.signInWithPassword(
       email: email,
       password: password,
     );
 
     if (res.user != null) {
-      final profile = await getProfile(res.user!.id);
+      _isCurrentSessionGuest = false;
+      var profile = await getProfile(res.user!.id);
       final meta = res.user!.userMetadata ?? {};
       final displayName = profile?['display_name'] ?? meta['display_name'] ?? email.split('@').first;
       final username = profile?['username'] ?? meta['username'] ?? email.split('@').first;
@@ -215,6 +319,22 @@ class AuthService {
       final isPaid = profile?['is_paid'] as bool? ?? true;
       final tier = profile?['tier'] as String? ?? (isPaid ? 'paid' : 'free');
       final hasAi = profile?['has_ai_companion'] as bool? ?? isPaid;
+
+      // If profile record was missing in database, self-heal and insert it
+      if (profile == null) {
+        try {
+          await client!.from('profiles').upsert({
+            'id': res.user!.id,
+            'username': username,
+            'display_name': displayName,
+            'status': status,
+            'tier': tier,
+            'is_paid': isPaid,
+            'has_ai_companion': hasAi,
+            'avatar_config': avatarConfig.toJson(),
+          });
+        } catch (_) {}
+      }
 
       sessionNotifier.value = UserSession(
         id: res.user!.id,
@@ -264,12 +384,30 @@ class AuthService {
     // Clear out any temporary maps for guest users upon quitting
     SpaceService.clearGuestMaps();
 
+    if (sessionNotifier.value?.isGuest == true && isInitialized && client != null) {
+      try {
+        await client!.rpc('delete_guest_account');
+      } catch (_) {}
+    }
+
+    _isCurrentSessionGuest = false;
+
     if (isInitialized && client != null) {
       try {
         await client!.auth.signOut();
       } catch (_) {}
     }
     sessionNotifier.value = null;
+  }
+
+  /// Emergency cleanup executed when browser window unloads / closes
+  static void cleanupGuestSessionSync() {
+    if (client == null) return;
+    try {
+      client!.rpc('delete_guest_account');
+      client!.auth.signOut();
+    } catch (_) {}
+    _isCurrentSessionGuest = false;
   }
 
   /// Upgrades a free registered user to paid tier (unlocking multiple spaces and AI companion)

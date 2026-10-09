@@ -30,7 +30,14 @@ class RemotePlayerAvatar extends PositionComponent {
           position: position,
           size: Vector2(36, 48),
           anchor: Anchor.center,
+          priority: 15,
         );
+
+  @override
+  void onMount() {
+    super.onMount();
+    debugPrint(">>> [RemotePlayerAvatar] onMount() called! userId=$userId, displayName=$displayName, pos=$position, priority=$priority");
+  }
 
   void updateState({
     required double newX,
@@ -41,6 +48,10 @@ class RemotePlayerAvatar extends PositionComponent {
     DateTime? expiresAt,
   }) {
     targetPosition.setValues(newX, newY);
+    // Large distance jump (teleport/initial load) snaps immediately
+    if ((targetPosition - position).length > 250) {
+      position.setFrom(targetPosition);
+    }
     isMoving = moving;
     switch (direction) {
       case 'up':
@@ -74,7 +85,8 @@ class RemotePlayerAvatar extends PositionComponent {
       position.setFrom(targetPosition);
     }
 
-    if (isMoving) {
+    final animMoving = isMoving || diff.length > 2.0;
+    if (animMoving) {
       _animationTime += dt * 6.5;
     } else {
       _animationTime = 0.0;
@@ -89,14 +101,24 @@ class RemotePlayerAvatar extends PositionComponent {
     }
   }
 
+  int _renderCount = 0;
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
+    _renderCount++;
+    if (_renderCount <= 5 || _renderCount % 180 == 0) {
+      debugPrint(">>> [RemotePlayerAvatar] render() frame #$_renderCount | userId=$userId | pos=$position | target=$targetPosition");
+    }
 
     final int frame = isMoving ? (((_animationTime).floor()) % 4) : 0;
     const double px = 2.0;
     const double ox = 2.0;
     const double oy = 2.0;
+
+    // Ground shadow
+    _spritePaint.color = const Color(0x40000000);
+    canvas.drawRect(const Rect.fromLTWH(ox + 4.0, oy + 42.0, 24.0, 3.5), _spritePaint);
 
     void p(int x, int y, Color c) {
       _spritePaint.color = c;

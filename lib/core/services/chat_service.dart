@@ -68,10 +68,16 @@ class ChatService {
     if (client == null) return _mockMessages;
 
     try {
+      final cutoff = DateTime.now()
+          .subtract(const Duration(seconds: 30))
+          .toUtc()
+          .toIso8601String();
+
       final response = await client
           .from('messages')
           .select('*, profiles:sender_id(display_name)')
           .eq('room_id', roomId)
+          .gte('created_at', cutoff)
           .order('created_at', ascending: true)
           .limit(50);
 
@@ -110,8 +116,10 @@ class ChatService {
     );
 
     final isValidUuid = _uuidRegex.hasMatch(spaceId);
+    final isSessionUuid = _uuidRegex.hasMatch(session?.id ?? '');
 
-    if (client == null || session == null || session.isGuest || !isValidUuid) {
+    if (client == null || session == null || !isValidUuid || !isSessionUuid) {
+      debugPrint(">>> [ChatService] Skipping DB persistence: spaceId=$spaceId (validUuid: $isValidUuid), sessionId=${session?.id} (validUuid: $isSessionUuid)");
       return fallbackMsg;
     }
 
@@ -133,6 +141,7 @@ class ChatService {
   static RealtimeChannel? listenToRoomMessages({
     required String roomId,
     required void Function(ChatMessageModel message) onMessage,
+    void Function(String messageId)? onMessageDeleted,
   }) {
     final client = AuthService.client;
     if (client == null) return null;
@@ -179,8 +188,26 @@ class ChatService {
                 onMessage(message);
               }
             },
+          )
+          .on(
+            RealtimeListenTypes.postgresChanges,
+            ChannelFilter(
+              event: 'DELETE',
+              schema: 'public',
+              table: 'messages',
+              filter: 'room_id=eq.$roomId',
+            ),
+            (payload, [ref]) {
+              final oldRecord = payload['old'] as Map<String, dynamic>?;
+              final deletedId = oldRecord?['id'] as String?;
+              if (deletedId != null && onMessageDeleted != null) {
+                onMessageDeleted(deletedId);
+              }
+            },
           );
-      channel.subscribe();
+      channel.subscribe((status, [error]) {
+        debugPrint(">>> [ChatService] Messages channel '$roomId' status: $status, error: $error");
+      });
       return channel;
     } catch (e) {
       debugPrint("Error subscribing to room messages: $e");

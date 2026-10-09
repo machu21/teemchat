@@ -52,3 +52,6 @@ app.*.map.json
 # Vercel & CI
 .vercel/
 flutter/
+
+# Scratch & Temporary Verification Files
+scratch/

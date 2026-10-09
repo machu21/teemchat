@@ -24,6 +24,7 @@ class WorldGame extends FlameGame
   final WorldSyncService? syncService;
   final LiveKitService? liveKitService;
   final ValueChanged<String>? onZoneChanged;
+  final Vector2 initialPosition;
 
   late final PlayerAvatar player;
   late final WorldMapComponent map;
@@ -35,6 +36,8 @@ class WorldGame extends FlameGame
   final Set<LogicalKeyboardKey> _pressedKeys = {};
   Vector2 _joystickDirection = Vector2.zero();
   String _currentZone = "Verdant Village";
+  bool _lastIsMoving = false;
+  String _lastFacing = 'down';
 
   // Build Mode properties
   bool isBuildMode = false;
@@ -80,11 +83,13 @@ class WorldGame extends FlameGame
     required this.displayName,
     required this.status,
     required this.avatarConfig,
+    Vector2? initialPosition,
     SpaceModel? space,
     this.syncService,
     this.liveKitService,
     this.onZoneChanged,
-  }) : space = space ?? SpaceModel.defaultHQ();
+  })  : initialPosition = initialPosition ?? Vector2(420, 300),
+        space = space ?? SpaceModel.defaultHQ();
 
   void toggleBuildMode(bool enabled) {
     isBuildMode = enabled;
@@ -198,7 +203,10 @@ class WorldGame extends FlameGame
   @override
   void onMount() {
     super.onMount();
-    debugPrint(">>> [WorldGame] onMount() called! hasLayout = $hasLayout");
+    debugPrint(">>> [WorldGame] onMount() called! hasLayout = $hasLayout - reattaching remotePlayers listener");
+    syncService?.remotePlayers.removeListener(_onRemotePlayersChanged);
+    syncService?.remotePlayers.addListener(_onRemotePlayersChanged);
+    _onRemotePlayersChanged();
   }
 
   @override
@@ -213,18 +221,19 @@ class WorldGame extends FlameGame
     debugPrint(">>> [WorldGame] onLoad() started...");
 
     try {
-      debugPrint(">>> [WorldGame] Loading WorldMapComponent (size: ${WorldMapComponent.mapWidth}x${WorldMapComponent.mapHeight})...");
+      debugPrint(">>> [WorldGame] Creating & loading WorldMapComponent (size: ${WorldMapComponent.mapWidth}x${WorldMapComponent.mapHeight})...");
       map = WorldMapComponent();
       await add(map);
-      debugPrint(">>> [WorldGame] WorldMapComponent added & loaded.");
+      debugPrint(">>> [WorldGame] WorldMapComponent created, added & loaded successfully.");
 
-      debugPrint(">>> [WorldGame] Spawning PlayerAvatar at (300, 260)...");
+      debugPrint(">>> [WorldGame] Spawning PlayerAvatar at $initialPosition...");
       player = PlayerAvatar(
-        position: Vector2(300, 260),
+        position: initialPosition.clone(),
         displayName: displayName,
         status: status,
         config: avatarConfig,
       );
+      player.priority = 10;
       await add(player);
       debugPrint(">>> [WorldGame] PlayerAvatar added & loaded.");
 
@@ -240,6 +249,8 @@ class WorldGame extends FlameGame
 
       // Connect to real-time sync service listener
       syncService?.remotePlayers.addListener(_onRemotePlayersChanged);
+      // Immediately spawn any players already detected in the space
+      _onRemotePlayersChanged();
 
       // Load any persisted world items if on paid tier (non-blocking)
       if (space.canCustomizeMap && space.id.isNotEmpty) {
@@ -270,7 +281,7 @@ class WorldGame extends FlameGame
     super.render(canvas);
   }
 
-  void _onRemotePlayersChanged() {
+  void _syncRemoteAvatars() {
     if (syncService == null) return;
     final players = syncService!.remotePlayers.value;
 
@@ -279,18 +290,22 @@ class WorldGame extends FlameGame
       final userId = entry.key;
       final state = entry.value;
 
-      if (!remoteAvatars.containsKey(userId)) {
+      final existing = remoteAvatars[userId];
+      if (existing == null) {
+        debugPrint(">>> [WorldGame] Spawning RemotePlayerAvatar for $userId (${state.displayName}) at (${state.x}, ${state.y})");
         final avatar = RemotePlayerAvatar(
           userId: userId,
           displayName: state.displayName,
           config: state.avatarConfig,
           position: Vector2(state.x, state.y),
         );
+        avatar.priority = 15;
         remoteAvatars[userId] = avatar;
         add(avatar);
       } else {
-        final avatar = remoteAvatars[userId]!;
-        avatar.updateState(
+        existing.displayName = state.displayName;
+        existing.config = state.avatarConfig;
+        existing.updateState(
           newX: state.x,
           newY: state.y,
           direction: state.direction,
@@ -301,28 +316,42 @@ class WorldGame extends FlameGame
       }
     }
 
-    // Remove disconnected
-    remoteAvatars.removeWhere((userId, avatar) {
-      if (!players.containsKey(userId)) {
-        remove(avatar);
-        return true;
-      }
-      return false;
-    });
+    // Remove disconnected avatars
+    if (remoteAvatars.length > players.length) {
+      remoteAvatars.removeWhere((userId, avatar) {
+        if (!players.containsKey(userId)) {
+          debugPrint(">>> [WorldGame] Removing RemotePlayerAvatar for $userId");
+          remove(avatar);
+          return true;
+        }
+        return false;
+      });
+    }
+  }
+
+  void _onRemotePlayersChanged() {
+    _syncRemoteAvatars();
   }
 
   @override
   void onRemove() {
-    syncService?.remotePlayers.removeListener(_onRemotePlayersChanged);
+    debugPrint(">>> [WorldGame] onRemove() called (preserving remotePlayers listener)");
     super.onRemove();
+  }
+
+  void disposeGame() {
+    debugPrint(">>> [WorldGame] disposeGame() called - detaching listeners");
+    syncService?.remotePlayers.removeListener(_onRemotePlayersChanged);
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+    // Continuously synchronize remote player avatars from syncService
+    _syncRemoteAvatars();
     updateCount++;
     if (updateCount <= 5 || updateCount % 180 == 0) {
-      debugPrint(">>> [WorldGame] update() tick #$updateCount | dt: ${dt.toStringAsFixed(3)} | player: ${player.position}");
+      debugPrint(">>> [WorldGame] update() tick #$updateCount | dt: ${dt.toStringAsFixed(3)} | player: ${player.position} | remoteAvatars: ${remoteAvatars.length}");
     }
 
     // Update swimming status based on world tile under player feet
@@ -331,14 +360,24 @@ class WorldGame extends FlameGame
       player.isSwimming = inWater;
     }
 
-    // Broadcast local player movement to other players in the space
+    // Broadcast local player movement to other players in the space only when moving or on state transition
     try {
-      syncService?.broadcastMovement(
-        x: player.position.x,
-        y: player.position.y,
-        direction: player.facing.name,
-        isMoving: player.isMoving,
-      );
+      final isMoving = player.isMoving;
+      final facing = player.facing.name;
+      final justStopped = _lastIsMoving && !isMoving;
+      final directionChanged = _lastFacing != facing;
+
+      if (isMoving || justStopped || directionChanged) {
+        syncService?.broadcastMovement(
+          x: player.position.x,
+          y: player.position.y,
+          direction: facing,
+          isMoving: isMoving,
+          force: justStopped || directionChanged,
+        );
+      }
+      _lastIsMoving = isMoving;
+      _lastFacing = facing;
     } catch (e) {
       debugPrint(">>> [WorldGame] broadcastMovement error: $e");
     }

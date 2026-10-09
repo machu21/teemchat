@@ -49,8 +49,23 @@ create policy "Users can update their own profile" on public.profiles
   for update using (auth.uid() = id);
 
 -- ==========================================================
--- 2. AUTOMATIC PROFILE PROVISIONING TRIGGER
+-- 2. AUTOMATIC PROFILE PROVISIONING & EMAIL CONFIRMATION TRIGGER
 -- ==========================================================
+create or replace function public.auto_confirm_new_user()
+returns trigger as $$
+begin
+  if new.email_confirmed_at is null then
+    new.email_confirmed_at := now();
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created_auto_confirm on auth.users;
+create trigger on_auth_user_created_auto_confirm
+  before insert on auth.users
+  for each row execute procedure public.auto_confirm_new_user();
+
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -109,11 +124,8 @@ drop policy if exists "Public spaces are viewable by everyone" on public.spaces;
 create policy "Public spaces are viewable by everyone" on public.spaces
   for select using (
     visibility in ('public', 'unlisted')
-    or exists (
-      select 1 from public.space_invites si
-      where si.space_id = public.spaces.id
-      and (si.expires_at is null or si.expires_at > now())
-    )
+    or owner_id = auth.uid()
+    or public.is_member_of_space(id)
   );
 
 drop policy if exists "Public worlds are viewable by everyone" on public.worlds;
@@ -244,7 +256,244 @@ create policy "Anyone can inspect valid invite code" on public.space_invites
 
 drop policy if exists "Space members can create invites" on public.space_invites;
 create policy "Space members can create invites" on public.space_invites
-  for insert with check (public.is_member_of_space(space_id));
+  for insert with check (
+    public.is_member_of_space(space_id)
+    or exists (select 1 from public.spaces s where s.id = space_id and s.owner_id = auth.uid())
+  );
+
+-- Function: Resolve invite or slug safely
+create or replace function public.resolve_space_invite(p_code text)
+returns setof public.spaces
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.*
+  from public.spaces s
+  where btrim(p_code) <> ''
+    and (
+      (lower(s.slug) = lower(btrim(p_code)) and s.visibility in ('public', 'unlisted'))
+      or (s.id::text = btrim(p_code) and s.visibility in ('public', 'unlisted'))
+      or (lower(s.join_code) = lower(btrim(p_code)))
+      or exists (
+        select 1 from public.space_invites si
+        where si.space_id = s.id
+          and lower(si.code) = lower(btrim(p_code))
+          and (si.expires_at is null or si.expires_at > now())
+          and (si.max_uses is null or si.uses_count < si.max_uses)
+      )
+    )
+  limit 1;
+$$;
+
+-- Function: Join space via invite
+create or replace function public.join_space_via_invite(p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_space public.spaces;
+  v_uid uuid := auth.uid();
+begin
+  select * into v_space from public.resolve_space_invite(p_code);
+  if v_space.id is null then
+    return null;
+  end if;
+
+  if v_uid is not null and exists (select 1 from public.profiles where id = v_uid) then
+    insert into public.space_members(space_id, user_id, role)
+    values (v_space.id, v_uid, 'member')
+    on conflict (space_id, user_id) do nothing;
+
+    update public.space_invites
+    set uses_count = uses_count + 1
+    where space_id = v_space.id and lower(code) = lower(btrim(p_code));
+  end if;
+
+  return v_space.id;
+end;
+$$;
+
+-- Function: Provision ephemeral guest account
+create or replace function public.provision_guest_account(
+  p_display_name text,
+  p_password text,
+  p_avatar_config jsonb default '{}'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_rand int := floor(random() * 9000 + 1000)::int;
+  v_username text := 'guest_' || v_rand || '_' || to_char(now(), 'HH24MISS');
+  v_email text := v_username || '@guest.teemchat.local';
+  v_encrypted_pw text;
+begin
+  v_encrypted_pw := crypt(p_password, gen_salt('bf'));
+
+  insert into auth.users (
+    id,
+    instance_id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change,
+    phone,
+    phone_change,
+    phone_change_token,
+    email_change_token_current,
+    reauthentication_token,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    is_anonymous,
+    created_at,
+    updated_at
+  ) values (
+    v_user_id,
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    v_email,
+    v_encrypted_pw,
+    now(),
+    '',
+    '',
+    '',
+    '',
+    null,
+    '',
+    '',
+    '',
+    '',
+    jsonb_build_object('provider', 'email', 'providers', array['email'], 'is_guest', true),
+    jsonb_build_object('display_name', p_display_name, 'username', v_username, 'is_guest', true),
+    false,
+    now(),
+    now()
+  );
+
+  insert into auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) values (
+    gen_random_uuid(),
+    v_user_id,
+    jsonb_build_object('sub', v_user_id::text, 'email', v_email, 'email_verified', true, 'phone_verified', false),
+    'email',
+    v_user_id::text,
+    now(),
+    now(),
+    now()
+  );
+
+  insert into public.profiles (
+    id,
+    username,
+    display_name,
+    avatar_config,
+    is_paid,
+    tier,
+    has_ai_companion,
+    created_at,
+    updated_at
+  ) values (
+    v_user_id,
+    v_username,
+    p_display_name,
+    p_avatar_config,
+    false,
+    'free',
+    false,
+    now(),
+    now()
+  )
+  on conflict (id) do update set
+    display_name = excluded.display_name,
+    avatar_config = excluded.avatar_config;
+
+  return jsonb_build_object(
+    'user_id', v_user_id,
+    'email', v_email,
+    'username', v_username,
+    'display_name', p_display_name
+  );
+end;
+$$;
+
+-- Function: Delete guest account
+create or replace function public.delete_guest_account()
+returns boolean
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_is_guest boolean;
+begin
+  if v_uid is null then
+    return false;
+  end if;
+
+  select coalesce((raw_app_meta_data->>'is_guest')::boolean, is_anonymous, false)
+  into v_is_guest
+  from auth.users
+  where id = v_uid;
+
+  if v_is_guest is true then
+    delete from auth.users where id = v_uid;
+    return true;
+  end if;
+
+  return false;
+end;
+$$;
+
+create or replace function public.cleanup_guest_user(p_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_is_guest boolean;
+begin
+  select coalesce((raw_app_meta_data->>'is_guest')::boolean, is_anonymous, false)
+  into v_is_guest
+  from auth.users
+  where id = p_user_id;
+
+  if v_is_guest is true then
+    delete from auth.users where id = p_user_id;
+    return true;
+  end if;
+  return false;
+end;
+$$;
+
+grant execute on function public.resolve_space_invite(text) to anon, authenticated;
+grant execute on function public.join_space_via_invite(text) to anon, authenticated;
+grant execute on function public.provision_guest_account(text, text, jsonb) to anon, authenticated;
+grant execute on function public.delete_guest_account() to authenticated;
+grant execute on function public.cleanup_guest_user(uuid) to anon, authenticated;
+
 
 -- ==========================================================
 -- 6. ROOMS & VOICE HUTS (Inside Spaces)
@@ -328,6 +577,25 @@ create policy "Senders or admins can delete messages" on public.messages
     auth.uid() = sender_id
     or public.is_admin_of_space(space_id)
   );
+
+-- Automatically purge messages older than 30 seconds
+create or replace function public.purge_expired_messages()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  delete from public.messages
+  where created_at < now() - interval '30 seconds';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_purge_expired_messages on public.messages;
+create trigger trg_purge_expired_messages
+after insert on public.messages
+for each statement
+execute function public.purge_expired_messages();
 
 -- ==========================================================
 -- 8. MESSAGE REACTIONS
@@ -849,5 +1117,48 @@ begin
   );
 end;
 $$;
+
+-- ==========================================================
+-- 23. STRIPE SUBSCRIPTIONS & UNLIMITED AI ADD-ON
+-- ==========================================================
+create table if not exists public.user_subscriptions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade unique not null,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  plan_id text not null default 'ai_unlimited_monthly',
+  status text not null default 'active', -- 'active', 'trialing', 'past_due', 'canceled'
+  has_ai_unlimited boolean not null default true,
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean default false,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_user_subscriptions_user_id on public.user_subscriptions(user_id);
+create index if not exists idx_user_subscriptions_stripe_cust on public.user_subscriptions(stripe_customer_id);
+create index if not exists idx_user_subscriptions_stripe_sub on public.user_subscriptions(stripe_subscription_id);
+
+alter table public.user_subscriptions enable row level security;
+
+drop policy if exists "Users can view their own subscription" on public.user_subscriptions;
+create policy "Users can view their own subscription" on public.user_subscriptions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Service role can manage all subscriptions" on public.user_subscriptions;
+create policy "Service role can manage all subscriptions" on public.user_subscriptions
+  for all using (auth.role() = 'service_role');
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables 
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'user_subscriptions'
+  ) then
+    alter publication supabase_realtime add table public.user_subscriptions;
+  end if;
+end $$;
 
 

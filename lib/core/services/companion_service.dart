@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../features/auth/auth_service.dart';
 import '../models/companion_model.dart';
 import 'gemini_service.dart';
+import 'subscription_service.dart';
 import 'tts/tts_service.dart';
 
 /// CompanionService — Manages the full AI Companion lifecycle.
@@ -47,6 +48,12 @@ class CompanionService {
     final client = AuthService.client;
     final isGuest = AuthService.currentSession?.isGuest == true;
     if (client == null || isGuest) return;
+
+    if (SubscriptionService.isUnlimited) {
+      remainingDailyMessages.value = 999999;
+      maxDailyMessages.value = 999999;
+      return;
+    }
 
     try {
       final res = await client.rpc(
@@ -281,7 +288,10 @@ class CompanionService {
       final client = AuthService.client;
       final isGuest = AuthService.currentSession?.isGuest == true;
 
-      if (client != null && !isGuest) {
+      if (SubscriptionService.isUnlimited) {
+        remainingDailyMessages.value = 999999;
+        maxDailyMessages.value = 999999;
+      } else if (client != null && !isGuest) {
         try {
           final usageRes = await client.rpc(
             'check_and_increment_ai_usage',

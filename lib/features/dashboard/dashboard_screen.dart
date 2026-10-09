@@ -40,8 +40,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (spaceParam != null && spaceParam.isNotEmpty) {
         debugPrint(">>> [DashboardScreen] Deep link invite parameter found: $spaceParam");
         final space = await SpaceService.getSpaceByCodeOrSlug(spaceParam);
-        InviteLinkService.clearPendingInvite();
         if (space != null && mounted) {
+          // Join the space in database to grant member access/privileges
+          await SpaceService.joinSpaceViaInvite(spaceParam);
+          InviteLinkService.clearPendingInvite();
+          if (!mounted) return;
           final session = AuthService.currentSession;
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -54,6 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           );
         } else if (mounted) {
+          InviteLinkService.clearPendingInvite();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("Space not found for '$spaceParam'. Please check the room code or invite link."),
@@ -281,6 +285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : () async {
                               final name = nameController.text.trim();
                               if (name.isEmpty) return;
+                              debugPrint(">>> [DashboardScreen] Creating map '$name' (category: $category, theme: $mapTheme)...");
                               setModalState(() => isCreatingSpace = true);
                               try {
                                 final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-');
@@ -291,6 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   mapTheme: mapTheme,
                                 );
                                 if (created != null && mounted) {
+                                  debugPrint(">>> [DashboardScreen] Map created successfully: ${created.name} (${created.id})");
                                   Navigator.pop(context);
                                   _loadSpaces();
                                 }
@@ -821,6 +827,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             try {
                               final space = await SpaceService.getSpaceByCodeOrSlug(query);
                               if (space != null && mounted) {
+                                // Join the space in database to grant member access/privileges
+                                await SpaceService.joinSpaceViaInvite(query);
+                                if (!mounted) return;
                                 Navigator.pop(context);
                                 final session = AuthService.currentSession;
                                 Navigator.of(context).push(

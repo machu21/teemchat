@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flame/components.dart' as flame_comp;
 import 'package:flame/game.dart';
@@ -100,6 +101,23 @@ class _WorldScreenState extends State<WorldScreen> {
   final ScrollController _companionChatScrollController = ScrollController();
   final FocusNode _chatFocusNode = FocusNode();
   RealtimeChannel? _chatSubscription;
+  Timer? _chatPruneTimer;
+
+  void _startChatPruneTimer() {
+    _chatPruneTimer?.cancel();
+    _chatPruneTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final beforeCount = _messages.length;
+      _messages.removeWhere((m) => now.difference(m.createdAt).inSeconds >= 30);
+      for (final entry in _roomMessagesCache.entries) {
+        entry.value.removeWhere((m) => now.difference(m.createdAt).inSeconds >= 30);
+      }
+      if (_messages.length != beforeCount) {
+        setState(() {});
+      }
+    });
+  }
 
   void _openCompanionModal() {
     final isGuest = AuthService.currentSession?.isGuest == true;
@@ -199,6 +217,11 @@ class _WorldScreenState extends State<WorldScreen> {
     final currentUserId = session?.id ?? 'user-${DateTime.now().millisecondsSinceEpoch}';
     final spaceId = widget.space?.id ?? 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b';
 
+    // Compute unique jittered spawn position in Verdant Village plaza
+    final jitterX = ((currentUserId.hashCode.abs() % 7) - 3) * 16.0;
+    final jitterY = (((currentUserId.hashCode.abs() ~/ 7) % 5) - 2) * 12.0;
+    final spawnPos = Vector2(420.0 + jitterX, 300.0 + jitterY);
+
     _worldSyncService = WorldSyncService(
       spaceId: spaceId,
       currentUserId: currentUserId,
@@ -214,6 +237,7 @@ class _WorldScreenState extends State<WorldScreen> {
       displayName: widget.displayName,
       status: widget.status,
       avatarConfig: widget.avatarConfig,
+      initialPosition: spawnPos,
       space: widget.space,
       syncService: _worldSyncService,
       liveKitService: _liveKitService,
@@ -259,6 +283,9 @@ class _WorldScreenState extends State<WorldScreen> {
     // Initialize Sound Tripping Jukebox for this space
     PlaylistService.loadPlaylist(spaceId);
 
+    // Start 30-second chat prune timer
+    _startChatPruneTimer();
+
     // Asynchronously connect external network services with error guards
     _connectServices(spaceId, currentUserId);
   }
@@ -266,7 +293,10 @@ class _WorldScreenState extends State<WorldScreen> {
   Future<void> _connectServices(String spaceId, String currentUserId) async {
     try {
       _logDebug(">>> [WorldScreen] Connecting WorldSyncService...");
-      await _worldSyncService.connect(initialX: 300, initialY: 260);
+      await _worldSyncService.connect(
+        initialX: _game.initialPosition.x,
+        initialY: _game.initialPosition.y,
+      );
       _logDebug(">>> [WorldScreen] WorldSyncService connected.");
     } catch (e) {
       _logDebug(">>> [WorldScreen] WorldSyncService connect error: $e");
@@ -300,13 +330,48 @@ class _WorldScreenState extends State<WorldScreen> {
 
     final targetRoom = message.roomId;
     _roomMessagesCache.putIfAbsent(targetRoom, () => []);
-    if (!_roomMessagesCache[targetRoom]!.any((m) => m.id == message.id)) {
-      _roomMessagesCache[targetRoom]!.add(message);
+    final roomList = _roomMessagesCache[targetRoom]!;
+
+    final isIncomingLocal =
+        message.id.startsWith('msg-') || message.id.startsWith('local-');
+
+    // Check for exact ID match
+    final exactIdx = roomList.indexWhere((m) => m.id == message.id);
+    if (exactIdx >= 0) return;
+
+    // Check for matching placeholder or duplicate within 10 seconds
+    final matchIdx = roomList.indexWhere((m) =>
+        m.senderId == message.senderId &&
+        m.content == message.content &&
+        m.createdAt.difference(message.createdAt).abs().inSeconds < 10);
+
+    if (matchIdx >= 0) {
+      if (!isIncomingLocal) {
+        // Confirmed DB message replaces provisional broadcast
+        roomList[matchIdx] = message;
+      } else {
+        // Already have a matching message, ignore duplicate broadcast
+        return;
+      }
+    } else {
+      roomList.add(message);
     }
 
     if (message.roomId == currentRoomId) {
       setState(() {
-        if (!_messages.any((m) => m.id == message.id)) {
+        final currentExactIdx = _messages.indexWhere((m) => m.id == message.id);
+        if (currentExactIdx >= 0) return;
+
+        final currentMatchIdx = _messages.indexWhere((m) =>
+            m.senderId == message.senderId &&
+            m.content == message.content &&
+            m.createdAt.difference(message.createdAt).abs().inSeconds < 10);
+
+        if (currentMatchIdx >= 0) {
+          if (!isIncomingLocal) {
+            _messages[currentMatchIdx] = message;
+          }
+        } else {
           _messages.add(message);
         }
       });
@@ -347,6 +412,15 @@ class _WorldScreenState extends State<WorldScreen> {
       roomId: roomId,
       onMessage: (message) {
         _handleIncomingChatMessage(message);
+      },
+      onMessageDeleted: (deletedId) {
+        if (!mounted) return;
+        setState(() {
+          _messages.removeWhere((m) => m.id == deletedId);
+          for (final entry in _roomMessagesCache.entries) {
+            entry.value.removeWhere((m) => m.id == deletedId);
+          }
+        });
       },
     );
   }
@@ -477,8 +551,8 @@ class _WorldScreenState extends State<WorldScreen> {
       _chatFocusNode.requestFocus();
     }
 
-    // 3. Persist to Supabase if authenticated (not guest)
-    if (session != null && !session.isGuest) {
+    // 3. Persist to Supabase if session exists (including provisioned guests)
+    if (session != null) {
       ChatService.sendMessage(
         roomId: roomId,
         spaceId: spaceId,
@@ -503,6 +577,8 @@ class _WorldScreenState extends State<WorldScreen> {
 
   @override
   void dispose() {
+    _chatPruneTimer?.cancel();
+    _chatPruneTimer = null;
     CompanionService.currentCompanion.removeListener(_onCompanionChanged);
     CompanionService.messages.removeListener(_onCompanionMessagesChanged);
     _gameFocusNode.dispose();
@@ -517,6 +593,7 @@ class _WorldScreenState extends State<WorldScreen> {
     _companionChatScrollController.dispose();
     _worldSyncService.disconnect();
     _liveKitService.leaveSpaceRoom();
+    _game.disposeGame();
     super.dispose();
   }
 

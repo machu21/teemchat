@@ -31,7 +31,9 @@ class WorldMapComponent extends PositionComponent {
           position: Vector2.zero(),
           size: Vector2(mapWidth, mapHeight),
           priority: -100,
-        );
+        ) {
+    debugPrint(">>> [WorldMapComponent] World map instance created! size: ${mapWidth}x$mapHeight");
+  }
 
   static final Paint _paint = Paint()
     ..isAntiAlias = false

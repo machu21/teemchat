@@ -11,7 +11,14 @@ class SpaceService {
 
   /// Deletes and clears out any guest temporary map upon quitting or session cleanup
   static void clearGuestMaps() {
-    _guestTemporaryMap = null;
+    if (_guestTemporaryMap != null) {
+      final id = _guestTemporaryMap!.id;
+      final client = AuthService.client;
+      if (client != null && _uuidRegex.hasMatch(id)) {
+        client.from('spaces').delete().eq('id', id).ignore();
+      }
+      _guestTemporaryMap = null;
+    }
   }
 
   static Future<List<SpaceModel>> getSpaces() async {
@@ -82,10 +89,57 @@ class SpaceService {
     final isGuest = currentSession?.isGuest ?? true;
     final isPaid = currentSession?.isPaid ?? false;
 
-    // 1. Guest validation: guest can only make 1 map and it's temporary (never saved to database)
+    debugPrint(">>> [SpaceService] createSpace() requested: name='$name', slug='$slug', theme='$mapTheme', category='$category', isGuest=$isGuest, ownerId='$currentUserId'");
+
+    // 1. Guest validation: guest can only make 1 map and it's temporary
     if (isGuest) {
       if (_guestTemporaryMap != null) {
         throw Exception("Guests can only create 1 temporary map. Upgrade to a paid account to create unlimited spaces, or delete your current temporary map.");
+      }
+
+      // If provisioned with a Supabase account, persist in Supabase so other users can join it
+      if (client != null && currentUserId != null && _uuidRegex.hasMatch(currentUserId)) {
+        try {
+          final payload = {
+            'name': name,
+            'slug': slug,
+            'description': description,
+            'category': category,
+            'visibility': 'public',
+            'tier': 'free',
+            'max_capacity': 50,
+            'owner_id': currentUserId,
+            'member_count': 1,
+            'is_active': true,
+            'map_theme': mapTheme,
+            'join_code': slug,
+          };
+          final res = await client.from('spaces').insert(payload).select().single();
+          final tempSpace = SpaceModel.fromJson(res).copyWith(isTemporary: true);
+          _guestTemporaryMap = tempSpace;
+
+          debugPrint(">>> [SpaceService] Guest temporary map created in Supabase: id=${tempSpace.id}, name='${tempSpace.name}', slug='${tempSpace.slug}', theme='${tempSpace.mapTheme}', ownerId='$currentUserId'");
+
+          // Record membership and invite code
+          try {
+            await client.from('space_members').upsert({
+              'space_id': tempSpace.id,
+              'user_id': currentUserId,
+              'role': 'owner',
+            });
+            await client.from('space_invites').insert({
+              'space_id': tempSpace.id,
+              'code': slug,
+              'created_by': currentUserId,
+            });
+          } catch (err) {
+            debugPrint(">>> [SpaceService] Membership/Invite creation note: $err");
+          }
+
+          return tempSpace;
+        } catch (e) {
+          debugPrint(">>> [SpaceService] Error creating guest space in Supabase: $e");
+        }
       }
 
       final tempSpace = SpaceModel(
@@ -103,6 +157,7 @@ class SpaceService {
         isTemporary: true,
       );
       _guestTemporaryMap = tempSpace;
+      debugPrint(">>> [SpaceService] Guest temporary map created locally: id=${tempSpace.id}, name='${tempSpace.name}', slug='${tempSpace.slug}', theme='${tempSpace.mapTheme}', ownerId='${tempSpace.ownerId}'");
       return tempSpace;
     }
 
@@ -139,16 +194,25 @@ class SpaceService {
     );
 
     if (client == null || currentUserId == null) {
-      return newSpace.copyWith(id: 'local-${DateTime.now().millisecondsSinceEpoch}');
+      final localSpace = newSpace.copyWith(id: 'local-${DateTime.now().millisecondsSinceEpoch}');
+      debugPrint(">>> [SpaceService] Map created locally: id=${localSpace.id}, name='${localSpace.name}', slug='${localSpace.slug}', theme='${localSpace.mapTheme}', ownerId='$currentUserId'");
+      return localSpace;
     }
 
     try {
-      final payload = newSpace.toJson()..remove('id');
+      final payload = newSpace.toJson()
+        ..remove('id')
+        ..remove('is_temporary');
+      payload['join_code'] = newSpace.slug;
       final res = await client.from('spaces').insert(payload).select().single();
-      return SpaceModel.fromJson(res);
+      final createdSpace = SpaceModel.fromJson(res);
+      debugPrint(">>> [SpaceService] Map created in Supabase: id=${createdSpace.id}, name='${createdSpace.name}', slug='${createdSpace.slug}', theme='${createdSpace.mapTheme}', ownerId='$currentUserId'");
+      return createdSpace;
     } catch (e) {
       debugPrint('Error creating space in Supabase: $e');
-      return newSpace.copyWith(id: 'local-${DateTime.now().millisecondsSinceEpoch}');
+      final localSpace = newSpace.copyWith(id: 'local-${DateTime.now().millisecondsSinceEpoch}');
+      debugPrint(">>> [SpaceService] Map created locally (fallback): id=${localSpace.id}, name='${localSpace.name}', slug='${localSpace.slug}', theme='${localSpace.mapTheme}', ownerId='$currentUserId'");
+      return localSpace;
     }
   }
 
@@ -198,12 +262,18 @@ class SpaceService {
 
   static Future<bool> deleteSpace(String id) async {
     if (_guestTemporaryMap != null && _guestTemporaryMap!.id == id) {
+      final client = AuthService.client;
+      if (client != null && _uuidRegex.hasMatch(id)) {
+        try {
+          await client.from('spaces').delete().eq('id', id);
+        } catch (_) {}
+      }
       _guestTemporaryMap = null;
       return true;
     }
 
     final client = AuthService.client;
-    if (client == null || AuthService.currentSession?.isGuest == true) {
+    if (client == null) {
       return true;
     }
 
@@ -242,6 +312,27 @@ class SpaceService {
 
     if (client == null) {
       return null;
+    }
+
+    // 0. Primary: Call secure database resolver function (resolves slug, join_code, space_invites, or uuid)
+    try {
+      final rpcRes = await client.rpc('resolve_space_invite', params: {'p_code': query});
+      if (rpcRes != null) {
+        if (rpcRes is List && rpcRes.isNotEmpty) {
+          final first = rpcRes.first;
+          if (first is Map<String, dynamic>) {
+            return SpaceModel.fromJson(first);
+          } else if (first is Map) {
+            return SpaceModel.fromJson(Map<String, dynamic>.from(first));
+          }
+        } else if (rpcRes is Map<String, dynamic>) {
+          return SpaceModel.fromJson(rpcRes);
+        } else if (rpcRes is Map) {
+          return SpaceModel.fromJson(Map<String, dynamic>.from(rpcRes));
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [SpaceService] resolve_space_invite RPC error: $e');
     }
 
     // 1. Try slug (exact and lowercase)
@@ -301,6 +392,24 @@ class SpaceService {
     }
 
     return null;
+  }
+
+  /// Joins a space using an invite code, join code, or slug via the secure RPC
+  static Future<bool> joinSpaceViaInvite(String code) async {
+    final client = AuthService.client;
+    final query = code.trim();
+    if (client == null || query.isEmpty) return false;
+
+    try {
+      final res = await client.rpc('join_space_via_invite', params: {'p_code': query});
+      if (res != null) {
+        debugPrint('>>> [SpaceService] Successfully joined space via invite: $res');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('>>> [SpaceService] join_space_via_invite RPC error: $e');
+    }
+    return false;
   }
 
   static Future<List<WorldObjectModel>> fetchWorldObjects(String spaceId) async {
