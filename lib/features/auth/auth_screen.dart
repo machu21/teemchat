@@ -391,6 +391,33 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkHeroMagenta.withOpacity(0.2) : AppColors.amberButton,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                      offset: const Offset(1.5, 1.5),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  "BETA",
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           IconButton(
@@ -1017,6 +1044,33 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkHeroMagenta.withOpacity(0.2) : AppColors.amberButton,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                      width: 1.6,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                        offset: const Offset(1.5, 1.5),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    "BETA",
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1169,7 +1223,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                "2D RETRO VIRTUAL WORLD • LIVE PROXIMITY VOICE • ZERO SIGNUP",
+                "PUBLIC BETA • 2D RETRO VIRTUAL WORLD • LIVE PROXIMITY VOICE",
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -1928,8 +1982,10 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Container(
                             width: 38,
@@ -1949,7 +2005,6 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           RichText(
                             text: TextSpan(
                               style: GoogleFonts.plusJakartaSans(
@@ -1967,6 +2022,32 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkHeroMagenta.withOpacity(0.2) : AppColors.amberButton,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                  offset: const Offset(1.5, 1.5),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              "BETA",
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                                letterSpacing: 0.6,
+                              ),
                             ),
                           ),
                         ],

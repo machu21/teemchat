@@ -1589,6 +1589,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkHeroMagenta.withOpacity(0.2) : AppColors.amberButton,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                            offset: const Offset(1.5, 1.5),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        "BETA",
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? AppColors.darkHeroMagenta : AppColors.inkBlack,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF312E81) : AppColors.teemPurpleSoft,

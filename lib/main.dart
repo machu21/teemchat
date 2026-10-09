@@ -43,7 +43,7 @@ class VirtualWorldApp extends StatelessWidget {
       valueListenable: isDarkModeNotifier,
       builder: (context, isDark, _) {
         return MaterialApp(
-          title: 'TeemChat - 2D Virtual World',
+          title: 'TeemChat (Beta) - 2D Virtual World',
           debugShowCheckedModeBanner: false,
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(

@@ -875,6 +875,24 @@ class _WorldScreenState extends State<WorldScreen> {
                                   letterSpacing: 0.8,
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.amberButton,
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: Colors.black87, width: 1.2),
+                                ),
+                                child: const Text(
+                                  "BETA",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
                               if (isMedium) ...[
                                 const SizedBox(width: 8),
                                 Container(width: 4, height: 4, decoration: const BoxDecoration(color: Colors.white38, shape: BoxShape.circle)),
