@@ -1,0 +1,419 @@
+.drawerOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.drawerOverlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 95vw;
+  height: 100vh;
+  background-color: var(--card-bg);
+  border-left: var(--neo-border-width) solid var(--card-border);
+  box-shadow: -4px 0px 0px var(--card-border);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(105%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer.open {
+  transform: translateX(0);
+}
+
+/* Header */
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: var(--card-inner);
+  border-bottom: var(--neo-border-width) solid var(--card-border);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drawerTitle {
+  font-size: 1.15rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.closeButton {
+  background: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  font-size: 1rem;
+  font-weight: 900;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.closeButton:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+/* Tabs */
+.tabsBar {
+  display: flex;
+  background-color: var(--card-bg);
+  border-bottom: 2px solid var(--card-border);
+  padding: 8px 12px;
+  gap: 6px;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: 2px solid transparent;
+  border-radius: var(--neo-radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.tabBtn.activeTab {
+  background-color: var(--card-inner);
+  border-color: var(--card-border);
+  color: var(--text-main);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.tabBadge {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #B91C1C;
+}
+
+/* Content Area */
+.drawerContent {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Action Banner */
+.actionBanner {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--card-inner);
+  border-bottom: 1px dashed var(--card-border);
+}
+
+.actionBannerText {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Lists */
+.conversationList {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.convItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 2px 2px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.convItem:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+  background-color: var(--card-inner);
+}
+
+.avatarWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onlineDot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background-color: #10B981;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+}
+
+.convDetails {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.convTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.convTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convTime {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-subtle);
+}
+
+.convPreview {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty State */
+.emptyState {
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.emptyIcon {
+  font-size: 2.4rem;
+}
+
+.emptyTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.emptySubtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 240px;
+}
+
+/* Active Chat View */
+.activeChatContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.activeChatHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: var(--card-inner);
+  border-bottom: 2px solid var(--card-border);
+}
+
+.backBtn {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  box-shadow: 2px 2px 0px var(--card-border);
+  padding: 4px 10px;
+  border-radius: var(--neo-radius-sm);
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.backBtn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.chatHeaderInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatHeaderTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.chatHeaderStatus {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.messagesScrollArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--card-bg);
+}
+
+.messageRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  max-width: 85%;
+}
+
+.messageRow.myMessage {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.messageBubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+  background-color: var(--card-inner);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.messageRow.myMessage .messageBubble {
+  background-color: #EDE9FE;
+  border-color: #6D28D9;
+  box-shadow: 2px 2px 0px #6D28D9;
+}
+
+.messageSender {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.messageContent {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+  color: var(--text-main);
+}
+
+.messageTime {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-subtle);
+  align-self: flex-end;
+}
+
+/* Quick Reaction Bar */
+.quickReactions {
+  display: flex;
+  gap: 8px;
+  padding: 6px 16px;
+  background-color: var(--card-inner);
+  border-top: 1px dashed var(--card-border);
+}
+
+.reactionBtn {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  padding: 2px 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.reactionBtn:hover {
+  transform: scale(1.15);
+}
+
+/* Chat Input Bar */
+.chatInputForm {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: var(--card-inner);
+  border-top: 2px solid var(--card-border);
+}
+
+.chatInputField {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 2px 2px 0px var(--card-border);
+  outline: none;
+}
+
+.chatInputField:focus {
+  border-color: var(--primary);
+}
+
+.sendBtn {
+  padding: 0 16px;
+}

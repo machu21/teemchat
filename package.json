@@ -1,0 +1,15 @@
+{
+  "name": "teemchat-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix next-app run dev",
+    "build": "npm --prefix next-app run build",
+    "start": "npm --prefix next-app run start",
+    "test": "npm --prefix next-app run test",
+    "lint": "npm --prefix next-app run lint",
+    "cap:sync": "npm --prefix next-app run cap:sync",
+    "cap:android": "npm --prefix next-app run cap:open:android",
+    "cap:ios": "npm --prefix next-app run cap:open:ios"
+  }
+}

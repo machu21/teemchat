@@ -1,0 +1,359 @@
+.worldLayout {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.canvasWrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.loadingScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 1.4rem;
+  font-weight: 800;
+  background-color: var(--bg);
+}
+
+/* Top HUD */
+.topHud {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.hudLeft, .hudRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.spaceTitleBadge {
+  background: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  box-shadow: 2px 2px 0px var(--card-border);
+  padding: 6px 14px;
+  border-radius: var(--neo-radius);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+/* Video PiP Overlay */
+.pipGrid {
+  position: absolute;
+  top: 76px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.pipCard {
+  width: 180px;
+  height: 120px;
+  background-color: #000;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: var(--neo-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+.pipVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pipLabel {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Bottom Dock */
+.bottomDock {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  box-shadow: var(--neo-shadow);
+  border-radius: var(--neo-radius-full);
+  padding: 8px 16px;
+  z-index: 50;
+}
+
+.dockBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--card-border);
+  background-color: var(--card-inner);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.dockBtn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0px var(--card-border);
+}
+
+.dockBtnActive {
+  background-color: var(--cta-btn);
+}
+
+.dockDivider {
+  width: 2px;
+  height: 24px;
+  background-color: var(--text-subtle);
+}
+
+/* Roblox-Style Chat Box Overlay */
+.chatBox {
+  position: absolute;
+  bottom: 96px;
+  left: 24px;
+  width: 340px;
+  height: 380px;
+  z-index: 60;
+  pointer-events: auto;
+}
+
+.chatCard {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--card-border);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.channelTabs {
+  display: flex;
+  gap: 6px;
+}
+
+.tabBtn {
+  background: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tabBtnActive {
+  background: var(--cta-btn);
+}
+
+.closeChatBtn {
+  background: none;
+  border: none;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.messageStream {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.emptyNotice {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 40px;
+}
+
+.messageRow {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.msgSender {
+  font-weight: 800;
+  color: var(--primary);
+  margin-right: 6px;
+}
+
+.msgContent {
+  color: var(--text-main);
+}
+
+.companionBubble {
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: var(--neo-radius-sm);
+  border: 1.5px solid var(--card-border);
+}
+
+.bubbleUser {
+  background-color: var(--card-inner);
+  align-self: flex-end;
+}
+
+.bubbleAi {
+  background-color: #FEF3C7;
+  color: #18181B;
+  align-self: flex-start;
+}
+
+.thinking {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  font-style: italic;
+}
+
+.chatInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chatInput {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  outline: none;
+  color: var(--text-main);
+}
+
+.sendBtn {
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  background-color: var(--cta-btn);
+  color: var(--cta-text);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}
+
+/* Build Palette Panel */
+.buildPalette {
+  position: absolute;
+  top: 76px;
+  left: 20px;
+  z-index: 50;
+}
+
+.paletteCard {
+  padding: 12px;
+}
+
+.paletteTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.furnitureList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.furnBtn {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 2px solid var(--card-border);
+  background: var(--card-inner);
+  border-radius: var(--neo-radius-sm);
+}
+
+.furnBtnActive {
+  background: var(--cta-btn);
+}
+
+/* Modals */
+.inviteContent, .playlistContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.playlistControls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.trackList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.trackItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  cursor: pointer;
+}
+
+.trackItemActive {
+  border-color: var(--primary);
+  background: var(--card-bg);
+}
+
+.trackArtist {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

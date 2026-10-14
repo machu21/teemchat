@@ -1,0 +1,83 @@
+:root {
+  --bg: #F6F4EE;
+  --card-bg: #FFFFFF;
+  --card-inner: #F3F4F6;
+  --card-border: #18181B;
+  --text-main: #18181B;
+  --text-muted: #71717A;
+  --text-subtle: #A1A1AA;
+  --primary: #6D28D9;
+  --primary-hover: #581C87;
+  --cta-btn: #F59E0B;
+  --cta-btn-hover: #D97706;
+  --cta-text: #18181B;
+  --hero-highlight: #EA580C;
+
+  --neo-border-width: 2.5px;
+  --neo-shadow: 3.5px 3.5px 0px #18181B;
+  --neo-shadow-hover: 1.5px 1.5px 0px #18181B;
+  --neo-radius: 12px;
+  --neo-radius-sm: 8px;
+  --neo-radius-full: 9999px;
+}
+
+[data-theme='dark'] {
+  --bg: #180D26;
+  --card-bg: #22123B;
+  --card-inner: #2E1B4E;
+  --card-border: #FFFFFF;
+  --text-main: #FFFFFF;
+  --text-muted: #D1D5DB;
+  --text-subtle: #9CA3AF;
+  --primary: #8B5CF6;
+  --primary-hover: #A78BFA;
+  --cta-btn: #E2F952;
+  --cta-btn-hover: #D4EC3B;
+  --cta-text: #180D26;
+  --hero-highlight: #E879F9;
+
+  --neo-border-width: 2.5px;
+  --neo-shadow: 3.5px 3.5px 0px #000000;
+  --neo-shadow-hover: 1.5px 1.5px 0px #000000;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-main);
+  font-family: var(--font-plus-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-subtle);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

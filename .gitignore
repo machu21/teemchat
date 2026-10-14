@@ -9,6 +9,9 @@
 .history
 .svn/
 migrate_working_dir/
+node_modules/
+.next/
+out/
 
 # IntelliJ related
 *.iml
@@ -55,3 +58,7 @@ flutter/
 
 # Scratch & Temporary Verification Files
 scratch/
+
+# Android & Application Binaries
+*.apk
+next-app/public/downloads/*.apk

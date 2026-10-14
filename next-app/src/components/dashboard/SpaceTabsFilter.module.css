@@ -1,0 +1,81 @@
+.filterContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background-color: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 2.5px 3px 0px var(--card-border);
+  padding: 10px 16px;
+}
+
+.pillRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterPill {
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  background-color: var(--card-inner);
+  color: var(--text-muted);
+  box-shadow: 2px 2px 0px var(--card-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.filterPill:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.filterPill.activePill {
+  background-color: #EDE9FE;
+  border-color: #7C3AED;
+  color: #6D28D9;
+  box-shadow: 2px 2px 0px #7C3AED;
+}
+
+.searchWrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-width: 220px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 32px 8px 12px;
+  font-size: 0.88rem;
+  background-color: var(--card-inner);
+  color: var(--text-main);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: var(--primary);
+}
+
+.clearSearch {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  cursor: pointer;
+}

@@ -1,0 +1,18 @@
+.toggle {
+  background: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: transform 0.1s ease;
+}
+
+.toggle:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}

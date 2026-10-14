@@ -1,0 +1,362 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  background-color: var(--card-bg);
+  border-bottom: var(--neo-border-width) solid var(--card-border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.logoIcon {
+  font-size: 1.6rem;
+}
+
+.logoText {
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatarPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  box-shadow: 2px 2px 0px var(--card-border);
+  padding: 4px 12px;
+  border-radius: var(--neo-radius-full);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.avatarPill:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.userRole {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.main {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pageTitle {
+  font-size: 2rem;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.pageSubtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+}
+
+.spaceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.spaceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spaceCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.spaceCapacity {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.spaceName {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.spaceDesc {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  min-height: 2.8em;
+}
+
+.zoneTagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.zoneTag {
+  background-color: var(--card-inner);
+  border: 1px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.spaceCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed var(--text-subtle);
+  padding-top: 12px;
+  margin-top: auto;
+}
+
+.joinCodeText {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-subtle);
+}
+
+.loading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 60px 0;
+}
+
+/* Modal Form Styles */
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.selectGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.select {
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  outline: none;
+}
+
+.errorAlert {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 2px solid #EF4444;
+  padding: 10px 14px;
+  border-radius: var(--neo-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Avatar Customizer Styles */
+.avatarCustomizer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.previewBox {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+}
+
+.colorPickers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.colorInput {
+  width: 100%;
+  height: 40px;
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  cursor: pointer;
+  background: none;
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+/* Upgrade Card */
+.upgradeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.upgradeList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--card-inner);
+  padding: 16px;
+  border-radius: var(--neo-radius-sm);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Enhanced Space Card Styles */
+.spaceHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pinBtn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: transform 0.1s, opacity 0.1s;
+}
+
+.pinBtn:hover, .pinBtn.pinned {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.liveMembersRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background-color: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  margin-top: 4px;
+}
+
+.avatarStack {
+  display: flex;
+  align-items: center;
+}
+
+.avatarStackItem {
+  margin-right: -8px;
+  border: 1.5px solid var(--card-border);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.liveCountText {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Floating Messenger Toggle (Bottom-Right) */
+.floatingMessengerBtn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 990;
+  background-color: var(--primary, #7C3AED);
+  color: #FFFFFF;
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius-full);
+  box-shadow: 3.5px 4px 0px var(--card-border);
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.floatingMessengerBtn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 1.5px 2px 0px var(--card-border);
+}
+
+.floatingBadge {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border: 1.5px solid #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+

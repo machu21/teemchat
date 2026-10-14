@@ -1,0 +1,158 @@
+.friendsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background-color: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 3px 3.5px 0px var(--card-border);
+  padding: 18px 22px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panelTitle {
+  font-size: 1.15rem;
+  font-weight: 900;
+  margin: 0;
+}
+
+.onlineBadge {
+  background-color: #D1FAE5;
+  color: #065F46;
+  border: 1.5px solid #10B981;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  background-color: #10B981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Friends Horizontal Scroll / Grid */
+.friendsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.friendCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  padding: 10px 14px;
+  gap: 10px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.friendCard:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.friendInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.avatarWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onlineIndicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  background-color: #10B981;
+  border: 1.5px solid #FFFFFF;
+  border-radius: 50%;
+}
+
+.textGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.friendName {
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusSnippet {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spaceBadge {
+  color: #6D28D9;
+  font-weight: 700;
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.teleportBtn {
+  background-color: #10B981 !important;
+  color: #FFFFFF !important;
+  border-color: #047857 !important;
+}
+
+.emptyFriends {
+  padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+}

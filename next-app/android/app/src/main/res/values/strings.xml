@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TeemChat</string>
+    <string name="title_activity_main">TeemChat</string>
+    <string name="package_name">com.antigravity.virtualworld</string>
+    <string name="custom_url_scheme">com.antigravity.virtualworld</string>
+</resources>

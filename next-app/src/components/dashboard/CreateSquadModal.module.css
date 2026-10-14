@@ -1,0 +1,78 @@
+.squadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.iconPickerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.iconGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.iconBtn {
+  font-size: 1.4rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.iconBtn:hover {
+  transform: translate(1px, 1px);
+}
+
+.iconBtn.selectedIcon {
+  background-color: #EDE9FE;
+  border-color: #7C3AED;
+  box-shadow: 2px 2px 0px #7C3AED;
+}
+
+.friendsSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.friendCheckItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  cursor: pointer;
+}
+
+.friendLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.friendName {
+  font-size: 0.88rem;
+  font-weight: 800;
+}

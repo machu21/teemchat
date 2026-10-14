@@ -1,0 +1,16 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: var(--neo-radius-full);
+  border: 2px solid #18181B;
+  background-color: var(--cta-btn);
+  color: #18181B;
+  box-shadow: 2px 2px 0px #18181B;
+  user-select: none;
+}

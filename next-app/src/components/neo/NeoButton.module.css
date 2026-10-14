@@ -1,0 +1,76 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  border: var(--neo-border-width) solid var(--card-border);
+  box-shadow: var(--neo-shadow);
+  border-radius: var(--neo-radius);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--neo-shadow-hover);
+}
+
+.button:active:not(:disabled) {
+  transform: translate(3.5px, 3.5px);
+  box-shadow: none;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.md {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+}
+
+.lg {
+  padding: 14px 28px;
+  font-size: 1.1rem;
+}
+
+/* Variants */
+.primary {
+  background-color: var(--cta-btn);
+  color: var(--cta-text);
+}
+
+.secondary {
+  background-color: var(--card-bg);
+  color: var(--text-main);
+}
+
+.accent {
+  background-color: var(--primary);
+  color: #FFFFFF;
+}
+
+.danger {
+  background-color: #EF4444;
+  color: #FFFFFF;
+}
+
+.ghost {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-main);
+}
+.ghost:hover:not(:disabled) {
+  transform: none;
+  background-color: var(--card-inner);
+}

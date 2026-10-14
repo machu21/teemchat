@@ -1,0 +1,137 @@
+.modalContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--card-border);
+  padding-bottom: 8px;
+}
+
+.modalTabBtn {
+  padding: 6px 14px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: var(--neo-radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.modalTabBtn.activeTab {
+  background-color: var(--card-inner);
+  border-color: var(--card-border);
+  color: var(--text-main);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.badge {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.searchSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  outline: none;
+}
+
+.resultsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.userNames {
+  display: flex;
+  flex-direction: column;
+}
+
+.displayName {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.username {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.statusNotice {
+  padding: 10px 14px;
+  background-color: #EDE9FE;
+  color: #6D28D9;
+  border: 2px solid #6D28D9;
+  border-radius: var(--neo-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.requestCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  gap: 12px;
+}
+
+.requestActions {
+  display: flex;
+  gap: 8px;
+}
+
+.emptyNotice {
+  text-align: center;
+  padding: 30px 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
