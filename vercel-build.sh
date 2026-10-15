@@ -19,15 +19,21 @@ npm run build
 
 echo "✅ Next.js build completed successfully."
 
-# In case Vercel project settings still expect a legacy 'build/web' output directory:
-if [ -d "../build" ] || [ ! -d "build" ]; then
-  echo "📁 Populating legacy build/web fallback directory..."
-  mkdir -p ../build/web
-  if [ -d "public" ]; then
-    cp -r public/* ../build/web/ 2>/dev/null || true
+# If running from root, sync build artifacts to root for Vercel runner detection
+if [ -f "../package.json" ]; then
+  cd ..
+  echo "📁 Syncing build outputs to root for Vercel detection..."
+  rm -rf .next public
+  cp -r next-app/.next .next 2>/dev/null || true
+  cp -r next-app/public public 2>/dev/null || true
+
+  # Also populate build/web in case Vercel dashboard still has legacy Flutter outputDirectory
+  mkdir -p build/web
+  if [ -d "next-app/public" ]; then
+    cp -r next-app/public/* build/web/ 2>/dev/null || true
   fi
-  if [ -d ".next/server/app" ]; then
-    cp -r .next/server/app/* ../build/web/ 2>/dev/null || true
+  if [ -d "next-app/.next/server/app" ]; then
+    cp -r next-app/.next/server/app/* build/web/ 2>/dev/null || true
   fi
 fi
 
