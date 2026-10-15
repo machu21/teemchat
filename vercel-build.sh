@@ -12,7 +12,7 @@ if [ -d "next-app" ]; then
 fi
 
 echo "📦 Installing Next.js dependencies..."
-npm install --include=dev
+npm install --legacy-peer-deps
 
 echo "🏗️  Building Next.js application..."
 npm run build
