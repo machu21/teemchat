@@ -5,9 +5,9 @@
 Text messages flow through a dual-mechanism pipeline:
 1. **Database Path**:
    - Written to PostgreSQL table `public.messages`.
-   - Replicated via `supabase_realtime` using `RealtimeListenTypes.postgresChanges` on `event: 'INSERT'`.
+   - Replicated via `supabase_realtime` using `channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ...)`
 2. **Ephemeral Broadcast Fallback**:
-   - Broadcast directly across the Realtime channel `space:$spaceId:world` on `event: 'chat'`.
+   - Broadcast directly across the Realtime channel `space:$spaceId:world` on `event: 'chat'` for instant peer-to-peer delivery without database overhead.
 
 ---
 
@@ -18,52 +18,45 @@ Text messages flow through a dual-mechanism pipeline:
 
 ---
 
-## 3. Implementation Strategy: Frontend
+## 3. Implementation Strategy: Frontend (React 19 / TypeScript)
 
-In `WorldScreen` (`lib/features/world/world_screen.dart`):
+In the Space Chat component or hook (`next-app/src/lib/services/chat.ts` / Zustand chat state):
 
-1. **Active Pruning Timer**:
-   Maintain a periodic 1-second background timer:
-   ```dart
-   Timer? _chatPruneTimer;
+1. **Active Pruning Timer (React `useEffect`)**:
+   Maintain a periodic 1-second background interval:
+   ```ts
+   useEffect(() => {
+     const pruneInterval = setInterval(() => {
+       const now = Date.now();
+       setMessages((prevMessages) =>
+         prevMessages.filter((msg) => {
+           const messageAgeMs = now - new Date(msg.createdAt).getTime();
+           return messageAgeMs < 30000; // keep only messages under 30 seconds old
+         })
+       );
+     }, 1000);
 
-   void _startChatPruneTimer() {
-     _chatPruneTimer?.cancel();
-     _chatPruneTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-       if (!mounted) return;
-       final now = DateTime.now();
-       final initialCount = _messages.length;
-       
-       _messages.removeWhere((msg) {
-         final ageInSeconds = now.difference(msg.createdAt).inSeconds;
-         return ageInSeconds >= 30;
-       });
-
-       if (_messages.length != initialCount) {
-         setState(() {});
-       }
-     });
-   }
+     return () => clearInterval(pruneInterval);
+   }, []);
    ```
 
-2. **Realtime `DELETE` Event Synchronization**:
+2. **Realtime `DELETE` Event Synchronization (`@supabase/supabase-js`)**:
    In `ChatService.listenToRoomMessages`:
-   ```dart
-   _channel.on(
-     RealtimeListenTypes.postgresChanges,
-     ChannelFilter(
+   ```ts
+   channel.on(
+     'postgres_changes',
+     {
        event: 'DELETE',
        schema: 'public',
        table: 'messages',
-       filter: 'room_id=eq.$roomId',
-     ),
-     (payload, [ref]) {
-       final oldRecord = payload['old'] as Map<String, dynamic>?;
-       final deletedId = oldRecord?['id'] as String?;
-       if (deletedId != null) {
+       filter: `room_id=eq.${roomId}`,
+     },
+     (payload) => {
+       const deletedId = (payload.old as { id?: string })?.id;
+       if (deletedId) {
          onMessageDeleted(deletedId);
        }
-     },
+     }
    );
    ```
 
@@ -111,6 +104,7 @@ select cron.schedule(
 ### Option C: Complete Ephemeral Switch (Pure In-Memory Broadcast)
 If messages must strictly disappear after 30 seconds and no long-term persistence is desired:
 - Stop inserting into `public.messages`.
-- Send messages entirely via `_channel.send(type: RealtimeListenTypes.broadcast, event: 'chat')`.
-- Store only in Flutter memory for 30 seconds before evicting.
+- Send messages entirely via `channel.send({ type: 'broadcast', event: 'chat', payload: msg })`.
+- Store only in React/Zustand client state for 30 seconds before evicting.
 - *Trade-off*: Users who join mid-session will not see past 20-second chat history unless synchronized via room presence. Option A (Postgres with 30s TTL) is superior because it preserves the 30-second rolling window for newcomers.
+

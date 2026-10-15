@@ -1,0 +1,74 @@
+.controlsDock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-card, #1e1e2d);
+  border: 2px solid var(--border, #000);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px #000;
+}
+
+.dockBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 2px solid #000;
+  background: #2a2a3c;
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px #000;
+  transition: transform 0.1s ease, background 0.15s ease;
+  user-select: none;
+}
+
+.dockBtn svg {
+  display: block;
+  pointer-events: none;
+}
+
+.dockBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000;
+}
+
+.dockBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #000;
+}
+
+.activeBtn {
+  background: #00f59b;
+  color: #000;
+}
+
+.mutedBtn {
+  background: #ff4757;
+  color: #fff;
+}
+
+.screenShareActive {
+  background: #5865f2;
+  color: #fff;
+}
+
+.dangerBtn {
+  background: #ff3838;
+  color: #fff;
+}
+
+.dangerBtn:hover {
+  background: #eb2f06;
+}
+
+.divider {
+  width: 2px;
+  height: 28px;
+  background: #3f3f5a;
+  margin: 0 4px;
+}

@@ -1,0 +1,415 @@
+.selectorContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.selectorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selectorLabelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selectorLabel {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+}
+
+.selectorSubtitle {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.countBadge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-full);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Category Filter Chips / Tabs (Scrollable on mobile) */
+.categoryFilters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.categoryFilters::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryTab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: var(--neo-radius-full);
+  border: 2px solid var(--card-border);
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+}
+
+.categoryTab:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0px var(--card-border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .categoryTab:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 2px 2px 0px var(--card-border);
+  }
+}
+
+.categoryTabActive {
+  background-color: var(--primary, #7C3AED);
+  color: #FFFFFF;
+  border-color: var(--card-border);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+/* Map Grid */
+.mapGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 2px 4px 6px 2px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Custom scrollbar for map grid */
+.mapGrid::-webkit-scrollbar {
+  width: 6px;
+}
+.mapGrid::-webkit-scrollbar-track {
+  background: var(--card-inner);
+  border-radius: 4px;
+}
+.mapGrid::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+/* Map Card */
+.mapCard {
+  background: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  box-shadow: 3px 3px 0px var(--card-border);
+  border-radius: var(--neo-radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.mapCard:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mapCard:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px var(--card-border);
+  }
+}
+
+.mapCard:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mapCardSelected {
+  border-color: var(--primary);
+  background: var(--card-bg);
+  box-shadow: 3.5px 3.5px 0px var(--primary);
+  transform: translate(-1px, -1px);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mapIcon {
+  font-size: 1.45rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cardTitleText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mapName {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.categoryBadge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--card-border);
+  background: var(--card-inner);
+  color: var(--text-main);
+  line-height: 1.3;
+}
+
+.selectedIndicator {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid var(--card-border);
+  background: var(--card-inner);
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.selectedIndicatorActive {
+  background: var(--primary);
+  color: #FFFFFF;
+  border-color: var(--card-border);
+}
+
+.previewBanner {
+  height: 26px;
+  border-radius: 6px;
+  border: 1.5px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bannerTagline {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mapDesc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.highlightsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.highlightPill {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1.5px 6px;
+  background: var(--card-inner);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+/* Tablet & Mobile Screens (<= 640px) */
+@media (max-width: 640px) {
+  .selectorContainer {
+    gap: 8px;
+  }
+
+  .selectorHeader {
+    gap: 4px;
+  }
+
+  .selectorLabel {
+    font-size: 0.8rem;
+  }
+
+  .selectorSubtitle {
+    font-size: 0.7rem;
+  }
+
+  .categoryFilters {
+    gap: 5px;
+    padding-bottom: 4px;
+  }
+
+  .categoryTab {
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+
+  .mapGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    max-height: 250px;
+    padding: 2px 2px 4px 2px;
+  }
+
+  .mapCard {
+    padding: 10px 12px;
+    gap: 7px;
+    box-shadow: 2.5px 2.5px 0px var(--card-border);
+  }
+
+  .mapCardSelected {
+    box-shadow: 3px 3px 0px var(--primary);
+  }
+
+  .mapIcon {
+    font-size: 1.35rem;
+  }
+
+  .mapName {
+    font-size: 0.88rem;
+  }
+
+  .previewBanner {
+    height: 24px;
+    padding: 0 6px;
+  }
+
+  .bannerTagline {
+    font-size: 0.65rem;
+  }
+
+  .mapDesc {
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .highlightsList {
+    gap: 3px;
+  }
+
+  .highlightPill {
+    font-size: 0.62rem;
+    padding: 1px 5px;
+  }
+}
+
+/* Very Small Mobile Screens (320px - 380px) */
+@media (max-width: 380px) {
+  .selectorHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .countBadge {
+    display: none;
+  }
+
+  .mapGrid {
+    max-height: 220px;
+  }
+
+  .mapCard {
+    padding: 8px 10px;
+    box-shadow: 2px 2px 0px var(--card-border);
+  }
+
+  .mapCardSelected {
+    box-shadow: 2.5px 2.5px 0px var(--primary);
+  }
+
+  .selectedIndicator {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+
+  .categoryBadge {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+  }
+}

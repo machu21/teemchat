@@ -7,18 +7,26 @@ vi.mock('../src/lib/supabase', () => ({
       or: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       neq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
       insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
     })),
     channel: vi.fn(() => ({
       on: vi.fn().mockReturnThis(),
       subscribe: vi.fn().mockReturnThis(),
-      unsubscribe: vi.fn(),
+      unsubscribe: vi.fn().mockResolvedValue('ok'),
       track: vi.fn().mockResolvedValue(true),
+      teardown: vi.fn(),
     })),
+    getChannels: vi.fn(() => []),
+    removeChannel: vi.fn().mockResolvedValue('ok'),
   },
+  removeRealtimeChannel: vi.fn(),
+  cleanupExistingChannel: vi.fn(),
 }));
 
 import { FriendService } from '../src/lib/services/friends';
@@ -52,5 +60,21 @@ describe('Social Hub Unit Tests', () => {
   it('returns empty list when searching with empty query', async () => {
     const results = await FriendService.searchUsers('   ', 'current-user');
     expect(results).toEqual([]);
+  });
+
+  it('subscribes to friend requests idempotently without duplicate errors', () => {
+    const cb1 = vi.fn();
+    const cb2 = vi.fn();
+
+    const ch1 = FriendService.subscribeToRequests('user-123', cb1);
+    expect(ch1).toBeDefined();
+
+    // Calling it again with the same user reuses the active channel without error
+    const ch2 = FriendService.subscribeToRequests('user-123', cb2);
+    expect(ch2).toBe(ch1);
+
+    // Unsubscribing one listener keeps channel until all listeners are removed
+    FriendService.unsubscribeRequests(cb1);
+    FriendService.unsubscribeRequests(cb2);
   });
 });

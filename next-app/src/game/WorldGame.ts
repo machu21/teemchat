@@ -1,10 +1,12 @@
 import { Camera } from './camera';
-import { BOUNDARY_WALLS, checkAABB } from './collision';
+import { checkAABB, Rect } from './collision';
 import { PlayerEntity } from './entities/player';
 import { RemotePlayerEntity } from './entities/remotePlayer';
 import { CompanionEntity } from './entities/companion';
 import { FurnitureEntity, FurnitureType } from './entities/furniture';
 import { createPreRenderedWorldMap } from './map/worldMap';
+import { getCurrentZone } from './map/zones';
+import { getBoundaryWallsForMap, getDefaultPropsForMap } from './map/mapRegistry';
 import { WorldSyncService } from '@/lib/services/worldSync';
 import { CompanionModel } from '@/lib/models/chat';
 import { SpaceModel } from '@/lib/models/space';
@@ -23,6 +25,7 @@ export class WorldGame {
   private preRenderedMap: HTMLCanvasElement | null = null;
   private syncService: WorldSyncService | null = null;
   private space: SpaceModel;
+  private boundaryWalls: Rect[] = [];
 
   private keysDown: Set<string> = new Set();
   private joystickInput: { x: number; y: number } = { x: 0, y: 0 };
@@ -30,9 +33,16 @@ export class WorldGame {
   private lastTime: number = 0;
   private animFrameId: number | null = null;
 
+  // Stored listener references for clean memory teardown
+  private onKeyDownBound: ((e: KeyboardEvent) => void) | null = null;
+  private onKeyUpBound: ((e: KeyboardEvent) => void) | null = null;
+  private onCanvasClickBound: ((e: MouseEvent) => void) | null = null;
+
   // Build mode
   buildModeEnabled: boolean = false;
   selectedFurniture: FurnitureType | null = null;
+
+  private currentZoneName: string = '';
 
   onCompanionTap?: () => void;
   onZoneChanged?: (zoneName: string) => void;
@@ -49,8 +59,10 @@ export class WorldGame {
   }) {
     this.canvas = params.canvas;
     this.ctx = params.canvas.getContext('2d')!;
+    this.ctx.imageSmoothingEnabled = false;
     this.space = params.space;
     this.syncService = params.syncService || null;
+    this.boundaryWalls = getBoundaryWallsForMap(params.space.mapTheme);
 
     this.player = new PlayerEntity(
       params.initialX,
@@ -58,81 +70,59 @@ export class WorldGame {
       params.displayName,
       params.avatarConfig
     );
+    this.player.mapTheme = params.space.mapTheme || 'village';
 
     this.initDefaultProps();
     this.setupInputs();
   }
 
+  setSyncService(sync: WorldSyncService | null) {
+    this.syncService = sync;
+  }
+
+  getPlayerPosition(): { x: number; y: number } {
+    return { x: this.player.x, y: this.player.y };
+  }
+
+  setPlayerPosition(x: number, y: number) {
+    this.player.x = x;
+    this.player.y = y;
+  }
+
+  teleportTo(x: number, y: number, zoneName?: string) {
+    this.player.x = x;
+    this.player.y = y;
+    this.player.clearTargetDestination();
+    this.camera.follow(x, y, this.canvas.width, this.canvas.height);
+
+    if (zoneName) {
+      this.player.speechBubble = `✨ Teleported to ${zoneName}!`;
+      this.player.speechExpiresAt = Date.now() + 3500;
+    }
+
+    if (this.syncService) {
+      this.syncService.broadcastMovement(
+        this.player.x,
+        this.player.y,
+        this.player.direction,
+        false,
+        true
+      );
+    }
+
+    const z = getCurrentZone(x, y, this.space.mapTheme);
+    this.currentZoneName = z.name;
+    if (this.onZoneChanged) {
+      this.onZoneChanged(z.name);
+    }
+  }
+
   private initDefaultProps() {
-    const G = 16;
+    const props = getDefaultPropsForMap(this.space.mapTheme);
     let idx = 1;
-    const addProp = (type: FurnitureType, x: number, y: number) => {
-      this.furniture.push(new FurnitureEntity(`prop-${idx++}`, type, x, y));
-    };
-
-    // Verdant Village
-    addProp('stoneWell', G * 18, G * 14);
-    addProp('woodenSign', G * 14, G * 14);
-    addProp('streetLantern', G * 5, G * 14);
-    addProp('streetLantern', G * 34, G * 14);
-    addProp('streetLantern', G * 18, G * 27);
-    addProp('woodenFence', G * 5, G * 22);
-    addProp('woodenFence', G * 8, G * 22);
-    addProp('flowerPatch', G * 5, G * 24);
-    addProp('flowerPatch', G * 8, G * 24);
-    addProp('flowerPatch', G * 18, G * 12);
-    addProp('logBench', G * 23, G * 24);
-    addProp('berryBush', G * 32, G * 21);
-    addProp('berryBush', G * 32, G * 25);
-    addProp('pineTree', G * 36, G * 8);
-
-    // Whispering Woods foliage
-    const grassCoords = [
-      [G * 43, G * 6], [G * 46, G * 6], [G * 49, G * 6],
-      [G * 43, G * 9], [G * 46, G * 9], [G * 49, G * 9],
-      [G * 62, G * 10], [G * 65, G * 10], [G * 68, G * 10],
-      [G * 62, G * 13], [G * 65, G * 13], [G * 68, G * 13],
-    ];
-    for (const [x, y] of grassCoords) {
-      addProp('tallGrass', x, y);
+    for (const p of props) {
+      this.furniture.push(new FurnitureEntity(`prop-${idx++}`, p.type, p.x, p.y));
     }
-
-    const pineCoords = [
-      [G * 39, G * 3], [G * 53, G * 3], [G * 58, G * 3], [G * 72, G * 4], [G * 76, G * 8],
-      [G * 39, G * 18], [G * 48, G * 20], [G * 59, G * 19], [G * 70, G * 18], [G * 74, G * 23],
-    ];
-    for (const [x, y] of pineCoords) {
-      addProp('pineTree', x, y);
-    }
-
-    addProp('berryBush', G * 54, G * 10);
-    addProp('flowerPatch', G * 42, G * 14);
-    addProp('woodenSign', G * 43, G * 19);
-
-    // Adventure Camp props
-    addProp('campfire', G * 58, G * 35);
-    addProp('tent', G * 52, G * 33);
-    addProp('tent', G * 64, G * 33);
-    addProp('logBench', G * 57, G * 39);
-    addProp('streetLantern', G * 51, G * 37);
-    addProp('streetLantern', G * 67, G * 37);
-    addProp('woodenSign', G * 62, G * 39);
-
-    // Craggy Ridge props
-    addProp('boulder', G * 5, G * 38);
-    addProp('boulder', G * 13, G * 40);
-    addProp('boulder', G * 30, G * 38);
-    addProp('boulder', G * 8, G * 52);
-    addProp('pineTree', G * 4, G * 43);
-    addProp('pineTree', G * 31, G * 49);
-    addProp('woodenSign', G * 22, G * 38);
-
-    // Crystal Bay props
-    addProp('boulder', G * 83, G * 11);
-    addProp('boulder', G * 83, G * 45);
-    addProp('woodenSign', G * 80, G * 27);
-    addProp('streetLantern', G * 80, G * 30);
-    addProp('logBench', G * 80, G * 23);
   }
 
   async loadCloudObjects() {
@@ -155,10 +145,13 @@ export class WorldGame {
 
   setJoystickInput(x: number, y: number) {
     this.joystickInput = { x, y };
+    if (x !== 0 || y !== 0) {
+      this.player.clearTargetDestination();
+    }
   }
 
   start() {
-    this.preRenderedMap = createPreRenderedWorldMap();
+    this.preRenderedMap = createPreRenderedWorldMap(this.space.mapTheme);
     this.isRunning = true;
     this.lastTime = performance.now();
     this.loop(this.lastTime);
@@ -166,7 +159,7 @@ export class WorldGame {
 
   private loop = (currentTime: number) => {
     if (!this.isRunning) return;
-    const dt = Math.min((currentTime - this.lastTime) / 1000, 0.1);
+    const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
     this.lastTime = currentTime;
 
     this.update(dt);
@@ -176,20 +169,40 @@ export class WorldGame {
   };
 
   private update(dt: number) {
-    // 1. Calculate Player Movement vector
+    // 1. Calculate Movement Vector
     let dx = 0;
     let dy = 0;
     const speed = this.player.isSwimming ? 110 : 160;
 
+    // Keyboard Input
     if (this.keysDown.has('KeyW') || this.keysDown.has('ArrowUp')) dy -= 1;
     if (this.keysDown.has('KeyS') || this.keysDown.has('ArrowDown')) dy += 1;
     if (this.keysDown.has('KeyA') || this.keysDown.has('ArrowLeft')) dx -= 1;
     if (this.keysDown.has('KeyD') || this.keysDown.has('ArrowRight')) dx += 1;
 
-    // Merge virtual joystick
+    if (dx !== 0 || dy !== 0) {
+      this.player.clearTargetDestination();
+    }
+
+    // Touch Virtual Joystick
     if (this.joystickInput.x !== 0 || this.joystickInput.y !== 0) {
       dx = this.joystickInput.x;
       dy = this.joystickInput.y;
+      this.player.clearTargetDestination();
+    }
+
+    // Tap-to-move / Click-to-move navigation (PC mouse click or mobile touch)
+    if (dx === 0 && dy === 0 && this.player.targetDestination) {
+      const tdx = this.player.targetDestination.x - this.player.x;
+      const tdy = this.player.targetDestination.y - this.player.y;
+      const tdist = Math.hypot(tdx, tdy);
+
+      if (tdist < 4) {
+        this.player.clearTargetDestination();
+      } else {
+        dx = tdx / tdist;
+        dy = tdy / tdist;
+      }
     }
 
     const isMoving = dx !== 0 || dy !== 0;
@@ -198,37 +211,59 @@ export class WorldGame {
       const nx = (dx / len) * speed * dt;
       const ny = (dy / len) * speed * dt;
 
-      // Desired next position with collision check
-      const nextX = this.player.x + nx;
-      const nextY = this.player.y + ny;
+      // Desired position with collision slide support
+      let targetX = this.player.x + nx;
+      let targetY = this.player.y + ny;
 
-      const playerHitbox = { x: nextX + 8, y: nextY + 16, w: 16, h: 16 };
-      let collides = false;
-
-      // Check walls
-      for (const wall of BOUNDARY_WALLS) {
-        if (checkAABB(playerHitbox, wall)) {
-          collides = true;
+      // Collision Check X
+      const playerHitboxX = { x: targetX + 8, y: this.player.y + 16, w: 16, h: 16 };
+      let collidesX = false;
+      for (const wall of this.boundaryWalls) {
+        if (checkAABB(playerHitboxX, wall)) {
+          collidesX = true;
           break;
         }
       }
-
-      // Check furniture solid hitboxes
-      if (!collides) {
+      if (!collidesX) {
         for (const furn of this.furniture) {
           const hb = furn.getHitbox();
-          if (hb && checkAABB(playerHitbox, hb)) {
-            collides = true;
+          if (hb && checkAABB(playerHitboxX, hb)) {
+            collidesX = true;
             break;
           }
         }
       }
+      if (collidesX) targetX = this.player.x;
 
-      if (!collides) {
-        this.player.x = nextX;
-        this.player.y = nextY;
+      // Collision Check Y
+      const playerHitboxY = { x: targetX + 8, y: targetY + 16, w: 16, h: 16 };
+      let collidesY = false;
+      for (const wall of this.boundaryWalls) {
+        if (checkAABB(playerHitboxY, wall)) {
+          collidesY = true;
+          break;
+        }
+      }
+      if (!collidesY) {
+        for (const furn of this.furniture) {
+          const hb = furn.getHitbox();
+          if (hb && checkAABB(playerHitboxY, hb)) {
+            collidesY = true;
+            break;
+          }
+        }
+      }
+      if (collidesY) targetY = this.player.y;
+
+      // If obstructed while walking to a tap target, cancel target destination to avoid getting stuck
+      if (this.player.targetDestination && collidesX && collidesY) {
+        this.player.clearTargetDestination();
       }
 
+      this.player.x = targetX;
+      this.player.y = targetY;
+
+      // Directional Facing
       if (Math.abs(dx) > Math.abs(dy)) {
         this.player.direction = dx > 0 ? 'right' : 'left';
       } else {
@@ -240,6 +275,15 @@ export class WorldGame {
     this.player.isMoving = isMoving;
     this.player.update(dt);
 
+    // Check map zone
+    const zone = getCurrentZone(this.player.x + 16, this.player.y + 20, this.space.mapTheme);
+    if (zone.name !== this.currentZoneName) {
+      this.currentZoneName = zone.name;
+      if (this.onZoneChanged) {
+        this.onZoneChanged(zone.name);
+      }
+    }
+
     // Broadcast movement to peers
     if (isMoving || prevMoving) {
       this.syncService?.broadcastMovement(
@@ -247,7 +291,7 @@ export class WorldGame {
         this.player.y,
         this.player.direction,
         isMoving,
-        prevMoving && !isMoving // forced stop packet
+        prevMoving && !isMoving
       );
     }
 
@@ -271,6 +315,7 @@ export class WorldGame {
             state.x,
             state.y
           );
+          avatar.mapTheme = this.space.mapTheme || 'village';
           this.remoteAvatars.set(id, avatar);
         } else {
           avatar.updateState({
@@ -284,12 +329,10 @@ export class WorldGame {
         }
         avatar.update(dt);
 
-        // Calculate euclidean distance for spatial proximity audio
         const dist = Math.hypot(avatar.x - this.player.x, avatar.y - this.player.y);
         peerDistances.set(id, dist);
       }
 
-      // Evict deleted
       for (const id of this.remoteAvatars.keys()) {
         if (!peers.has(id)) {
           this.remoteAvatars.delete(id);
@@ -307,6 +350,7 @@ export class WorldGame {
 
   private render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.imageSmoothingEnabled = false;
 
     this.ctx.save();
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
@@ -317,18 +361,39 @@ export class WorldGame {
       this.ctx.drawImage(this.preRenderedMap, 0, 0);
     }
 
-    // 2. Collect all depth-sorted entities (Y-sorting for 2.5D visual accuracy)
+    // 2. Performance: Viewport Culling Bounds
+    const viewLeft = this.camera.x - 48;
+    const viewTop = this.camera.y - 48;
+    const viewRight = this.camera.x + this.canvas.width / this.camera.zoom + 48;
+    const viewBottom = this.camera.y + this.canvas.height / this.camera.zoom + 48;
+
+    // 3. Collect Visible Depth-Sorted Entities (Y-sorting for 2.5D visual accuracy)
     type Renderable = { y: number; draw: () => void };
     const renderList: Renderable[] = [];
 
-    // Furniture
+    // Furniture with Viewport Culling
     for (const f of this.furniture) {
-      renderList.push({ y: f.y + 16, draw: () => f.render(this.ctx) });
+      const size = f.getSize();
+      if (
+        f.x + size.w >= viewLeft &&
+        f.x <= viewRight &&
+        f.y + size.h >= viewTop &&
+        f.y <= viewBottom
+      ) {
+        renderList.push({ y: f.y + 16, draw: () => f.render(this.ctx) });
+      }
     }
 
-    // Remote Players
+    // Remote Players with Viewport Culling
     for (const r of this.remoteAvatars.values()) {
-      renderList.push({ y: r.y + 30, draw: () => r.render(this.ctx) });
+      if (
+        r.x + 36 >= viewLeft &&
+        r.x <= viewRight &&
+        r.y + 40 >= viewTop &&
+        r.y <= viewBottom
+      ) {
+        renderList.push({ y: r.y + 30, draw: () => r.render(this.ctx) });
+      }
     }
 
     // Companion
@@ -375,15 +440,16 @@ export class WorldGame {
   }
 
   private setupInputs() {
-    window.addEventListener('keydown', (e) => {
+    this.onKeyDownBound = (e: KeyboardEvent) => {
       this.keysDown.add(e.code);
-    });
+      this.player.clearTargetDestination();
+    };
 
-    window.addEventListener('keyup', (e) => {
+    this.onKeyUpBound = (e: KeyboardEvent) => {
       this.keysDown.delete(e.code);
-    });
+    };
 
-    this.canvas.addEventListener('click', (e) => {
+    this.onCanvasClickBound = (e: MouseEvent | PointerEvent) => {
       const rect = this.canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
@@ -397,17 +463,41 @@ export class WorldGame {
         return;
       }
 
-      // 2. Build mode placement
+      // 2. Build Mode Placement
       if (this.buildModeEnabled && this.selectedFurniture) {
         this.placeFurnitureAtScreen(clickX, clickY);
+        return;
       }
-    });
+
+      // 3. Tap-to-Move / Click-to-Move Navigation
+      const worldX = clickX / this.camera.zoom + this.camera.x - 16;
+      const worldY = clickY / this.camera.zoom + this.camera.y - 20;
+      this.player.setTargetDestination(worldX, worldY);
+    };
+
+    window.addEventListener('keydown', this.onKeyDownBound);
+    window.addEventListener('keyup', this.onKeyUpBound);
+    this.canvas.addEventListener('pointerdown', this.onCanvasClickBound);
   }
 
   dispose() {
     this.isRunning = false;
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+
+    if (this.onKeyDownBound) {
+      window.removeEventListener('keydown', this.onKeyDownBound);
+      this.onKeyDownBound = null;
+    }
+    if (this.onKeyUpBound) {
+      window.removeEventListener('keyup', this.onKeyUpBound);
+      this.onKeyUpBound = null;
+    }
+    if (this.onCanvasClickBound) {
+      this.canvas.removeEventListener('pointerdown', this.onCanvasClickBound);
+      this.onCanvasClickBound = null;
     }
   }
 }

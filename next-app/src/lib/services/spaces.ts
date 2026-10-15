@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { SpaceModel, defaultHQ, WorldObjectModel } from '../models/space';
+import { SpaceModel, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
 import { UserSession } from '../models/user';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -46,7 +46,7 @@ export const SpaceService = {
         description: item.description,
         category: item.category || 'Gaming',
         visibility: item.visibility || 'public',
-        tier: item.tier || 'free',
+        tier: (item.tier as SpaceTierType) || 'free',
         mapTheme: item.map_theme || 'village',
         joinCode: item.join_code,
         ownerId: item.owner_id,
@@ -54,7 +54,7 @@ export const SpaceService = {
         memberCount: item.member_count || 1,
         paletteIndex: item.palette_index || 0,
         isActive: item.is_active ?? true,
-        isTemporary: item.is_temporary ?? false,
+        isTemporary: Boolean((item as Record<string, unknown>).is_temporary),
         createdAt: item.created_at,
       }));
     } catch (e) {
@@ -110,7 +110,7 @@ export const SpaceService = {
               description: data.description,
               category: data.category,
               visibility: data.visibility,
-              tier: data.tier,
+              tier: data.tier as SpaceTierType,
               mapTheme: data.map_theme,
               joinCode: data.join_code,
               ownerId: data.owner_id,
@@ -190,7 +190,7 @@ export const SpaceService = {
       description: data.description,
       category: data.category,
       visibility: data.visibility,
-      tier: data.tier,
+      tier: data.tier as SpaceTierType,
       mapTheme: data.map_theme,
       joinCode: data.join_code,
       ownerId: data.owner_id,
@@ -276,7 +276,7 @@ export const SpaceService = {
             description: item.description,
             category: item.category || 'Gaming',
             visibility: item.visibility || 'public',
-            tier: item.tier || 'free',
+            tier: (item.tier as SpaceTierType) || 'free',
             mapTheme: item.map_theme || 'village',
             joinCode: item.join_code,
             ownerId: item.owner_id,
@@ -301,7 +301,7 @@ export const SpaceService = {
         description: bySlug.description,
         category: bySlug.category || 'Gaming',
         visibility: bySlug.visibility || 'public',
-        tier: bySlug.tier || 'free',
+        tier: (bySlug.tier as SpaceTierType) || 'free',
         mapTheme: bySlug.map_theme || 'village',
         joinCode: bySlug.join_code,
         ownerId: bySlug.owner_id,
@@ -325,7 +325,7 @@ export const SpaceService = {
           description: byId.description,
           category: byId.category || 'Gaming',
           visibility: byId.visibility || 'public',
-          tier: byId.tier || 'free',
+          tier: (byId.tier as SpaceTierType) || 'free',
           mapTheme: byId.map_theme || 'village',
           joinCode: byId.join_code,
           ownerId: byId.owner_id,
@@ -362,7 +362,7 @@ export const SpaceService = {
       x: o.x,
       y: o.y,
       rotation: o.rotation || 0,
-      properties: o.properties || {},
+      properties: (o.properties as Record<string, unknown>) || {},
       placedBy: o.placed_by,
     }));
   },
@@ -388,7 +388,7 @@ export const SpaceService = {
       x: data.x,
       y: data.y,
       rotation: data.rotation,
-      properties: data.properties,
+      properties: (data.properties as Record<string, unknown>) || {},
       placedBy: data.placed_by,
     };
   },

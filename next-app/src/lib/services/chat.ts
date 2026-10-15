@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase, cleanupExistingChannel } from '../supabase';
 import { ChatMessageModel } from '../models/chat';
 import { UserSession } from '../models/user';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -102,8 +102,11 @@ export class ChatService {
     onMessage: (msg: ChatMessageModel) => void,
     onDeleted?: (id: string) => void
   ): RealtimeChannel {
+    const topic = `public:messages:${roomId}`;
+    cleanupExistingChannel(topic);
+
     const channel = supabase
-      .channel(`public:messages:${roomId}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         {

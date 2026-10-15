@@ -306,6 +306,91 @@
   color: #059669;
 }
 
+.chatHeaderActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.callHeaderBtn {
+  background: var(--card-bg, #fff);
+  border: 2px solid var(--card-border, #000);
+  border-radius: var(--neo-radius-sm, 8px);
+  box-shadow: 2px 2px 0px var(--card-border, #000);
+  padding: 5px 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+.callHeaderBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--card-border, #000);
+}
+
+.inCallHeaderBtn {
+  background: #00f59b;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: var(--neo-radius-sm, 8px);
+  box-shadow: 2px 2px 0px #000;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.callMessageCard {
+  background: #1e1e2d;
+  border: 2px solid #000;
+  border-radius: 10px;
+  box-shadow: 2.5px 2.5px 0px #000;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0;
+  width: 100%;
+}
+
+.callMessageLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.callMessageIcon {
+  font-size: 1.5rem;
+}
+
+.callMessageTitle {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+.callMessageSub {
+  font-size: 0.72rem;
+  color: #a5b4fc;
+}
+
+.callMessageJoinBtn {
+  background: #00f59b;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0px #000;
+}
+
 .messagesScrollArea {
   flex: 1;
   overflow-y: auto;

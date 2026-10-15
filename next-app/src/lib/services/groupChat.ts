@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase, cleanupExistingChannel } from '../supabase';
 import { GroupConversationModel, SocialMessageModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -56,7 +56,7 @@ export class GroupChatService {
         id: c.id,
         name: c.name,
         icon: c.icon || '👾',
-        createdBy: c.created_by,
+        createdBy: c.created_by || '',
         lastMessageAt: c.last_message_at,
         lastPreview: c.last_preview || 'New group created',
         membersCount: 3,
@@ -113,10 +113,10 @@ export class GroupChatService {
       return {
         id: conv.id,
         name: conv.name,
-        icon: conv.icon,
-        createdBy: conv.created_by,
+        icon: conv.icon || '👾',
+        createdBy: conv.created_by || '',
         lastMessageAt: conv.last_message_at,
-        lastPreview: conv.last_preview,
+        lastPreview: conv.last_preview || '',
         membersCount: membersToInsert.length,
       };
     } catch (e) {
@@ -146,12 +146,19 @@ export class GroupChatService {
         return this.localMessageCache.get(conversationId) || [];
       }
 
-      const list: SocialMessageModel[] = data.map((row: any) => ({
+      const list: SocialMessageModel[] = (data as unknown as Array<{
+        id: string;
+        conversation_id: string;
+        sender_id: string;
+        content: string;
+        created_at: string;
+        sender?: { display_name?: string; avatar_config?: unknown };
+      }>).map((row) => ({
         id: row.id,
         conversationId: row.conversation_id,
         senderId: row.sender_id,
         senderName: row.sender?.display_name || 'Explorer',
-        senderAvatar: row.sender?.avatar_config || defaultAvatarConfig,
+        senderAvatar: (row.sender?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
         content: row.content,
         createdAt: row.created_at,
         isGroup: true,
@@ -159,7 +166,7 @@ export class GroupChatService {
 
       this.localMessageCache.set(conversationId, list);
       return list;
-    } catch (e) {
+    } catch {
       return this.localMessageCache.get(conversationId) || [];
     }
   }
@@ -220,8 +227,11 @@ export class GroupChatService {
     conversationId: string,
     onMessage: (msg: SocialMessageModel) => void
   ): RealtimeChannel {
+    const topic = `group_messages:${conversationId}`;
+    cleanupExistingChannel(topic);
+
     const channel = supabase
-      .channel(`group_messages:${conversationId}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         {
@@ -231,7 +241,13 @@ export class GroupChatService {
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            content: string;
+            created_at: string;
+          };
           let senderName = 'Explorer';
           const { data: p } = await supabase
             .from('profiles')
@@ -246,7 +262,7 @@ export class GroupChatService {
             conversationId: row.conversation_id,
             senderId: row.sender_id,
             senderName,
-            senderAvatar: p?.avatar_config || defaultAvatarConfig,
+            senderAvatar: (p?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
             content: row.content,
             createdAt: row.created_at,
             isGroup: true,
@@ -258,3 +274,4 @@ export class GroupChatService {
     return channel;
   }
 }
+

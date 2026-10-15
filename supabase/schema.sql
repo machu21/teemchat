@@ -34,6 +34,7 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles add column if not exists status_message text;
+alter table public.profiles add column if not exists gender text check (gender in ('male', 'female')) default 'male';
 alter table public.profiles enable row level security;
 
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
@@ -68,14 +69,24 @@ create trigger on_auth_user_created_auto_confirm
 
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  v_gender text;
 begin
-  insert into public.profiles (id, username, display_name)
+  v_gender := lower(coalesce(nullif(new.raw_user_meta_data->>'gender', ''), 'male'));
+  if v_gender not in ('male', 'female') then
+    v_gender := 'male';
+  end if;
+
+  insert into public.profiles (id, username, display_name, gender)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1))
+    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+    v_gender
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    gender = excluded.gender,
+    display_name = coalesce(excluded.display_name, public.profiles.display_name);
   return new;
 end;
 $$ language plpgsql security definer;
@@ -321,7 +332,8 @@ $$;
 create or replace function public.provision_guest_account(
   p_display_name text,
   p_password text,
-  p_avatar_config jsonb default '{}'::jsonb
+  p_avatar_config jsonb default '{}'::jsonb,
+  p_gender text default 'male'
 )
 returns jsonb
 language plpgsql
@@ -334,7 +346,13 @@ declare
   v_username text := 'guest_' || v_rand || '_' || to_char(now(), 'HH24MISS');
   v_email text := v_username || '@guest.teemchat.local';
   v_encrypted_pw text;
+  v_gender text;
 begin
+  v_gender := lower(coalesce(nullif(p_gender, ''), 'male'));
+  if v_gender not in ('male', 'female') then
+    v_gender := 'male';
+  end if;
+
   v_encrypted_pw := crypt(p_password, gen_salt('bf'));
 
   insert into auth.users (
@@ -377,7 +395,7 @@ begin
     '',
     '',
     jsonb_build_object('provider', 'email', 'providers', array['email'], 'is_guest', true),
-    jsonb_build_object('display_name', p_display_name, 'username', v_username, 'is_guest', true),
+    jsonb_build_object('display_name', p_display_name, 'username', v_username, 'is_guest', true, 'gender', v_gender),
     false,
     now(),
     now()
@@ -407,6 +425,7 @@ begin
     id,
     username,
     display_name,
+    gender,
     avatar_config,
     is_paid,
     tier,
@@ -417,6 +436,7 @@ begin
     v_user_id,
     v_username,
     p_display_name,
+    v_gender,
     p_avatar_config,
     false,
     'free',
@@ -426,13 +446,15 @@ begin
   )
   on conflict (id) do update set
     display_name = excluded.display_name,
-    avatar_config = excluded.avatar_config;
+    avatar_config = excluded.avatar_config,
+    gender = excluded.gender;
 
   return jsonb_build_object(
     'user_id', v_user_id,
     'email', v_email,
     'username', v_username,
-    'display_name', p_display_name
+    'display_name', p_display_name,
+    'gender', v_gender
   );
 end;
 $$;
@@ -490,7 +512,7 @@ $$;
 
 grant execute on function public.resolve_space_invite(text) to anon, authenticated;
 grant execute on function public.join_space_via_invite(text) to anon, authenticated;
-grant execute on function public.provision_guest_account(text, text, jsonb) to anon, authenticated;
+grant execute on function public.provision_guest_account(text, text, jsonb, text) to anon, authenticated;
 grant execute on function public.delete_guest_account() to authenticated;
 grant execute on function public.cleanup_guest_user(uuid) to anon, authenticated;
 
@@ -1369,6 +1391,331 @@ begin
     alter publication supabase_realtime add table public.group_messages;
   end if;
 end $$;
+
+-- ==========================================================
+-- 25. 3NF NORMALIZED ENTERPRISE TABLES & SECURITY HARDENING
+-- ==========================================================
+
+-- User Preferences (Multi-device settings)
+create table if not exists public.user_preferences (
+  user_id uuid references public.profiles(id) on delete cascade primary key,
+  theme text not null default 'system' check (theme in ('light', 'dark', 'system')),
+  master_volume float not null default 1.0,
+  sfx_volume float not null default 0.8,
+  sfx_enabled boolean not null default true,
+  mic_device_id text,
+  camera_device_id text,
+  speaker_device_id text,
+  noise_cancellation_enabled boolean not null default true,
+  notifications_enabled boolean not null default true,
+  keybindings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.user_preferences enable row level security;
+
+-- User Sessions & Audit
+create table if not exists public.user_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  device_type text not null default 'desktop',
+  user_agent text,
+  ip_address inet,
+  last_active_at timestamptz default timezone('utc'::text, now()) not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.user_sessions enable row level security;
+create index if not exists idx_user_sessions_user_active on public.user_sessions(user_id, last_active_at desc);
+
+-- Avatar Catalog Items & User Inventory
+create table if not exists public.avatar_catalog_items (
+  id uuid default gen_random_uuid() primary key,
+  item_type text not null check (item_type in ('hair', 'accessory', 'skin', 'shirt', 'outfit', 'pet')),
+  item_key text unique not null,
+  display_name text not null,
+  asset_svg text,
+  rarity text not null default 'common' check (rarity in ('common', 'rare', 'epic', 'legendary')),
+  required_tier text not null default 'free' check (required_tier in ('free', 'pro', 'studio')),
+  is_active boolean not null default true,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.avatar_catalog_items enable row level security;
+
+create table if not exists public.user_avatar_inventory (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  item_id uuid references public.avatar_catalog_items(id) on delete cascade not null,
+  is_equipped boolean not null default false,
+  acquired_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(user_id, item_id)
+);
+alter table public.user_avatar_inventory enable row level security;
+create index if not exists idx_user_avatar_inv_user on public.user_avatar_inventory(user_id);
+create index if not exists idx_user_avatar_inv_item on public.user_avatar_inventory(item_id);
+
+-- Space Settings & Roles (RBAC)
+create table if not exists public.space_settings (
+  space_id uuid references public.spaces(id) on delete cascade primary key,
+  default_spawn_x double precision not null default 600.0,
+  default_spawn_y double precision not null default 400.0,
+  allow_guest_chat boolean not null default true,
+  allow_screen_share boolean not null default true,
+  max_audio_bitrate int not null default 64000,
+  background_music_volume double precision not null default 0.5,
+  welcome_message text,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.space_settings enable row level security;
+
+create table if not exists public.space_roles (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  name text not null,
+  color text not null default '#3b82f6',
+  priority int not null default 0,
+  is_default boolean not null default false,
+  permissions jsonb not null default '{
+    "can_invite": true,
+    "can_kick": false,
+    "can_ban": false,
+    "can_manage_rooms": false,
+    "can_broadcast_stage": false,
+    "can_edit_world": false,
+    "can_play_music": true
+  }'::jsonb,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.space_roles enable row level security;
+create index if not exists idx_space_roles_space_priority on public.space_roles(space_id, priority desc);
+
+alter table public.space_members add column if not exists role_id uuid references public.space_roles(id) on delete set null;
+create index if not exists idx_space_members_role_id on public.space_members(role_id);
+
+-- Moderation: Bans, Mutes, Audit Logs & User Reports
+create table if not exists public.space_bans (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  banned_by uuid references public.profiles(id) on delete set null,
+  reason text,
+  expires_at timestamptz,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(space_id, user_id)
+);
+alter table public.space_bans enable row level security;
+create index if not exists idx_space_bans_lookup on public.space_bans(space_id, user_id);
+create index if not exists idx_space_bans_banned_by on public.space_bans(banned_by);
+create index if not exists idx_space_bans_user on public.space_bans(user_id);
+
+create table if not exists public.space_mutes (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  muted_by uuid references public.profiles(id) on delete set null,
+  mute_type text not null default 'all' check (mute_type in ('all', 'voice', 'chat')),
+  reason text,
+  expires_at timestamptz,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(space_id, user_id, mute_type)
+);
+alter table public.space_mutes enable row level security;
+create index if not exists idx_space_mutes_lookup on public.space_mutes(space_id, user_id);
+create index if not exists idx_space_mutes_muted_by on public.space_mutes(muted_by);
+create index if not exists idx_space_mutes_user on public.space_mutes(user_id);
+
+create table if not exists public.space_audit_logs (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  actor_id uuid references public.profiles(id) on delete set null,
+  action text not null,
+  target_type text,
+  target_id text,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.space_audit_logs enable row level security;
+create index if not exists idx_space_audit_space_created on public.space_audit_logs(space_id, created_at desc);
+create index if not exists idx_space_audit_actor on public.space_audit_logs(actor_id);
+
+create table if not exists public.user_reports (
+  id uuid default gen_random_uuid() primary key,
+  reporter_id uuid references public.profiles(id) on delete set null not null,
+  reported_user_id uuid references public.profiles(id) on delete cascade not null,
+  space_id uuid references public.spaces(id) on delete set null,
+  room_id text,
+  reason text not null,
+  details text,
+  status text not null default 'pending' check (status in ('pending', 'reviewing', 'resolved', 'dismissed')),
+  resolved_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.user_reports enable row level security;
+create index if not exists idx_user_reports_reported on public.user_reports(reported_user_id);
+create index if not exists idx_user_reports_reporter on public.user_reports(reporter_id);
+create index if not exists idx_user_reports_status on public.user_reports(status);
+create index if not exists idx_user_reports_resolved_by on public.user_reports(resolved_by);
+create index if not exists idx_user_reports_space_id on public.user_reports(space_id);
+
+-- Chat Attachments, Mentions & DM Attachments
+create table if not exists public.message_attachments (
+  id uuid default gen_random_uuid() primary key,
+  message_id uuid references public.messages(id) on delete cascade not null,
+  file_name text not null,
+  file_url text not null,
+  file_size_bytes bigint not null default 0,
+  mime_type text not null default 'application/octet-stream',
+  width int,
+  height int,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.message_attachments enable row level security;
+create index if not exists idx_message_attachments_msg on public.message_attachments(message_id);
+
+create table if not exists public.message_mentions (
+  id uuid default gen_random_uuid() primary key,
+  message_id uuid references public.messages(id) on delete cascade not null,
+  mentioned_user_id uuid references public.profiles(id) on delete cascade not null,
+  is_read boolean not null default false,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(message_id, mentioned_user_id)
+);
+alter table public.message_mentions enable row level security;
+create index if not exists idx_message_mentions_user_unread on public.message_mentions(mentioned_user_id, is_read);
+create index if not exists idx_message_mentions_msg on public.message_mentions(message_id);
+
+create table if not exists public.direct_message_attachments (
+  id uuid default gen_random_uuid() primary key,
+  direct_message_id uuid references public.direct_messages(id) on delete cascade not null,
+  file_name text not null,
+  file_url text not null,
+  file_size_bytes bigint not null default 0,
+  mime_type text not null default 'application/octet-stream',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.direct_message_attachments enable row level security;
+create index if not exists idx_dm_attachments_msg on public.direct_message_attachments(direct_message_id);
+
+-- User Blocks
+create table if not exists public.user_blocks (
+  id uuid default gen_random_uuid() primary key,
+  blocker_id uuid references public.profiles(id) on delete cascade not null,
+  blocked_user_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  check (blocker_id <> blocked_user_id),
+  unique(blocker_id, blocked_user_id)
+);
+alter table public.user_blocks enable row level security;
+create index if not exists idx_user_blocks_blocker on public.user_blocks(blocker_id);
+create index if not exists idx_user_blocks_blocked on public.user_blocks(blocked_user_id);
+
+-- Call Sessions & Participants (LiveKit Integration)
+create table if not exists public.call_sessions (
+  id uuid default gen_random_uuid() primary key,
+  room_name text unique not null,
+  call_type text not null default 'dm' check (call_type in ('dm', 'group', 'space_room')),
+  space_id uuid references public.spaces(id) on delete cascade,
+  conversation_id uuid,
+  started_by uuid references public.profiles(id) on delete set null not null,
+  is_video boolean not null default false,
+  status text not null default 'calling' check (status in ('calling', 'active', 'ended')),
+  started_at timestamptz default timezone('utc'::text, now()) not null,
+  ended_at timestamptz,
+  duration_seconds int not null default 0
+);
+alter table public.call_sessions enable row level security;
+create index if not exists idx_call_sessions_space on public.call_sessions(space_id);
+create index if not exists idx_call_sessions_started_by on public.call_sessions(started_by);
+create index if not exists idx_call_sessions_status on public.call_sessions(status);
+
+create table if not exists public.call_participants (
+  id uuid default gen_random_uuid() primary key,
+  call_session_id uuid references public.call_sessions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  joined_at timestamptz default timezone('utc'::text, now()) not null,
+  left_at timestamptz,
+  duration_seconds int not null default 0,
+  end_reason text default 'hung_up',
+  unique(call_session_id, user_id)
+);
+alter table public.call_participants enable row level security;
+create index if not exists idx_call_participants_session on public.call_participants(call_session_id);
+create index if not exists idx_call_participants_user on public.call_participants(user_id);
+
+-- Space Tilemaps & Whiteboards
+create table if not exists public.space_tilemaps (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade unique not null,
+  map_width int not null default 40,
+  map_height int not null default 30,
+  tile_size int not null default 32,
+  layers jsonb not null default '[]'::jsonb,
+  collision_matrix jsonb not null default '[]'::jsonb,
+  version int not null default 1,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.space_tilemaps enable row level security;
+create index if not exists idx_space_tilemaps_space on public.space_tilemaps(space_id);
+
+create table if not exists public.whiteboard_sessions (
+  id uuid default gen_random_uuid() primary key,
+  world_object_id uuid references public.world_objects(id) on delete cascade unique not null,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  board_data jsonb not null default '{"elements": []}'::jsonb,
+  version int not null default 1,
+  last_edited_by uuid references public.profiles(id) on delete set null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.whiteboard_sessions enable row level security;
+create index if not exists idx_whiteboard_space on public.whiteboard_sessions(space_id);
+create index if not exists idx_whiteboard_editor on public.whiteboard_sessions(last_edited_by);
+
+-- Playlist Tracks
+create table if not exists public.playlist_tracks (
+  id uuid default gen_random_uuid() primary key,
+  playlist_id uuid references public.space_playlists(id) on delete cascade not null,
+  title text not null,
+  artist text default 'Custom Upload',
+  audio_url text not null,
+  duration_seconds int default 0,
+  order_index int default 0,
+  is_active boolean default true,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.playlist_tracks enable row level security;
+create index if not exists idx_playlist_tracks_playlist on public.playlist_tracks(playlist_id, order_index);
+create index if not exists idx_playlist_tracks_created_by on public.playlist_tracks(created_by);
+
+-- Billing Invoices
+create table if not exists public.billing_invoices (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  stripe_invoice_id text unique,
+  amount_cents int not null default 0,
+  currency text not null default 'usd',
+  status text not null default 'paid' check (status in ('paid', 'open', 'void', 'uncollectible')),
+  invoice_pdf text,
+  paid_at timestamptz,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+alter table public.billing_invoices enable row level security;
+create index if not exists idx_billing_invoices_user on public.billing_invoices(user_id);
+create index if not exists idx_billing_invoices_stripe on public.billing_invoices(stripe_invoice_id);
+
+-- Covering Indexes for Foreign Keys
+create index if not exists idx_messages_sender_id on public.messages(sender_id);
+create index if not exists idx_messages_reply_to_id on public.messages(reply_to_id);
+create index if not exists idx_direct_messages_sender_id on public.direct_messages(sender_id);
+create index if not exists idx_message_reactions_user_id on public.message_reactions(user_id);
+create index if not exists idx_companion_messages_user_id on public.companion_messages(user_id);
+create index if not exists idx_space_invites_created_by on public.space_invites(created_by);
+create index if not exists idx_space_invites_space_id on public.space_invites(space_id);
+create index if not exists idx_spaces_owner_id on public.spaces(owner_id);
+create index if not exists idx_world_objects_placed_by on public.world_objects(placed_by);
+create index if not exists idx_space_playlists_created_by on public.space_playlists(created_by);
+create index if not exists idx_space_playlists_space_id on public.space_playlists(space_id);
+create index if not exists idx_worlds_created_by on public.worlds(created_by);
+
 
 
 

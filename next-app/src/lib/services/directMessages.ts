@@ -1,5 +1,5 @@
-import { supabase } from '../supabase';
-import { DirectConversationModel, SocialMessageModel } from '../models/social';
+import { supabase, cleanupExistingChannel } from '../supabase';
+import { DirectConversationModel, SocialMessageModel, FriendModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -72,7 +72,7 @@ export class DirectMessageService {
             username: profile?.username || 'explorer',
             avatarConfig: profile?.avatar_config || defaultAvatarConfig,
             isOnline: true,
-            status: (profile?.status as any) || 'available',
+            status: (profile?.status as FriendModel['status']) || 'available',
             statusMessage: profile?.status_message || undefined,
           },
           lastMessageAt: c.last_message_at,
@@ -99,12 +99,19 @@ export class DirectMessageService {
         return this.localMessageCache.get(conversationId) || [];
       }
 
-      const list: SocialMessageModel[] = data.map((row: any) => ({
+      const list: SocialMessageModel[] = (data as unknown as Array<{
+        id: string;
+        conversation_id: string;
+        sender_id: string;
+        content: string;
+        created_at: string;
+        sender?: { display_name?: string; avatar_config?: unknown };
+      }>).map((row) => ({
         id: row.id,
         conversationId: row.conversation_id,
         senderId: row.sender_id,
         senderName: row.sender?.display_name || 'Explorer',
-        senderAvatar: row.sender?.avatar_config || defaultAvatarConfig,
+        senderAvatar: (row.sender?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
         content: row.content,
         createdAt: row.created_at,
         isGroup: false,
@@ -174,8 +181,11 @@ export class DirectMessageService {
     conversationId: string,
     onMessage: (msg: SocialMessageModel) => void
   ): RealtimeChannel {
+    const topic = `direct_messages:${conversationId}`;
+    cleanupExistingChannel(topic);
+
     const channel = supabase
-      .channel(`direct_messages:${conversationId}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         {
@@ -185,7 +195,13 @@ export class DirectMessageService {
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            content: string;
+            created_at: string;
+          };
           let senderName = 'Explorer';
           const { data: p } = await supabase
             .from('profiles')
@@ -200,7 +216,7 @@ export class DirectMessageService {
             conversationId: row.conversation_id,
             senderId: row.sender_id,
             senderName,
-            senderAvatar: p?.avatar_config || defaultAvatarConfig,
+            senderAvatar: (p?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
             content: row.content,
             createdAt: row.created_at,
             isGroup: false,
@@ -212,3 +228,4 @@ export class DirectMessageService {
     return channel;
   }
 }
+

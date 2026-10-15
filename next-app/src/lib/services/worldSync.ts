@@ -1,6 +1,6 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from '../supabase';
-import { AvatarConfig, defaultAvatarConfig, normalizeAvatarConfig } from '../models/avatar';
+import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
+import { AvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { ChatMessageModel } from '../models/chat';
 
 export interface RemotePlayerState {
@@ -61,7 +61,14 @@ export class WorldSyncService {
     this.lastKnownY = initialY;
 
     try {
-      this.channel = supabase.channel(`space:${this.spaceId}:world`, {
+      const topic = `space:${this.spaceId}:world`;
+      if (this.channel) {
+        removeRealtimeChannel(this.channel);
+        this.channel = null;
+      }
+      cleanupExistingChannel(topic);
+
+      this.channel = supabase.channel(topic, {
         config: {
           presence: {
             key: this.clientInstanceId,
@@ -398,11 +405,7 @@ export class WorldSyncService {
     this.isSubscribed = false;
 
     if (this.channel) {
-      try {
-        await this.channel.untrack();
-        await this.channel.unsubscribe();
-        supabase.removeChannel(this.channel);
-      } catch (_) {}
+      removeRealtimeChannel(this.channel);
       this.channel = null;
     }
     this.remotePlayers.clear();

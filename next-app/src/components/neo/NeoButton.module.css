@@ -7,18 +7,27 @@
   border: var(--neo-border-width) solid var(--card-border);
   box-shadow: var(--neo-shadow);
   border-radius: var(--neo-radius);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
   user-select: none;
   white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.button:hover:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: var(--neo-shadow-hover);
+.fullWidth {
+  width: 100%;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: var(--neo-shadow-hover);
+  }
 }
 
 .button:active:not(:disabled) {
-  transform: translate(3.5px, 3.5px);
+  transform: translate(3px, 3px);
   box-shadow: none;
 }
 
@@ -29,18 +38,21 @@
 
 /* Sizes */
 .sm {
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 0.85rem;
+  min-height: 36px;
 }
 
 .md {
   padding: 10px 20px;
   font-size: 0.95rem;
+  min-height: 44px;
 }
 
 .lg {
   padding: 14px 28px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  min-height: 48px;
 }
 
 /* Variants */
@@ -70,7 +82,10 @@
   box-shadow: none;
   color: var(--text-main);
 }
-.ghost:hover:not(:disabled) {
-  transform: none;
-  background-color: var(--card-inner);
+@media (hover: hover) and (pointer: fine) {
+  .ghost:hover:not(:disabled) {
+    transform: none;
+    background-color: var(--card-inner);
+  }
 }
+

@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { AvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -17,6 +17,7 @@ export interface PresenceUser {
 
 export class DashboardPresenceService {
   private static channel: RealtimeChannel | null = null;
+  private static activeUserId: string | null = null;
   private static onlineUsers: Map<string, PresenceUser> = new Map();
   private static listeners: Set<(users: PresenceUser[]) => void> = new Set();
 
@@ -28,10 +29,6 @@ export class DashboardPresenceService {
     statusMessage?: string;
     currentSpace?: { slug: string; name: string };
   }): void {
-    if (this.channel) {
-      this.channel.unsubscribe();
-    }
-
     const presenceData: PresenceUser = {
       userId: user.userId,
       displayName: user.displayName,
@@ -42,6 +39,19 @@ export class DashboardPresenceService {
       onlineAt: new Date().toISOString(),
     };
 
+    // If channel is already actively tracking for this user, just update presence
+    if (this.channel && this.activeUserId === user.userId) {
+      this.updatePresence(presenceData);
+      return;
+    }
+
+    if (this.channel) {
+      removeRealtimeChannel(this.channel);
+      this.channel = null;
+    }
+
+    cleanupExistingChannel('dashboard:presence');
+
     const chan = supabase.channel('dashboard:presence', {
       config: { presence: { key: user.userId } },
     });
@@ -51,7 +61,7 @@ export class DashboardPresenceService {
         const state = chan.presenceState();
         this.onlineUsers.clear();
 
-        Object.values(state).forEach((presences: any) => {
+        Object.values(state).forEach((presences: unknown) => {
           if (Array.isArray(presences) && presences[0]) {
             const p = presences[0] as PresenceUser;
             this.onlineUsers.set(p.userId, p);
@@ -68,11 +78,12 @@ export class DashboardPresenceService {
       });
 
     this.channel = chan;
+    this.activeUserId = user.userId;
   }
 
   static updatePresence(data: Partial<PresenceUser>): void {
     if (this.channel) {
-      this.channel.track(data);
+      this.channel.track(data).catch(() => {});
     }
   }
 
@@ -91,9 +102,10 @@ export class DashboardPresenceService {
 
   static cleanup(): void {
     if (this.channel) {
-      this.channel.unsubscribe();
+      removeRealtimeChannel(this.channel);
       this.channel = null;
     }
+    this.activeUserId = null;
     this.onlineUsers.clear();
     this.listeners.clear();
   }

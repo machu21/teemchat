@@ -78,7 +78,27 @@ export function FriendsHubPanel() {
                     size="sm"
                     variant="primary"
                     className={styles.teleportBtn}
-                    onClick={() => router.push(`/space/${friend.currentSpace!.slug}`)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const slug =
+                        friend.currentSpace?.slug ||
+                        (friend.currentSpace as unknown as { id?: string })?.id ||
+                        'main-hq';
+                      let targetZone = '';
+                      const status = (friend.statusMessage || '').toLowerCase();
+                      if (status.includes('campfire') || status.includes('camp')) {
+                        targetZone = 'camp';
+                      } else if (status.includes('wood')) {
+                        targetZone = 'woods';
+                      } else if (status.includes('beach') || status.includes('bay')) {
+                        targetZone = 'beach';
+                      } else if (status.includes('bridge')) {
+                        targetZone = 'bridge';
+                      }
+                      const query = targetZone ? `?zone=${targetZone}` : '';
+                      router.push(`/space/${slug}${query}`);
+                    }}
                     title={`Teleport to ${friend.currentSpace.name}`}
                   >
                     🚀 Teleport

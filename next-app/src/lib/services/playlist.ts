@@ -36,10 +36,10 @@ export class PlaylistService {
           id: d.id,
           spaceId: d.space_id,
           title: d.title,
-          artist: d.artist,
+          artist: d.artist || 'Unknown Artist',
           audioUrl: d.audio_url,
           durationSeconds: d.duration_seconds || 180,
-          createdBy: d.created_by,
+          createdBy: d.created_by || '',
           createdAt: d.created_at,
           isDefaultPreset: false,
         }));

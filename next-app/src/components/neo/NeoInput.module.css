@@ -14,13 +14,16 @@
 .input {
   width: 100%;
   padding: 10px 14px;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  min-height: 44px;
   background-color: var(--card-bg);
   color: var(--text-main);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
   box-shadow: 2.5px 2.5px 0px var(--card-border);
   outline: none;
+  box-sizing: border-box;
+  touch-action: manipulation;
   transition: box-shadow 0.1s ease, border-color 0.1s ease;
 }
 

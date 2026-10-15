@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { FriendModel, FriendRequestModel, DirectConversationModel, GroupConversationModel } from '../lib/models/social';
+import { AvatarConfig } from '../lib/models/avatar';
 import { FriendService } from '../lib/services/friends';
 import { DirectMessageService } from '../lib/services/directMessages';
 import { GroupChatService } from '../lib/services/groupChat';
@@ -11,7 +12,7 @@ interface ActiveChatSession {
   title: string;
   icon?: string;
   otherUserId?: string;
-  avatarConfig?: any;
+  avatarConfig?: AvatarConfig;
   statusText?: string;
   isOnline?: boolean;
 }
@@ -23,13 +24,15 @@ interface SocialStoreState {
   conversations: DirectConversationModel[];
   groups: GroupConversationModel[];
   activeChat: ActiveChatSession | null;
+  activeSocialUserId: string | null;
   isDrawerOpen: boolean;
   activeDrawerTab: 'dms' | 'groups' | 'friends';
   isSearchModalOpen: boolean;
   isCreateSquadModalOpen: boolean;
   unreadCount: number;
 
-  initSocial: (userId: string, displayName: string, avatarConfig: any) => Promise<void>;
+  initSocial: (userId: string, displayName: string, avatarConfig: AvatarConfig) => Promise<void>;
+  cleanupSocial: () => void;
   refreshFriends: (userId: string) => Promise<void>;
   refreshRequests: (userId: string) => Promise<void>;
   refreshConversations: (userId: string) => Promise<void>;
@@ -47,6 +50,8 @@ interface SocialStoreState {
   setCreateSquadModalOpen: (open: boolean) => void;
 }
 
+let presenceUnsubscribe: (() => void) | null = null;
+
 export const useSocialStore = create<SocialStoreState>((set, get) => ({
   friends: [],
   incomingRequests: [],
@@ -54,14 +59,32 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
   conversations: [],
   groups: [],
   activeChat: null,
+  activeSocialUserId: null,
   isDrawerOpen: false,
   activeDrawerTab: 'dms',
   isSearchModalOpen: false,
   isCreateSquadModalOpen: false,
   unreadCount: 0,
 
-  initSocial: async (userId: string, displayName: string, avatarConfig: any) => {
+  initSocial: async (userId: string, displayName: string, avatarConfig: AvatarConfig) => {
     if (!userId) return;
+
+    // If already initialized for this exact user, simply update presence without duplicate sockets
+    if (get().activeSocialUserId === userId) {
+      DashboardPresenceService.updatePresence({
+        displayName,
+        avatarConfig,
+      });
+      return;
+    }
+
+    set({ activeSocialUserId: userId });
+
+    // Clean up any existing presence subscription callback
+    if (presenceUnsubscribe) {
+      presenceUnsubscribe();
+      presenceUnsubscribe = null;
+    }
 
     // 1. Announce presence on DashboardPresence channel
     DashboardPresenceService.init({
@@ -72,7 +95,7 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
     });
 
     // 2. Presence listener to update online status & current space of friends
-    DashboardPresenceService.subscribe((onlineUsers) => {
+    presenceUnsubscribe = DashboardPresenceService.subscribe((onlineUsers) => {
       const onlineMap = new Map(onlineUsers.map((u) => [u.userId, u]));
       const currentFriends = get().friends;
 
@@ -104,6 +127,17 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
       get().refreshRequests(userId);
     });
   },
+
+  cleanupSocial: () => {
+    if (presenceUnsubscribe) {
+      presenceUnsubscribe();
+      presenceUnsubscribe = null;
+    }
+    DashboardPresenceService.cleanup();
+    FriendService.unsubscribeRequests();
+    set({ activeSocialUserId: null });
+  },
+
 
   refreshFriends: async (userId: string) => {
     const data = await FriendService.getFriends(userId);

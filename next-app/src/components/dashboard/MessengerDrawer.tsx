@@ -9,6 +9,11 @@ import { GroupChatService } from '@/lib/services/groupChat';
 import { SocialMessageModel } from '@/lib/models/social';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { NeoButton } from '@/components/neo/NeoButton';
+import { useCallStore } from '@/stores/call';
+import { InlineCallPanel } from '@/components/call/InlineCallPanel';
+
+import { removeRealtimeChannel } from '@/lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function MessengerDrawer() {
   const { session } = useSessionStore();
@@ -28,42 +33,89 @@ export function MessengerDrawer() {
     setCreateSquadModalOpen,
   } = useSocialStore();
 
+  const {
+    currentCall,
+    status: callStatus,
+    startCall,
+    joinCall,
+    setStageMaximized,
+  } = useCallStore();
+
   const [messages, setMessages] = useState<SocialMessageModel[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  const isInCallWithThisChat =
+    callStatus === 'connected' &&
+    currentCall?.conversationId === activeChat?.id;
+
+  const handleStartCall = async (isVideo: boolean) => {
+    if (!activeChat || !session) return;
+    await startCall({
+      type: activeChat.type,
+      conversationId: activeChat.id,
+      title: activeChat.title,
+      icon: activeChat.icon,
+      isVideo,
+      user: {
+        id: session.id,
+        name: session.displayName,
+        avatarConfig: session.avatarConfig,
+      },
+    });
+
+    const callText = isVideo ? '📹 Started a video call' : '📞 Started a voice call';
+    handleSendMessage(callText);
+  };
+
+  const handleJoinCall = async (isVideo: boolean) => {
+    if (!activeChat || !session) return;
+    await joinCall({
+      roomId: `call-${activeChat.type}-${activeChat.id}`,
+      type: activeChat.type,
+      conversationId: activeChat.id,
+      title: activeChat.title,
+      icon: activeChat.icon,
+      isVideo,
+      user: {
+        id: session.id,
+        name: session.displayName,
+        avatarConfig: session.avatarConfig,
+      },
+    });
+  };
+
   // Load chat messages when activeChat changes
   useEffect(() => {
-    if (!activeChat) {
-      setMessages([]);
-      return;
-    }
+    if (!activeChat) return;
 
     let isMounted = true;
+    let sub: RealtimeChannel | null = null;
+
     if (activeChat.type === 'dm') {
       DirectMessageService.fetchMessages(activeChat.id).then((list) => {
         if (isMounted) setMessages(list);
       });
-      const sub = DirectMessageService.subscribeToConversation(activeChat.id, (newMsg) => {
+      sub = DirectMessageService.subscribeToConversation(activeChat.id, (newMsg) => {
         if (isMounted) setMessages((prev) => [...prev, newMsg]);
       });
-      return () => {
-        isMounted = false;
-        sub.unsubscribe();
-      };
     } else {
       GroupChatService.fetchMessages(activeChat.id).then((list) => {
         if (isMounted) setMessages(list);
       });
-      const sub = GroupChatService.subscribeToGroup(activeChat.id, (newMsg) => {
+      sub = GroupChatService.subscribeToGroup(activeChat.id, (newMsg) => {
         if (isMounted) setMessages((prev) => [...prev, newMsg]);
       });
-      return () => {
-        isMounted = false;
-        sub.unsubscribe();
-      };
     }
+
+    return () => {
+      isMounted = false;
+      if (sub) {
+        removeRealtimeChannel(sub);
+      }
+      setMessages([]);
+    };
   }, [activeChat]);
 
   // Auto-scroll on new messages
@@ -146,7 +198,43 @@ export function MessengerDrawer() {
                 <span className={styles.chatHeaderTitle}>{activeChat.title}</span>
                 <span className={styles.chatHeaderStatus}>{activeChat.statusText}</span>
               </div>
+
+              {/* Call Action Buttons in Header */}
+              <div className={styles.chatHeaderActions}>
+                {isInCallWithThisChat ? (
+                  <button
+                    type="button"
+                    className={styles.inCallHeaderBtn}
+                    onClick={() => setStageMaximized(true)}
+                    title="Open Full Call Stage"
+                  >
+                    🟢 In Call • Stage
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.callHeaderBtn}
+                      onClick={() => handleStartCall(false)}
+                      title="Start Voice Call"
+                    >
+                      📞
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.callHeaderBtn}
+                      onClick={() => handleStartCall(true)}
+                      title="Start Video Call"
+                    >
+                      📹
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
+
+            {/* Embedded Active Call Panel */}
+            {isInCallWithThisChat && <InlineCallPanel />}
 
             {/* Message History */}
             <div className={styles.messagesScrollArea} ref={scrollRef}>
@@ -161,6 +249,44 @@ export function MessengerDrawer() {
               ) : (
                 messages.map((m) => {
                   const isMine = m.senderId === session?.id;
+                  const isCallEvent =
+                    m.content.includes('Started a voice call') ||
+                    m.content.includes('Started a video call');
+
+                  if (isCallEvent) {
+                    const isVideo = m.content.includes('video');
+                    return (
+                      <div key={m.id} className={styles.callMessageCard}>
+                        <div className={styles.callMessageLeft}>
+                          <span className={styles.callMessageIcon}>
+                            {isVideo ? '📹' : '📞'}
+                          </span>
+                          <div>
+                            <div className={styles.callMessageTitle}>
+                              {m.senderName} started a {isVideo ? 'video' : 'voice'} call
+                            </div>
+                            <div className={styles.callMessageSub}>
+                              {new Date(m.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {!isInCallWithThisChat && (
+                          <button
+                            type="button"
+                            className={styles.callMessageJoinBtn}
+                            onClick={() => handleJoinCall(isVideo)}
+                          >
+                            Join Call
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={m.id}

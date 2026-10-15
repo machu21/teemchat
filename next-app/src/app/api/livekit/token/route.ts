@@ -16,17 +16,26 @@ export async function POST(req: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    let userId = '';
+    let userIdentifier = '';
 
-    if (authErr || !user) {
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (!authErr && user) {
+      userId = user.id;
+      userIdentifier = user.email || user.id;
+    } else if (token.startsWith('guest_') || token.startsWith('local-')) {
+      userId = token;
+      userIdentifier = token;
+    } else {
       return NextResponse.json({ error: 'Unauthorized user token' }, { status: 401 });
     }
 
     const body = await req.json();
-    const { spaceId, displayName } = body;
+    const { spaceId, roomName, displayName } = body;
+    const targetRoom = roomName || (spaceId ? `space-${spaceId}` : null);
 
-    if (!spaceId) {
-      return NextResponse.json({ error: 'Missing spaceId' }, { status: 400 });
+    if (!targetRoom) {
+      return NextResponse.json({ error: 'Missing roomName or spaceId' }, { status: 400 });
     }
 
     if (!livekitApiKey || !livekitApiSecret) {
@@ -34,13 +43,13 @@ export async function POST(req: NextRequest) {
     }
 
     const at = new AccessToken(livekitApiKey, livekitApiSecret, {
-      identity: user.id,
-      name: displayName || user.email || 'Explorer',
+      identity: userId,
+      name: displayName || userIdentifier || 'Explorer',
       ttl: '2h',
     });
 
     at.addGrant({
-      room: `space-${spaceId}`,
+      room: targetRoom,
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,

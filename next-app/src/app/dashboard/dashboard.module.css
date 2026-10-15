@@ -360,3 +360,46 @@
   border-radius: 999px;
 }
 
+/* Gender Selector in Avatar Customizer */
+.genderButtonGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.genderBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  background-color: var(--card-bg);
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  box-shadow: 2px 2px 0px var(--card-border);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.genderBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--card-border);
+}
+
+.genderBtnMaleActive {
+  background-color: #38BDF8 !important;
+  color: #032A46 !important;
+  box-shadow: 3px 3px 0px var(--card-border) !important;
+}
+
+.genderBtnFemaleActive {
+  background-color: #F472B6 !important;
+  color: #4A0426 !important;
+  box-shadow: 3px 3px 0px var(--card-border) !important;
+}
+
+

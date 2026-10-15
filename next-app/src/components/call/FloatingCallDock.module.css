@@ -1,0 +1,110 @@
+.floatingDock {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #181826;
+  border: 2.5px solid #000;
+  border-radius: 40px;
+  box-shadow: 4px 4px 0px #000;
+  z-index: 9000;
+  user-select: none;
+  animation: slideUp 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.callInfo {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.callTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.greenDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00f59b;
+  box-shadow: 0 0 6px #00f59b;
+}
+
+.callSubtext {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #000;
+  background: #2a2a3c;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px #000;
+  transition: transform 0.1s ease;
+}
+
+.actionBtn svg {
+  display: block;
+  pointer-events: none;
+}
+
+.actionBtn:hover {
+  transform: translate(-1px, -1px);
+}
+
+.activeBtn {
+  background: #00f59b;
+  color: #000;
+}
+
+.mutedBtn {
+  background: #ff4757;
+  color: #fff;
+}
+
+.expandBtn {
+  background: #FFE57F;
+  color: #000;
+}
+
+.dangerBtn {
+  background: #ff3838;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .floatingDock {
+    bottom: 80px;
+    right: 12px;
+    left: 12px;
+    justify-content: space-between;
+  }
+}

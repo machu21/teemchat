@@ -117,12 +117,18 @@
   border-radius: 50%;
   border: 2px solid var(--card-border);
   background-color: var(--card-inner);
-  font-size: 1.25rem;
+  color: var(--text-main);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 1.5px 1.5px 0px var(--card-border);
-  transition: transform 0.1s ease, background-color 0.1s ease;
+  transition: transform 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+}
+
+.dockBtn svg {
+  display: block;
+  pointer-events: none;
 }
 
 .dockBtn:hover {
@@ -132,6 +138,7 @@
 
 .dockBtnActive {
   background-color: var(--cta-btn);
+  color: var(--cta-text);
 }
 
 .dockDivider {
@@ -357,3 +364,136 @@
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+
+/* Guest Character Setup in Space */
+.characterSetupContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.avatarStage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-lg, 16px);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.genderButtonGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.genderBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background-color: var(--card-bg);
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  box-shadow: 2px 2px 0px var(--card-border);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.genderBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--card-border);
+}
+
+.genderBtnMaleActive {
+  background-color: #38BDF8 !important;
+  color: #032A46 !important;
+  box-shadow: 3px 3px 0px var(--card-border) !important;
+}
+
+.genderBtnFemaleActive {
+  background-color: #F472B6 !important;
+  color: #4A0426 !important;
+  box-shadow: 3px 3px 0px var(--card-border) !important;
+}
+
+/* World Map Teleport Modal */
+.teleportModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.teleportSubtitle {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.zoneGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.zoneCard {
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  padding: 12px 14px;
+  box-shadow: 2px 2px 0px var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.zoneCard:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--card-border);
+}
+
+.zoneCardCurrent {
+  border-color: #10B981;
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.zoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zoneName {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.currentIndicator {
+  font-size: 0.72rem;
+  font-weight: 800;
+  background-color: #10B981;
+  color: #FFFFFF;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #047857;
+}
+
+.zoneDesc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.35;
+}
+

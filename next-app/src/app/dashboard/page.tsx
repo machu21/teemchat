@@ -13,19 +13,27 @@ import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
 import { ThemeToggle } from '@/components/neo/ThemeToggle';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
-import { availableAccessories, availableHairStyles } from '@/lib/models/avatar';
+import {
+  AvatarConfig,
+  Gender,
+  availableAccessories,
+  availableHairStyles,
+} from '@/lib/models/avatar';
 import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
 import { MessengerDrawer } from '@/components/dashboard/MessengerDrawer';
 import { FriendRequestModal } from '@/components/dashboard/FriendRequestModal';
 import { CreateSquadModal } from '@/components/dashboard/CreateSquadModal';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
+import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
+import { MapSelector } from '@/components/neo/MapSelector';
+import { getMapConfig, MapThemeId } from '@/game/map/mapRegistry';
 import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { session, isGuest, initSession, signOut, updateProfile } = useSessionStore();
-  const { initSocial, openDrawer, unreadCount, friends } = useSocialStore();
+  const { session, initSession, signOut, updateProfile } = useSessionStore();
+  const { initSocial, cleanupSocial, openDrawer, unreadCount, friends } = useSocialStore();
 
   const [spaces, setSpaces] = useState<SpaceModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +41,15 @@ export default function DashboardPage() {
   // Space filtering & favorites state
   const [activeSpaceTab, setActiveSpaceTab] = useState<SpaceCategoryTab>('all');
   const [spaceSearch, setSpaceSearch] = useState('');
-  const [pinnedSpaceIds, setPinnedSpaceIds] = useState<string[]>([]);
+  const [pinnedSpaceIds, setPinnedSpaceIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('teem_pinned_spaces');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -44,41 +60,37 @@ export default function DashboardPage() {
   // Form states
   const [newSpaceName, setNewSpaceName] = useState('');
   const [newSpaceSlug, setNewSpaceSlug] = useState('');
-  const [newSpaceTheme, setNewSpaceTheme] = useState('village');
+  const [newSpaceTheme, setNewSpaceTheme] = useState<string>('village');
+  const [newSpaceCategory, setNewSpaceCategory] = useState<string>('Gaming');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Avatar editor local state
+  const [editGender, setEditGender] = useState<Gender>('male');
   const [editSkin, setEditSkin] = useState('#FCD5B5');
   const [editShirt, setEditShirt] = useState('#7C3AED');
   const [editHair, setEditHair] = useState('#37271E');
-  const [editHairStyle, setEditHairStyle] = useState<'short' | 'long' | 'buzz' | 'spiky'>('short');
-  const [editAccessory, setEditAccessory] = useState<'none' | 'glasses' | 'headband' | 'headphones' | 'cap'>('none');
+  const [editHairStyle, setEditHairStyle] = useState<AvatarConfig['hairStyle']>('short');
+  const [editAccessory, setEditAccessory] = useState<AvatarConfig['accessory']>('none');
   const [editDisplayName, setEditDisplayName] = useState('');
 
   const loadSpaces = useCallback(async () => {
-    setIsLoading(true);
-    const data = await SpaceService.getSpaces(session);
-    setSpaces(data);
-    setIsLoading(false);
+    try {
+      const data = await SpaceService.getSpaces(session);
+      setSpaces(data);
+    } finally {
+      setIsLoading(false);
+    }
   }, [session]);
 
   useEffect(() => {
     initSession();
-    try {
-      const savedPins = localStorage.getItem('teem_pinned_spaces');
-      if (savedPins) setPinnedSpaceIds(JSON.parse(savedPins));
-    } catch (e) {
-      // ignore
-    }
   }, [initSession]);
 
-  useEffect(() => {
+  const openAvatarEditor = () => {
     if (session) {
-      loadSpaces();
-      initSocial(session.id, session.displayName, session.avatarConfig);
-
+      setEditGender(session.gender || session.avatarConfig.gender || 'male');
       setEditSkin(session.avatarConfig.skinColor);
       setEditShirt(session.avatarConfig.shirtColor);
       setEditHair(session.avatarConfig.hairColor);
@@ -86,7 +98,19 @@ export default function DashboardPage() {
       setEditAccessory(session.avatarConfig.accessory);
       setEditDisplayName(session.displayName);
     }
-  }, [session, loadSpaces, initSocial]);
+    setAvatarDrawerOpen(true);
+  };
+
+  useEffect(() => {
+    if (session) {
+      loadSpaces();
+      initSocial(session.id, session.displayName, session.avatarConfig);
+    }
+
+    return () => {
+      cleanupSocial();
+    };
+  }, [session, loadSpaces, initSocial, cleanupSocial]);
 
   const togglePinSpace = (spaceId: string) => {
     setPinnedSpaceIds((prev) => {
@@ -114,6 +138,7 @@ export default function DashboardPage() {
           name: newSpaceName.trim(),
           slug,
           mapTheme: newSpaceTheme,
+          category: newSpaceCategory,
         },
         session
       );
@@ -148,13 +173,19 @@ export default function DashboardPage() {
 
   const handleSaveAvatar = async () => {
     if (!session) return;
-    await updateProfile(editDisplayName || session.displayName, session.status, {
-      skinColor: editSkin,
-      shirtColor: editShirt,
-      hairColor: editHair,
-      hairStyle: editHairStyle,
-      accessory: editAccessory,
-    });
+    await updateProfile(
+      editDisplayName || session.displayName,
+      session.status,
+      {
+        gender: editGender,
+        skinColor: editSkin,
+        shirtColor: editShirt,
+        hairColor: editHair,
+        hairStyle: editHairStyle,
+        accessory: editAccessory,
+      },
+      editGender
+    );
     setAvatarDrawerOpen(false);
   };
 
@@ -220,7 +251,7 @@ export default function DashboardPage() {
           {session && (
             <div
               className={styles.avatarPill}
-              onClick={() => setAvatarDrawerOpen(true)}
+              onClick={openAvatarEditor}
               title="Customize Avatar"
             >
               <PixelAvatar config={session.avatarConfig} size={32} />
@@ -303,6 +334,8 @@ export default function DashboardPage() {
                 (f) => f.currentSpace?.slug === space.slug || f.currentSpace?.slug === space.id
               );
 
+              const spaceMapConfig = getMapConfig(space.mapTheme);
+
               return (
                 <NeoCard key={space.id} className={styles.spaceCard}>
                   <div className={styles.spaceCardHeader}>
@@ -321,14 +354,18 @@ export default function DashboardPage() {
 
                   <h3 className={styles.spaceName}>{space.name}</h3>
                   <p className={styles.spaceDesc}>
-                    {space.description ||
-                      'Cozy retro realm with Village, Woods, Campfire & Coastal Bay.'}
+                    {space.description || spaceMapConfig.description}
                   </p>
 
                   <div className={styles.zoneTagRow}>
-                    <span className={styles.zoneTag}>🏡 Verdant Village</span>
-                    <span className={styles.zoneTag}>🌲 Woods</span>
-                    <span className={styles.zoneTag}>🔥 Campfire</span>
+                    <span className={styles.zoneTag} style={{ borderColor: spaceMapConfig.badgeColor }}>
+                      {spaceMapConfig.icon} {spaceMapConfig.name}
+                    </span>
+                    {spaceMapConfig.zones.slice(0, 2).map((z) => (
+                      <span key={z.id} className={styles.zoneTag}>
+                        {z.tag}
+                      </span>
+                    ))}
                   </div>
 
                   {/* Live Explorers Row */}
@@ -387,11 +424,15 @@ export default function DashboardPage() {
       {/* Squad Creation Modal */}
       <CreateSquadModal />
 
+      {/* Group & DM Call Overlay Container (Stage, Floating Dock, Incoming Ring) */}
+      <CallOverlayContainer />
+
       {/* Create Space Modal */}
       <NeoModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         title="Create a New Space"
+        maxWidth="620px"
       >
         <form onSubmit={handleCreateSpace} className={styles.modalForm}>
           {formError && <div className={styles.errorAlert}>{formError}</div>}
@@ -409,18 +450,13 @@ export default function DashboardPage() {
             onChange={(e) => setNewSpaceSlug(e.target.value)}
           />
 
-          <div className={styles.selectGroup}>
-            <label className={styles.label}>Map Theme</label>
-            <select
-              value={newSpaceTheme}
-              onChange={(e) => setNewSpaceTheme(e.target.value)}
-              className={styles.select}
-            >
-              <option value="village">Verdant Village (Default 16-bit)</option>
-              <option value="forest">Whispering Woods</option>
-              <option value="coastal">Crystal Bay Beach</option>
-            </select>
-          </div>
+          <MapSelector
+            selectedTheme={newSpaceTheme}
+            onSelectTheme={(themeId: MapThemeId, category: string) => {
+              setNewSpaceTheme(themeId);
+              setNewSpaceCategory(category);
+            }}
+          />
 
           <NeoButton type="submit" variant="primary" size="lg" disabled={isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Launch Space'}
@@ -459,6 +495,7 @@ export default function DashboardPage() {
           <div className={styles.previewBox}>
             <PixelAvatar
               config={{
+                gender: editGender,
                 skinColor: editSkin,
                 shirtColor: editShirt,
                 hairColor: editHair,
@@ -467,6 +504,26 @@ export default function DashboardPage() {
               }}
               size={96}
             />
+          </div>
+
+          <div className={styles.selectGroup}>
+            <label className={styles.label}>Gender</label>
+            <div className={styles.genderButtonGroup}>
+              <button
+                type="button"
+                className={`${styles.genderBtn} ${editGender === 'male' ? styles.genderBtnMaleActive : ''}`}
+                onClick={() => setEditGender('male')}
+              >
+                <span>👨 Male</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.genderBtn} ${editGender === 'female' ? styles.genderBtnFemaleActive : ''}`}
+                onClick={() => setEditGender('female')}
+              >
+                <span>👩 Female</span>
+              </button>
+            </div>
           </div>
 
           <NeoInput
@@ -510,7 +567,7 @@ export default function DashboardPage() {
             <select
               value={editHairStyle}
               onChange={(e) =>
-                setEditHairStyle(e.target.value as 'short' | 'long' | 'buzz' | 'spiky')
+                setEditHairStyle(e.target.value as AvatarConfig['hairStyle'])
               }
               className={styles.select}
             >
@@ -528,7 +585,7 @@ export default function DashboardPage() {
               value={editAccessory}
               onChange={(e) =>
                 setEditAccessory(
-                  e.target.value as 'none' | 'glasses' | 'headband' | 'headphones' | 'cap'
+                  e.target.value as AvatarConfig['accessory']
                 )
               }
               className={styles.select}

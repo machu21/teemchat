@@ -11,8 +11,18 @@ import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
 import { ThemeToggle } from '@/components/neo/ThemeToggle';
+import { PixelAvatar } from '@/components/neo/PixelAvatar';
+import { AndroidLogo, AppleLogo } from '@/components/icons/BrandLogos';
 import { InviteLinkService } from '@/lib/services/invite';
+import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/lib/models/avatar';
 import { useRouter } from 'next/navigation';
+
+const TYPEWRITER_PHRASES = [
+  'cozy 2D spaces.',
+  'campfire circles.',
+  'pixel retreat cabins.',
+  'virtual world avenues.',
+];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -31,16 +41,23 @@ export default function LandingPage() {
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Mobile Menu & Action States ──
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [copiedSafariLink, setCopiedSafariLink] = useState(false);
+
+  // ── Guest & Character Setup State ──
+  const [characterModalOpen, setCharacterModalOpen] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestGender, setGuestGender] = useState<Gender>('male');
+  const [signUpGender, setSignUpGender] = useState<Gender>('male');
+
   // ── Deep Link State ──
-  const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [pendingCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return InviteLinkService.extractCode(window.location.href);
+  });
 
   // ── Typewriter Animated Headline ──
-  const typewriterPhrases = [
-    'cozy 2D spaces.',
-    'campfire circles.',
-    'pixel retreat cabins.',
-    'virtual world avenues.',
-  ];
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [displayedText, setDisplayedText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -66,10 +83,6 @@ export default function LandingPage() {
   useEffect(() => {
     initSession();
     initTheme();
-    const code = InviteLinkService.extractCode(window.location.href);
-    if (code) {
-      setPendingCode(code);
-    }
   }, [initSession, initTheme]);
 
   useEffect(() => {
@@ -80,7 +93,7 @@ export default function LandingPage() {
 
   // Typewriter loop
   useEffect(() => {
-    const current = typewriterPhrases[phraseIdx];
+    const current = TYPEWRITER_PHRASES[phraseIdx];
     let timer: NodeJS.Timeout;
 
     if (!isDeleting && displayedText.length < current.length) {
@@ -94,12 +107,14 @@ export default function LandingPage() {
         setDisplayedText(current.slice(0, displayedText.length - 1));
       }, 35);
     } else if (isDeleting && displayedText.length === 0) {
-      setIsDeleting(false);
-      setPhraseIdx((prev) => (prev + 1) % typewriterPhrases.length);
+      timer = setTimeout(() => {
+        setIsDeleting(false);
+        setPhraseIdx((prev) => (prev + 1) % 4);
+      }, 300);
     }
 
     return () => clearTimeout(timer);
-  }, [displayedText, isDeleting, phraseIdx, typewriterPhrases]);
+  }, [displayedText, isDeleting, phraseIdx]);
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -108,14 +123,23 @@ export default function LandingPage() {
     }
   };
 
-  const handleGuestEnter = async () => {
+  const openGuestModal = (defaultName?: string) => {
+    const name = defaultName !== undefined ? defaultName : (spaceName.trim() ? `${spaceName.trim()} Explorer` : 'Explorer');
+    setGuestName(name);
+    setCharacterModalOpen(true);
+  };
+
+  const handleConfirmGuest = async () => {
     setIsSubmitting(true);
-    await signInGuest(spaceName.trim() ? `${spaceName.trim()} Explorer` : 'Explorer');
-    setIsSubmitting(false);
-    if (pendingCode) {
-      router.push(`/space/${pendingCode}`);
-    } else {
-      router.push('/dashboard');
+    try {
+      await signInGuest(guestName.trim() || 'Explorer', guestGender);
+      setCharacterModalOpen(false);
+      const target = pendingCode ? `/space/${pendingCode}` : '/dashboard';
+      router.push(target);
+    } catch (err) {
+      console.error('Guest entry error:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -124,29 +148,45 @@ export default function LandingPage() {
     setAuthError('');
     setIsSubmitting(true);
 
-    if (isSignUp) {
-      if (!username || !displayName) {
-        setAuthError('Please fill in all fields.');
-        setIsSubmitting(false);
-        return;
-      }
-      const res = await signUpWithPassword(email, password, username, displayName);
-      if (res.error) {
-        setAuthError(res.error);
+    try {
+      if (isSignUp) {
+        if (!username || !displayName) {
+          setAuthError('Please fill in all fields.');
+          return;
+        }
+        const res = await signUpWithPassword(email, password, username, displayName, signUpGender);
+        if (res.error) {
+          setAuthError(res.error);
+        } else {
+          setAuthModalOpen(false);
+          router.push('/dashboard');
+        }
       } else {
-        setAuthModalOpen(false);
-        router.push('/dashboard');
+        const res = await signInWithPassword(email, password);
+        if (res.error) {
+          setAuthError(res.error);
+        } else {
+          setAuthModalOpen(false);
+          router.push('/dashboard');
+        }
       }
-    } else {
-      const res = await signInWithPassword(email, password);
-      if (res.error) {
-        setAuthError(res.error);
-      } else {
-        setAuthModalOpen(false);
-        router.push('/dashboard');
-      }
+    } catch {
+      setAuthError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
+  };
+
+  const handleCopySafariLink = async () => {
+    try {
+      if (typeof window !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(window.location.origin);
+        setCopiedSafariLink(true);
+        setTimeout(() => setCopiedSafariLink(false), 2500);
+      }
+    } catch {
+      // Ignore copy error
+    }
   };
 
   const getInitials = (text: string) => {
@@ -173,7 +213,7 @@ export default function LandingPage() {
               You were invited to space: <strong>{pendingCode}</strong>! Hop right in to explore.
             </span>
           </div>
-          <NeoButton size="sm" variant="secondary" onClick={handleGuestEnter} disabled={isSubmitting}>
+          <NeoButton size="sm" variant="secondary" onClick={() => openGuestModal()} disabled={isSubmitting}>
             ⚡ Enter as Guest
           </NeoButton>
         </div>
@@ -230,15 +270,109 @@ export default function LandingPage() {
             Log in
           </NeoButton>
           <NeoButton
+            className={styles.navGuestBtn}
             variant="primary"
             size="sm"
-            onClick={handleGuestEnter}
+            onClick={() => openGuestModal()}
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Entering...' : 'Enter as Guest'}
           </NeoButton>
+          <button
+            type="button"
+            className={styles.hamburgerBtn}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
         </div>
       </header>
+
+      {/* ── Mobile Navigation Drawer ── */}
+      {mobileMenuOpen && (
+        <div className={styles.mobileMenuDrawer}>
+          <nav className={styles.mobileNavLinks}>
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                scrollTo('try-it');
+                setMobileMenuOpen(false);
+              }}
+            >
+              ✨ Try It Out
+            </button>
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                scrollTo('how-it-works');
+                setMobileMenuOpen(false);
+              }}
+            >
+              🗺️ How It Works
+            </button>
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                scrollTo('features');
+                setMobileMenuOpen(false);
+              }}
+            >
+              ⚡ Features
+            </button>
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                scrollTo('pricing');
+                setMobileMenuOpen(false);
+              }}
+            >
+              💎 Pricing
+            </button>
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                scrollTo('download');
+                setMobileMenuOpen(false);
+              }}
+            >
+              📱 Download Apps
+            </button>
+          </nav>
+          <div className={styles.mobileMenuActions}>
+            <NeoButton
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsSignUp(false);
+                setAuthModalOpen(true);
+              }}
+            >
+              🔑 Log In / Sign Up
+            </NeoButton>
+            <NeoButton
+              variant="primary"
+              size="md"
+              fullWidth
+              onClick={() => {
+                setMobileMenuOpen(false);
+                openGuestModal();
+              }}
+              disabled={isSubmitting}
+            >
+              ⚡ Enter as Guest
+            </NeoButton>
+          </div>
+        </div>
+      )}
 
       {/* ── Main Container ── */}
       <main className={styles.mainContainer}>
@@ -263,7 +397,7 @@ export default function LandingPage() {
               <button
                 type="button"
                 className={styles.btnGetStarted}
-                onClick={handleGuestEnter}
+                onClick={() => openGuestModal()}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Entering...' : 'Get Started'}
@@ -280,17 +414,18 @@ export default function LandingPage() {
               </button>
             </div>
 
-            <div className={styles.heroBadgesRow}>
-              <a href="/downloads/teemchat-release.apk" className={styles.badgePill} download>
-                <span>🤖</span>
-                <span>Download Android APK</span>
-                <span className={styles.badgeTag}>FREE APK</span>
-              </a>
-              <div className={styles.badgePill} onClick={() => scrollTo('download')}>
-                <span>🍎</span>
-                <span>iOS & iPhone App</span>
-                <span className={styles.badgeTag}>INSTALL</span>
-              </div>
+            <div className={styles.heroTrustRow}>
+              <span className={styles.heroTrustItem}>
+                <span style={{ color: '#10B981' }}>⚡</span> Instant guest pass
+              </span>
+              <span className={styles.heroTrustDot}>•</span>
+              <span className={styles.heroTrustItem}>
+                <span style={{ color: '#8B5CF6' }}>🔒</span> Zero setup required
+              </span>
+              <span className={styles.heroTrustDot}>•</span>
+              <span className={styles.heroTrustItem}>
+                <span style={{ color: '#F59E0B' }}>📱</span> Web &amp; Mobile ready
+              </span>
             </div>
           </div>
 
@@ -395,7 +530,7 @@ export default function LandingPage() {
                     <button
                       type="button"
                       className={styles.openSpaceBtn}
-                      onClick={handleGuestEnter}
+                      onClick={() => openGuestModal(spaceName.trim() ? `${spaceName.trim()} Explorer` : 'Explorer')}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? 'Entering...' : 'Open my space'}
@@ -456,7 +591,7 @@ export default function LandingPage() {
                         <strong>{spaceName.trim() || 'Teemchat HQ'}</strong> is ready. In the real
                         world you also get proximity voice huts, invite links, and custom retro avatars.
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className={styles.simulatedChatButtons}>
                         <NeoButton
                           variant="primary"
                           size="md"
@@ -485,7 +620,7 @@ export default function LandingPage() {
 
         {/* Section 2: How It Works */}
         <section className={styles.sectionWrapper} id="how-it-works">
-          <div className={styles.sectionKicker} style={{ backgroundColor: '#FEF3C7' }}>
+          <div className={`${styles.sectionKicker} ${styles.kickerSteps}`}>
             THREE STEPS
           </div>
           <h2 className={styles.sectionTitle}>From zero to hangout in a minute.</h2>
@@ -525,7 +660,7 @@ export default function LandingPage() {
 
         {/* Section 3: Features */}
         <section className={styles.sectionWrapper} id="features">
-          <div className={styles.sectionKicker} style={{ backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
+          <div className={`${styles.sectionKicker} ${styles.kickerFeatures}`}>
             BUILT FOR CONNECTION
           </div>
           <h2 className={styles.sectionTitle}>Everything your crew needs.</h2>
@@ -567,7 +702,7 @@ export default function LandingPage() {
 
         {/* Section 4: Plans & Pricing */}
         <section className={styles.sectionWrapper} id="pricing">
-          <div className={styles.sectionKicker} style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
+          <div className={`${styles.sectionKicker} ${styles.kickerPricing}`}>
             PLANS & PRICING
           </div>
           <h2 className={styles.sectionTitle}>Simple, transparent pricing.</h2>
@@ -596,7 +731,12 @@ export default function LandingPage() {
           <div className={styles.pricingGrid}>
             {/* Free Tier */}
             <div className={styles.pricingCard}>
-              <NeoBadge color="#10B981">FREE TIER</NeoBadge>
+              <NeoBadge
+                color={isDark ? '#064E3B' : '#D1FAE5'}
+                textColor={isDark ? '#34D399' : '#065F46'}
+              >
+                FREE TIER
+              </NeoBadge>
               <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Guest Pass</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Join spaces instantly as a guest without an account.
@@ -620,7 +760,8 @@ export default function LandingPage() {
               <NeoButton
                 variant="secondary"
                 size="md"
-                onClick={handleGuestEnter}
+                fullWidth
+                onClick={() => openGuestModal()}
                 disabled={isSubmitting}
               >
                 Join as Guest
@@ -629,7 +770,12 @@ export default function LandingPage() {
 
             {/* Paid Tier */}
             <div className={`${styles.pricingCard} ${styles.pricingPopular}`}>
-              <NeoBadge color="#E2F952">PAID TIER • ALL-INCLUSIVE</NeoBadge>
+              <NeoBadge
+                color={isDark ? '#E2F952' : '#FAB936'}
+                textColor={isDark ? '#180D26' : '#18181B'}
+              >
+                PAID TIER • ALL-INCLUSIVE
+              </NeoBadge>
               <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Member + AI</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Full persistent account with your personalized AI Companion.
@@ -653,6 +799,7 @@ export default function LandingPage() {
               <NeoButton
                 variant="primary"
                 size="md"
+                fullWidth
                 onClick={() => {
                   setIsSignUp(true);
                   setAuthModalOpen(true);
@@ -666,54 +813,84 @@ export default function LandingPage() {
 
         {/* Section 5: Mobile Downloads */}
         <section className={styles.sectionWrapper} id="download">
-          <div className={styles.sectionKicker} style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
+          <div className={`${styles.sectionKicker} ${styles.kickerDownload}`}>
             AVAILABLE ON MOBILE
           </div>
           <h2 className={styles.sectionTitle}>Take your world on the go.</h2>
 
           <div className={styles.downloadGrid}>
-            <NeoCard inner>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <span style={{ fontSize: '1.8rem' }}>🤖</span>
+            {/* Android Card */}
+            <NeoCard inner className={styles.downloadCard}>
+              <div className={styles.platformHeader}>
+                <div className={`${styles.platformLogoBox} ${styles.platformLogoAndroid}`}>
+                  <AndroidLogo size={32} />
+                </div>
                 <div>
-                  <h4 style={{ fontWeight: 900 }}>Android APK</h4>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <div className={styles.platformTitle}>
+                    Android APK
+                    <span className={styles.platformBadge}>OFFICIAL</span>
+                  </div>
+                  <div className={styles.platformSubtitle}>
                     v1.0.0 • Free Direct Download (~105 MB)
                   </div>
                 </div>
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.45 }}>
-                Download the native Android APK package directly to your phone. Enjoy full WebRTC spatial proximity voice and touch controls.
+
+              <p className={styles.platformDescription}>
+                Download the native Android APK package directly to your phone or tablet. Experience high-fidelity spatial WebRTC proximity voice, on-screen joystick, and full haptic touch feedback.
               </p>
-              <a href="/downloads/teemchat-release.apk" download style={{ textDecoration: 'none' }}>
-                <NeoButton variant="primary" size="md">
-                  📥 Download Android APK
+
+              <div className={styles.platformPillTags}>
+                <span className={styles.platformPill}>✓ Android 8.0+</span>
+                <span className={styles.platformPill}>✓ WebRTC Voice</span>
+                <span className={styles.platformPill}>✓ Retro Joystick</span>
+                <span className={styles.platformPill}>✓ Fast Direct APK</span>
+              </div>
+
+              <a href="/downloads/teemchat-release.apk" download style={{ textDecoration: 'none', width: '100%' }}>
+                <NeoButton variant="primary" size="md" fullWidth>
+                  <AndroidLogo size={18} color={isDark ? '#180D26' : '#18181B'} />
+                  Download Android APK
                 </NeoButton>
               </a>
             </NeoCard>
 
-            <NeoCard inner>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <span style={{ fontSize: '1.8rem' }}>🍎</span>
+            {/* Apple Card */}
+            <NeoCard inner className={styles.downloadCard}>
+              <div className={styles.platformHeader}>
+                <div className={`${styles.platformLogoBox} ${styles.platformLogoApple}`}>
+                  <AppleLogo size={28} />
+                </div>
                 <div>
-                  <h4 style={{ fontWeight: 900 }}>Apple iOS & iPadOS</h4>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <div className={styles.platformTitle}>
+                    Apple iOS &amp; iPadOS
+                    <span className={styles.platformBadge}>WEB APP</span>
+                  </div>
+                  <div className={styles.platformSubtitle}>
                     iOS 14.0+ • Fullscreen Safari PWA
                   </div>
                 </div>
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.45 }}>
-                Open teemchat in Safari, tap the <strong>Share</strong> button, and tap <strong>Add to Home Screen</strong>. Launches in full-screen native app mode.
+
+              <p className={styles.platformDescription}>
+                No App Store wait required. Open TeemChat in Safari, tap the <strong>Share</strong> icon, and select <strong>Add to Home Screen</strong> for an immersive, full-screen native experience.
               </p>
+
+              <div className={styles.platformPillTags}>
+                <span className={styles.platformPill}>✓ iPhone &amp; iPad</span>
+                <span className={styles.platformPill}>✓ Zero Install Time</span>
+                <span className={styles.platformPill}>✓ Spatial Audio</span>
+                <span className={styles.platformPill}>✓ Standalone Window</span>
+              </div>
+
               <NeoButton
                 variant="secondary"
                 size="md"
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.origin);
-                  alert('App link copied to clipboard!');
-                }}
+                fullWidth
+                onClick={handleCopySafariLink}
               >
-                📋 Copy App Link for Safari
+                <AppleLogo size={18} color="currentColor" />
+                {copiedSafariLink ? '✓ Link Copied to Clipboard!' : 'Copy Link for Safari'}
               </NeoButton>
             </NeoCard>
           </div>
@@ -727,11 +904,11 @@ export default function LandingPage() {
           <p style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
             Join thousands of explorers building cozy 16-bit virtual spaces today.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <NeoButton variant="primary" size="lg" onClick={() => setShowSimulatedChat(true)}>
+          <div className={styles.readyButtons}>
+            <NeoButton variant="primary" size="lg" onClick={() => openGuestModal()}>
               Start a Space Free
             </NeoButton>
-            <NeoButton variant="secondary" size="lg" onClick={handleGuestEnter} disabled={isSubmitting}>
+            <NeoButton variant="secondary" size="lg" onClick={() => openGuestModal()} disabled={isSubmitting}>
               Enter as Guest
             </NeoButton>
           </div>
@@ -800,6 +977,41 @@ export default function LandingPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
+              <div className={styles.genderSection}>
+                <div className={styles.genderLabel}>SELECT GENDER</div>
+                <div className={styles.genderRow}>
+                  <button
+                    type="button"
+                    className={`${styles.genderCard} ${signUpGender === 'male' ? styles.genderCardMaleActive : ''}`}
+                    onClick={() => setSignUpGender('male')}
+                  >
+                    <span>👨</span>
+                    <span>Male</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.genderCard} ${signUpGender === 'female' ? styles.genderCardFemaleActive : ''}`}
+                    onClick={() => setSignUpGender('female')}
+                  >
+                    <span>👩</span>
+                    <span>Female</span>
+                  </button>
+                </div>
+              </div>
+              <div className={styles.signUpAvatarPreviewRow}>
+                <PixelAvatar
+                  config={signUpGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
+                  size={42}
+                />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                    {signUpGender === 'female' ? 'Female Persona' : 'Male Persona'}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    Retro pixel avatar with tailored outfit &amp; styling
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
@@ -832,14 +1044,75 @@ export default function LandingPage() {
           <button
             type="button"
             className={styles.guestSkipLink}
-            onClick={async () => {
+            onClick={() => {
               setAuthModalOpen(false);
-              await handleGuestEnter();
+              openGuestModal();
             }}
           >
             Skip for now &amp; enter as Guest →
           </button>
         </form>
+      </NeoModal>
+
+      {/* ── Guest Character Selection Modal ── */}
+      <NeoModal
+        isOpen={characterModalOpen}
+        onClose={() => setCharacterModalOpen(false)}
+        title="Choose Your Character"
+      >
+        <div className={styles.characterModalContent}>
+          <div className={styles.avatarPedestalCard}>
+            <div className={styles.pedestalStage}>
+              <PixelAvatar
+                config={guestGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
+                size={72}
+              />
+            </div>
+            <div className={styles.pedestalName}>{guestName.trim() || 'Explorer'}</div>
+            <div className={styles.pedestalMeta}>
+              {guestGender === 'female' ? '♀ Female Character' : '♂ Male Character'}
+            </div>
+          </div>
+
+          <NeoInput
+            label="EXPLORER NAME"
+            placeholder="Explorer"
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            required
+          />
+
+          <div className={styles.genderSection}>
+            <div className={styles.genderLabel}>SELECT GENDER</div>
+            <div className={styles.genderRow}>
+              <button
+                type="button"
+                className={`${styles.genderCard} ${guestGender === 'male' ? styles.genderCardMaleActive : ''}`}
+                onClick={() => setGuestGender('male')}
+              >
+                <span>👨</span>
+                <span>Male</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.genderCard} ${guestGender === 'female' ? styles.genderCardFemaleActive : ''}`}
+                onClick={() => setGuestGender('female')}
+              >
+                <span>👩</span>
+                <span>Female</span>
+              </button>
+            </div>
+          </div>
+
+          <NeoButton
+            variant="primary"
+            size="lg"
+            onClick={handleConfirmGuest}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Entering World...' : '⚡ Enter Virtual World'}
+          </NeoButton>
+        </div>
       </NeoModal>
     </div>
   );

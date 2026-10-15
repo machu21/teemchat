@@ -4,32 +4,32 @@
 
 ### Symptoms
 - Guests and registered users in the same space receive text messages from each other.
-- Neither user sees the other user's 2D character avatar inside the Flame canvas.
+- Neither user sees the other user's 2D character avatar inside the canvas.
 
 ### Root Cause Analysis
 
 1. **Protocol Discrepancy (Postgres Replication vs. Ephemeral WebSocket)**:
-   - Text chat writes to table `public.messages` and is replicated via `RealtimeListenTypes.postgresChanges`. Guests are authentic users in `auth.users` via `provision_guest_account`, so RLS allows reads and writes.
+   - Text chat writes to table `public.messages` and is replicated via `postgres_changes`. Guests are authentic users in `auth.users` via `provision_guest_account`, so RLS allows reads and writes.
    - Avatars rely on ephemeral WebSocket broadcast (`event: 'movement'`) and presence (`space:$spaceId:world`).
 2. **Channel Flooding & Socket Disconnection (`CLOSED, error: null`)**:
-   - `WorldGame.update(dt)` runs at 60 FPS and calls `syncService.broadcastMovement` continuously even when the player is completely stationary (`isMoving == false`).
-   - The Supabase client library limits broadcasts to 10 events/second (`eventsPerSecondLimitMs = 100`).
-   - The flood of unthrottled movement packets combined with periodic `_channel.track()` calls overwhelms the Realtime socket, causing the server to shut the channel (`CLOSED`).
-   - `WorldSyncService` lacked reconnection logic, leaving the channel permanently closed.
-3. **Flame Widget Lifecycle Listener Detachment**:
-   - In `world_game.dart`, `syncService.remotePlayers.addListener(_onRemotePlayersChanged)` was attached inside `onLoad()`.
-   - In `onRemove()`, `syncService.remotePlayers.removeListener(_onRemotePlayersChanged)` was called.
-   - When Flutter rebuilds `WorldScreen` (e.g. on `loaded.then`, modal open, or zone change), Flame unmounts and remounts components. Because `onLoad()` only runs once, the listener was permanently stripped and never re-attached.
+   - The game loop runs at 60 FPS. If movement broadcasts are dispatched every frame even when stationary (`isMoving === false`), the Realtime broker socket gets flooded.
+   - `@supabase/supabase-js` limits broadcasts to 10 events/second (minimum 100ms interval).
+   - Flooding causes the socket to disconnect with status `CLOSED`.
+   - Without automatic reconnect logic, the channel remains permanently closed.
+3. **Canvas / React Hook Listener Teardown**:
+   - In React 19 StrictMode / hot reload, components mount, unmount, and remount.
+   - If `WorldSyncService.onRemotePlayersChanged` callback is detached or replaced without re-binding to the active `WorldGame` instance, incoming avatar movements are ignored.
 4. **Identical Spawn Coordinates Collision**:
-   - Both players spawn at exact coordinates `(420.0, 300.0)`. Without movement broadcasts, the avatars render directly on top of each other.
+   - When players spawn at the exact same default coordinates `(420, 300)` and remain stationary, avatars render directly on top of each other.
 
 ### Verified Architecture Fix
 1. **Throttle Movement & Only Broadcast on Movement / Stop**:
-   - Only call `broadcastMovement` if `player.isMoving` or on the single frame the player halts (`force: true`).
-   - Throttle broadcasts to a minimum of 100ms.
-2. **Add Auto-Reconnect to Realtime Channel**:
-   - On `CLOSED` or `CHANNEL_ERROR`, initiate an automatic reconnect timer.
-3. **Implement `onMount()` in Flame `WorldGame`**:
-   - Re-attach `syncService.remotePlayers.addListener(_onRemotePlayersChanged)` in `onMount()`.
+   - In `next-app/src/lib/services/worldSync.ts`: Only dispatch `broadcastMovement` if `player.isMoving` or on the single frame the player stops (`force === true`).
+   - Throttle broadcasts to a minimum of 100ms (`MIN_BROADCAST_INTERVAL_MS = 100`).
+2. **Auto-Reconnect to Realtime Channel**:
+   - On `CLOSED`, `TIMED_OUT`, or `CHANNEL_ERROR`, initiate an exponential backoff reconnect attempt and re-track presence.
+3. **React `useEffect` Lifecycle Hygiene in `GameCanvas.tsx`**:
+   - Ensure `syncService.onRemotePlayersChanged` is wired directly to the active `WorldGame` instance on mount and cleanly torn down via `game.destroy()` on unmount.
 4. **Jitter Initial Spawn Coordinates**:
-   - Offset initial coordinates by `(420 + offset, 300 + offset)` to prevent pixel-exact visual overlap.
+   - Offset initial coordinates by `(420 + randomOffset, 300 + randomOffset)` to prevent pixel-exact visual overlap.
+

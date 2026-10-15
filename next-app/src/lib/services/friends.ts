@@ -1,6 +1,6 @@
-import { supabase } from '../supabase';
+import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { FriendModel, FriendRequestModel } from '../models/social';
-import { defaultAvatarConfig } from '../models/avatar';
+import { AvatarConfig, defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 const DEMO_FRIENDS: FriendModel[] = [
@@ -43,7 +43,11 @@ const DEMO_FRIENDS: FriendModel[] = [
 ];
 
 export class FriendService {
-  static async searchUsers(query: string, currentUserId: string): Promise<Array<{ id: string; username: string; displayName: string; avatarConfig: any }>> {
+  private static requestsChannel: RealtimeChannel | null = null;
+  private static activeUserId: string | null = null;
+  private static requestListeners: Set<() => void> = new Set();
+
+  static async searchUsers(query: string, currentUserId: string): Promise<Array<{ id: string; username: string; displayName: string; avatarConfig: AvatarConfig }>> {
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return [];
 
@@ -104,7 +108,7 @@ export class FriendService {
           userId: friendId,
           username: profile?.username || 'friend',
           displayName: profile?.display_name || profile?.username || 'Explorer',
-          status: (profile?.status as any) || 'available',
+          status: (profile?.status as FriendModel['status']) || 'available',
           statusMessage: profile?.status_message || undefined,
           avatarConfig: profile?.avatar_config || defaultAvatarConfig,
           isOnline: true,
@@ -140,7 +144,15 @@ export class FriendService {
       const incoming: FriendRequestModel[] = [];
       const outgoing: FriendRequestModel[] = [];
 
-      data.forEach((row: any) => {
+      (data as unknown as Array<{
+        id: string;
+        sender_id: string;
+        receiver_id: string;
+        status: FriendRequestModel['status'];
+        created_at: string;
+        sender: { id: string; username: string; display_name: string; avatar_config: AvatarConfig } | null;
+        receiver: { id: string; username: string; display_name: string; avatar_config: AvatarConfig } | null;
+      }>).forEach((row) => {
         const item: FriendRequestModel = {
           id: row.id,
           senderId: row.sender_id,
@@ -201,8 +213,9 @@ export class FriendService {
       }
 
       return { success: true };
-    } catch (e: any) {
-      return { success: false, message: e?.message || 'Failed to send friend request.' };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to send friend request.';
+      return { success: false, message: msg };
     }
   }
 
@@ -244,8 +257,28 @@ export class FriendService {
   }
 
   static subscribeToRequests(userId: string, onUpdate: () => void): RealtimeChannel {
+    if (!userId) {
+      throw new Error('userId is required to subscribe to friend requests');
+    }
+
+    this.requestListeners.add(onUpdate);
+
+    // If channel is already actively subscribed for this user, reuse it without re-calling .on() or .subscribe()
+    if (this.requestsChannel && this.activeUserId === userId) {
+      return this.requestsChannel;
+    }
+
+    // Otherwise, cleanly tear down any existing channel
+    if (this.requestsChannel) {
+      removeRealtimeChannel(this.requestsChannel);
+      this.requestsChannel = null;
+    }
+
+    const topic = `social:requests:${userId}`;
+    cleanupExistingChannel(topic);
+
     const channel = supabase
-      .channel(`social:requests:${userId}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         {
@@ -254,10 +287,35 @@ export class FriendService {
           table: 'friend_requests',
           filter: `receiver_id=eq.${userId}`,
         },
-        () => onUpdate()
+        () => {
+          this.requestListeners.forEach((fn) => {
+            try {
+              fn();
+            } catch (err) {
+              console.warn('Error in friend requests listener:', err);
+            }
+          });
+        }
       )
       .subscribe();
 
+    this.requestsChannel = channel;
+    this.activeUserId = userId;
     return channel;
   }
+
+  static unsubscribeRequests(onUpdate?: () => void): void {
+    if (onUpdate) {
+      this.requestListeners.delete(onUpdate);
+    } else {
+      this.requestListeners.clear();
+    }
+
+    if (this.requestListeners.size === 0 && this.requestsChannel) {
+      removeRealtimeChannel(this.requestsChannel);
+      this.requestsChannel = null;
+      this.activeUserId = null;
+    }
+  }
 }
+

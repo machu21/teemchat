@@ -9,28 +9,33 @@ import { useSocialStore } from '@/stores/social';
 import { useSessionStore } from '@/stores/session';
 import { FriendService } from '@/lib/services/friends';
 
+import { AvatarConfig } from '@/lib/models/avatar';
+
+type SearchResultUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarConfig: AvatarConfig;
+};
+
 export function FriendRequestModal() {
   const { session } = useSessionStore();
   const {
     isSearchModalOpen,
     setSearchModalOpen,
     incomingRequests,
-    outgoingRequests,
-    refreshFriends,
     refreshRequests,
+    refreshFriends,
   } = useSocialStore();
 
   const [activeTab, setActiveTab] = useState<'search' | 'requests'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResultUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
-    if (!searchQuery.trim() || !session) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchQuery.trim() || !session) return;
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
@@ -109,7 +114,10 @@ export function FriendRequestModal() {
               className={styles.searchInput}
               placeholder="Search by username or display name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value.trim()) setSearchResults([]);
+              }}
               autoFocus
             />
 

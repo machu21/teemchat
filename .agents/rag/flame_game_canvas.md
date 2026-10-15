@@ -1,72 +1,22 @@
-# Flame 2D Game Canvas Engine RAG
+# Canvas 2D Game Engine RAG (Formerly Flame Engine)
 
-## 1. Flame Game Lifecycle in Flutter Web
+> [!NOTE]
+> The Flutter/Flame engine has been migrated to a native HTML5 Canvas 2D game engine in Next.js (`next-app/src/game/`).
+> For the comprehensive specification, consult [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md).
 
-Flame games are integrated into Flutter via the `GameWidget`:
-```dart
-GameWidget(game: _game)
-```
+## Summary of Migration & Canvas Engine Architecture
 
-### Component Lifecycle Stages
-1. **`onLoad()`**:
-   - Runs asynchronously **only once** when the game component is first loaded into memory.
-   - Used for loading sprites, initializing maps (`WorldMapComponent`), creating local player avatar (`PlayerAvatar`), setting camera bounds.
-2. **`onMount()`**:
-   - Runs **every time** the game is mounted into the active Flutter element tree.
-   - **Crucial Rule**: Any listeners to external services (like `syncService.remotePlayers.addListener`) that might be cleaned up on unmount **must be re-attached in `onMount()`**!
-3. **`onRemove()`**:
-   - Runs when the component is unmounted from the tree (e.g., during parent widget rebuilds or route pops).
-   - If listeners are removed in `onRemove()`, they will remain dead unless restored in `onMount()`.
+1. **Engine Entrypoint**:
+   - Flutter's `GameWidget(game: _game)` has been replaced by the React client component `<GameCanvas />` (`next-app/src/game/GameCanvas.tsx`).
+   - Pure TypeScript game loop is managed by `WorldGame` (`next-app/src/game/WorldGame.ts`) using `requestAnimationFrame`.
 
----
+2. **Lifecycle Management**:
+   - React `useEffect` handles instantiation, canvas context acquisition, input event listeners (`keydown`, `keyup`, `resize`, touch joystick), and clean teardown (`game.destroy()`).
+   - Always cancel `requestAnimationFrame` on component unmount to prevent background processing leaks.
 
-## 2. Remote Avatar Management Pattern
+3. **Rendering & Performance**:
+   - World tilemap is pre-rendered onto an offscreen canvas (`createPreRenderedWorldMap`) and drawn with a single `ctx.drawImage` slice per frame.
+   - Entities (`PlayerEntity`, `RemotePlayerEntity`, `CompanionEntity`, `FurnitureEntity`) are depth-sorted by Y coordinates before drawing.
 
-`WorldGame` maintains two collections for other players:
-- `syncService.remotePlayers`: `ValueNotifier<Map<String, RemotePlayerState>>` (the raw network state dictionary).
-- `remoteAvatars`: `Map<String, RemotePlayerAvatar>` (Flame `PositionComponent` instances added to the game world).
+For detailed lifecycle stages, remote player reconciliation, and collision physics, see [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md).
 
-### Reconciliation Logic
-In `_onRemotePlayersChanged()`:
-1. **New remote player detected**:
-   ```dart
-   final avatar = RemotePlayerAvatar(
-     userId: userId,
-     displayName: state.displayName,
-     config: state.avatarConfig,
-     position: Vector2(state.x, state.y),
-   );
-   avatar.priority = 10;
-   remoteAvatars[userId] = avatar;
-   add(avatar);
-   ```
-2. **Existing player state updated**:
-   ```dart
-   avatar.updateState(
-     newX: state.x,
-     newY: state.y,
-     direction: state.direction,
-     moving: state.isMoving,
-     speech: state.speechBubble,
-     expiresAt: state.speechExpiresAt,
-   );
-   ```
-3. **Player left / disconnected**:
-   ```dart
-   remoteAvatars.removeWhere((userId, avatar) {
-     if (!players.containsKey(userId)) {
-       remove(avatar);
-       return true;
-     }
-     return false;
-   });
-   ```
-
----
-
-## 3. Coordinate System & Spawning
-
-- Map bounds: `WorldMapComponent.mapWidth` x `WorldMapComponent.mapHeight` (approx 1280 x 960).
-- Standard spawn point: `(420.0, 300.0)` in Verdant Village plaza.
-- Camera follow: `camera.followComponent(player)`. Clamped with `Rect.fromLTWH(0, 0, mapWidth, mapHeight)`.
-- If two players spawn at identical `(420, 300)` coordinates and do not move, one avatar will be rendered directly atop the other. Jittering spawn points by a small randomized offset (e.g. `± 24px`) guarantees immediate visual visibility.
