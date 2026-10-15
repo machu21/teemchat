@@ -2,6 +2,9 @@
   "name": "teemchat-workspace",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "next-app"
+  ],
   "scripts": {
     "dev": "npm --prefix next-app run dev",
     "build": "npm --prefix next-app run build",

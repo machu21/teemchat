@@ -28,9 +28,12 @@ if [ -f "../package.json" ]; then
   cp -r next-app/public public 2>/dev/null || true
 
   # Also populate build/web in case Vercel dashboard still has legacy Flutter outputDirectory
-  mkdir -p build/web
+  mkdir -p build/web/_next
   if [ -d "next-app/public" ]; then
     cp -r next-app/public/* build/web/ 2>/dev/null || true
+  fi
+  if [ -d "next-app/.next/static" ]; then
+    cp -r next-app/.next/static build/web/_next/ 2>/dev/null || true
   fi
   if [ -d "next-app/.next/server/app" ]; then
     cp -r next-app/.next/server/app/* build/web/ 2>/dev/null || true
