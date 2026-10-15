@@ -129,3 +129,19 @@
   display: flex;
   justify-content: center;
 }
+
+/* Tablet & Mobile Screens (<= 640px) */
+@media (max-width: 640px) {
+  .dropdown {
+    width: min(300px, calc(100vw - 24px));
+    right: -48px;
+    max-height: 80vh;
+  }
+}
+
+@media (max-width: 380px) {
+  .dropdown {
+    width: calc(100vw - 16px);
+    right: -36px;
+  }
+}

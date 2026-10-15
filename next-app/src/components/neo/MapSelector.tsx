@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import styles from './MapSelector.module.css';
 import { getAllMapConfigs, MapThemeId } from '@/game/map/mapRegistry';
 
@@ -17,6 +17,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
 }) => {
   const configs = getAllMapConfigs();
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -29,6 +30,20 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
     return configs.filter((c) => c.category === activeCategory);
   }, [configs, activeCategory]);
 
+  const selectedConfig = useMemo(() => {
+    return configs.find((c) => c.id === selectedTheme) || configs[0];
+  }, [configs, selectedTheme]);
+
+  // Mobile scroll helper for left/right navigation
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (!gridRef.current) return;
+    const scrollAmount = gridRef.current.clientWidth * 0.8;
+    gridRef.current.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    });
+  };
+
   return (
     <div className={`${styles.selectorContainer} ${className}`}>
       {/* Header with Title and Count Badge */}
@@ -37,10 +52,50 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
           <label className={styles.selectorLabel}>Choose Map Theme & Environment</label>
           <span className={styles.selectorSubtitle}>Select a world template</span>
         </div>
-        <span className={styles.countBadge}>
-          {filteredConfigs.length} {filteredConfigs.length === 1 ? 'world' : 'worlds'}
-        </span>
+        <div className={styles.headerRight}>
+          <span className={styles.countBadge}>
+            {filteredConfigs.length} {filteredConfigs.length === 1 ? 'world' : 'worlds'}
+          </span>
+          {/* Mobile carousel arrows */}
+          <div className={styles.mobileNavArrows}>
+            <button
+              type="button"
+              className={styles.carouselArrowBtn}
+              onClick={() => scrollCarousel('left')}
+              title="Previous World"
+              aria-label="Previous World"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              className={styles.carouselArrowBtn}
+              onClick={() => scrollCarousel('right')}
+              title="Next World"
+              aria-label="Next World"
+            >
+              ▶
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Selected World Preview Callout (High visibility on mobile) */}
+      {selectedConfig && (
+        <div className={styles.selectedCallout}>
+          <span className={styles.calloutIcon}>{selectedConfig.icon}</span>
+          <div className={styles.calloutDetails}>
+            <span className={styles.calloutLabel}>Active Environment:</span>
+            <span className={styles.calloutName}>{selectedConfig.name}</span>
+          </div>
+          <span
+            className={styles.calloutTag}
+            style={{ borderColor: selectedConfig.badgeColor }}
+          >
+            {selectedConfig.category}
+          </span>
+        </div>
+      )}
 
       {/* Quick Category Filter Tabs (Scrollable on Mobile) */}
       <div
@@ -57,7 +112,12 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
               role="tab"
               aria-selected={isActive}
               className={`${styles.categoryTab} ${isActive ? styles.categoryTabActive : ''}`}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => {
+                setActiveCategory(cat);
+                if (gridRef.current) {
+                  gridRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                }
+              }}
             >
               {cat}
             </button>
@@ -65,8 +125,13 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
         })}
       </div>
 
-      {/* Responsive Map Grid */}
-      <div className={styles.mapGrid} role="radiogroup" aria-label="Select Map Theme">
+      {/* Responsive Map Grid / Mobile Reel */}
+      <div
+        ref={gridRef}
+        className={styles.mapGrid}
+        role="radiogroup"
+        aria-label="Select Map Theme"
+      >
         {filteredConfigs.map((config) => {
           const isSelected = selectedTheme === config.id;
           return (
@@ -128,6 +193,11 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
             </button>
           );
         })}
+      </div>
+
+      {/* Mobile Swipe Hint */}
+      <div className={styles.mobileSwipeHint}>
+        <span>👈 Swipe horizontally to view all worlds 👉</span>
       </div>
     </div>
   );

@@ -156,3 +156,50 @@
   gap: 10px;
   color: var(--text-muted);
 }
+
+/* Tablet & Mobile Screens (<= 640px) */
+@media (max-width: 640px) {
+  .friendsPanel {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .titleArea {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .panelTitle {
+    font-size: 1.05rem;
+  }
+
+  .headerActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .friendsGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .friendCard {
+    padding: 8px 12px;
+  }
+
+  .friendName {
+    font-size: 0.84rem;
+  }
+
+  .statusSnippet {
+    font-size: 0.7rem;
+  }
+}

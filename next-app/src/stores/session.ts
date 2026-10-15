@@ -22,7 +22,12 @@ interface SessionState {
     password: string,
     username: string,
     displayName: string,
-    gender?: Gender
+    gender?: Gender,
+    antiBot?: {
+      website_url?: string;
+      phone_alt?: string;
+      renderedAt?: number;
+    }
   ) => Promise<{ error?: string }>;
   updateProfile: (
     displayName: string,
@@ -167,6 +172,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   signInGuest: async (displayName?: string, gender: Gender = 'male') => {
+    // Prevent repeated guest provisioning in the same browser/device
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('teem_guest_session');
+        if (stored) {
+          const parsed = JSON.parse(stored) as UserSession;
+          if (parsed && parsed.isGuest && parsed.id) {
+            set({ session: parsed, isGuest: true });
+            return;
+          }
+        }
+      }
+    } catch {}
+
     // Attempt provision via Supabase RPC
     try {
       const randomId = Math.floor(Math.random() * 9000) + 1000;
@@ -275,63 +294,99 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     return {};
   },
 
-  signUpWithPassword: async (email, password, username, displayName, gender: Gender = 'male') => {
+  signUpWithPassword: async (
+    email,
+    password,
+    username,
+    displayName,
+    gender: Gender = 'male',
+    antiBot?: {
+      website_url?: string;
+      phone_alt?: string;
+      renderedAt?: number;
+    }
+  ) => {
     const defaultCfg = gender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig;
     const avatarConfig: AvatarConfig = {
       ...defaultCfg,
       gender,
     };
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
           username,
-          display_name: displayName,
+          displayName,
           gender,
-        },
-      },
-    });
+          website_url: antiBot?.website_url,
+          phone_alt: antiBot?.phone_alt,
+          renderedAt: antiBot?.renderedAt,
+        }),
+      });
 
-    if (error) return { error: error.message };
-
-    if (data.user) {
-      // Upsert profile
-      try {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          username,
-          display_name: displayName,
-          gender,
-          status: 'available',
-          tier: 'paid',
-          is_paid: true,
-          has_ai_companion: true,
-          avatar_config: avatarConfig as unknown as Record<string, unknown>,
-        });
-      } catch (e) {
-        console.warn('Profile upsert warning:', e);
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        return { error: result.error || result.message || 'Registration failed' };
       }
 
-      set({
-        session: {
-          id: data.user.id,
-          displayName,
-          username,
-          email,
-          status: 'available',
-          gender,
-          avatarConfig,
+      // Sync Supabase client session if available
+      if (result.session) {
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+      } else {
+        const loginRes = await supabase.auth.signInWithPassword({ email, password });
+        if (loginRes.error) {
+          console.warn('Sign-in after registration notice:', loginRes.error);
+        }
+      }
+
+      // Upsert avatar config if necessary
+      if (result.user?.id) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: result.user.id,
+            username: username.trim(),
+            display_name: displayName || username,
+            gender,
+            status: 'available',
+            tier: 'free',
+            is_paid: false,
+            has_ai_companion: false,
+            avatar_config: avatarConfig as unknown as Record<string, unknown>,
+          });
+        } catch (e) {
+          console.warn('Profile avatar update warning:', e);
+        }
+
+        set({
+          session: {
+            id: result.user.id,
+            displayName: displayName || username,
+            username,
+            email,
+            status: 'available',
+            gender,
+            avatarConfig,
+            isGuest: false,
+            tier: 'free',
+            isPaid: false,
+            hasAiCompanion: false,
+          },
           isGuest: false,
-          tier: 'paid',
-          isPaid: true,
-          hasAiCompanion: true,
-        },
-        isGuest: false,
-      });
+        });
+      }
+
+      return {};
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Registration network error';
+      return { error: message };
     }
-    return {};
   },
 
   updateProfile: async (displayName, status, avatarConfig, genderParam?: Gender) => {

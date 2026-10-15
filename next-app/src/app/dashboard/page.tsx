@@ -243,6 +243,7 @@ export default function DashboardPage() {
             size="sm"
             onClick={() => openDrawer('dms')}
             title="Open Messenger"
+            className={styles.headerMessengerBtn}
           >
             💬 Messenger
             {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
@@ -265,7 +266,12 @@ export default function DashboardPage() {
           )}
 
           {session?.isGuest && (
-            <NeoButton variant="accent" size="sm" onClick={() => setUpgradeModalOpen(true)}>
+            <NeoButton
+              variant="accent"
+              size="sm"
+              onClick={() => setUpgradeModalOpen(true)}
+              className={styles.headerUpgradeBtn}
+            >
               ⭐ Upgrade
             </NeoButton>
           )}
@@ -273,12 +279,15 @@ export default function DashboardPage() {
           <NeoButton
             variant="ghost"
             size="sm"
+            className={styles.headerSignOutBtn}
+            title="Sign Out"
             onClick={async () => {
               await signOut();
               router.push('/');
             }}
           >
-            Sign Out
+            <span className={styles.desktopText}>Sign Out</span>
+            <span className={styles.mobileText} aria-hidden="true">🚪</span>
           </NeoButton>
         </div>
       </header>

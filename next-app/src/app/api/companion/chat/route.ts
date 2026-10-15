@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rateLimit';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
@@ -26,6 +27,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid user token' }, { status: 401 });
     }
 
+    const userRate = checkRateLimit(`user:ai:${user.id}`, RATE_LIMITS.USER_AI_CHAT);
+    if (!userRate.success) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `You are sending messages too quickly. Please wait ${userRate.retryAfter} seconds before sending another message.`,
+          retryAfter: userRate.retryAfter,
+        },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(userRate),
+        }
+      );
+    }
+
     const body = await req.json();
     const {
       companion,
@@ -46,9 +62,11 @@ export async function POST(req: NextRequest) {
       });
 
       if (usage && typeof usage === 'object' && 'allowed' in usage && !usage.allowed) {
+        const isTrial = Boolean((usage as { is_trial?: boolean }).is_trial);
         return NextResponse.json({
-          response:
-            "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
+          response: isTrial
+            ? "⚡ You've reached your free daily trial limit (5/5 messages). Upgrade your account for full access, or chat again tomorrow!"
+            : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
           quotaExceeded: true,
         });
       }

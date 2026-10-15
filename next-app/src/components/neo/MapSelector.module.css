@@ -14,6 +14,105 @@
   gap: 6px;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobileNavArrows {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.carouselArrowBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--neo-radius-sm);
+  border: 2px solid var(--card-border);
+  background: var(--card-inner);
+  color: var(--text-main);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.carouselArrowBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0.5px 0.5px 0px var(--card-border);
+}
+
+/* Selected World Callout (Prominent on Mobile) */
+.selectedCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--primary, #7C3AED);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.calloutIcon {
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.calloutDetails {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.calloutLabel {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calloutName {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calloutTag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--card-border);
+  background: var(--card-bg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mobileSwipeHint {
+  display: none;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .selectorLabelGroup {
   display: flex;
   flex-direction: column;
@@ -308,11 +407,20 @@
   }
 
   .selectorHeader {
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobileNavArrows {
+    display: flex;
+  }
+
+  .mobileSwipeHint {
+    display: block;
   }
 
   .selectorLabel {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
   }
 
   .selectorSubtitle {
@@ -320,81 +428,104 @@
   }
 
   .categoryFilters {
-    gap: 5px;
-    padding-bottom: 4px;
+    gap: 6px;
+    padding: 2px 2px 6px 2px;
   }
 
   .categoryTab {
-    padding: 3px 8px;
-    font-size: 0.68rem;
+    padding: 6px 12px;
+    font-size: 0.74rem;
+    min-height: 34px;
   }
 
+  /* Horizontal Snap Reel on Mobile: Eliminates vertical scroll traps inside NeoModal */
   .mapGrid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    max-height: 250px;
-    padding: 2px 2px 4px 2px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    max-height: none;
+    padding: 4px 4px 10px 4px;
+    touch-action: pan-x pan-y;
+    scrollbar-width: none;
+  }
+
+  .mapGrid::-webkit-scrollbar {
+    display: none;
   }
 
   .mapCard {
-    padding: 10px 12px;
-    gap: 7px;
+    flex: 0 0 84%;
+    max-width: 310px;
+    min-width: 250px;
+    scroll-snap-align: center;
+    padding: 12px 14px;
+    gap: 8px;
     box-shadow: 2.5px 2.5px 0px var(--card-border);
   }
 
   .mapCardSelected {
-    box-shadow: 3px 3px 0px var(--primary);
+    box-shadow: 3.5px 3.5px 0px var(--primary);
   }
 
   .mapIcon {
-    font-size: 1.35rem;
+    font-size: 1.4rem;
   }
 
   .mapName {
-    font-size: 0.88rem;
+    font-size: 0.92rem;
   }
 
   .previewBanner {
-    height: 24px;
-    padding: 0 6px;
+    height: 26px;
+    padding: 0 8px;
   }
 
   .bannerTagline {
-    font-size: 0.65rem;
+    font-size: 0.68rem;
   }
 
   .mapDesc {
-    font-size: 0.72rem;
-    line-height: 1.3;
+    font-size: 0.75rem;
+    line-height: 1.35;
   }
 
   .highlightsList {
-    gap: 3px;
+    gap: 4px;
   }
 
   .highlightPill {
-    font-size: 0.62rem;
-    padding: 1px 5px;
+    font-size: 0.65rem;
+    padding: 2px 6px;
   }
 }
 
 /* Very Small Mobile Screens (320px - 380px) */
 @media (max-width: 380px) {
   .selectorHeader {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .countBadge {
     display: none;
   }
 
-  .mapGrid {
-    max-height: 220px;
+  .carouselArrowBtn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
   }
 
   .mapCard {
-    padding: 8px 10px;
+    flex: 0 0 88%;
+    max-width: 280px;
+    min-width: 230px;
+    padding: 10px 12px;
     box-shadow: 2px 2px 0px var(--card-border);
   }
 
@@ -403,13 +534,13 @@
   }
 
   .selectedIndicator {
-    width: 20px;
-    height: 20px;
-    font-size: 0.7rem;
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
   }
 
   .categoryBadge {
-    font-size: 0.6rem;
+    font-size: 0.62rem;
     padding: 1px 5px;
   }
 }

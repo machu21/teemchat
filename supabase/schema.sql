@@ -800,9 +800,9 @@ on conflict (slug) do nothing;
 -- ==========================================================
 -- 13. AI COMPANIONS & USER TIERS (Learned Knowledge & Personality)
 -- ==========================================================
-alter table public.profiles add column if not exists tier text not null default 'paid';
-alter table public.profiles add column if not exists is_paid boolean not null default true;
-alter table public.profiles add column if not exists has_ai_companion boolean not null default true;
+alter table public.profiles add column if not exists tier text not null default 'free';
+alter table public.profiles add column if not exists is_paid boolean not null default false;
+alter table public.profiles add column if not exists has_ai_companion boolean not null default false;
 
 create table if not exists public.ai_companions (
   id uuid default gen_random_uuid() primary key,
@@ -1101,13 +1101,27 @@ declare
   v_today date := (current_timestamp at time zone 'utc')::date;
   v_current_count int;
   v_resets_at timestamptz := (v_today + interval '1 day') at time zone 'utc';
+  v_is_paid boolean := false;
+  v_effective_limit int;
 begin
   if v_user_id is null then
     return jsonb_build_object('allowed', false, 'remaining', 0, 'error', 'unauthorized');
   end if;
 
+  -- Look up user subscription status
+  select coalesce(is_paid, false) into v_is_paid
+  from public.profiles
+  where id = v_user_id;
+
+  -- Free accounts receive 5 trial AI messages; paid accounts receive p_daily_limit (default 50)
+  if v_is_paid then
+    v_effective_limit := coalesce(p_daily_limit, 50);
+  else
+    v_effective_limit := 5;
+  end if;
+
   insert into public.ai_usage (user_id, usage_date, message_count, max_daily_messages)
-  values (v_user_id, v_today, 0, p_daily_limit)
+  values (v_user_id, v_today, 0, v_effective_limit)
   on conflict (user_id, usage_date) do nothing;
 
   select message_count into v_current_count
@@ -1115,12 +1129,13 @@ begin
   where user_id = v_user_id and usage_date = v_today
   for update;
 
-  if v_current_count >= p_daily_limit then
+  if v_current_count >= v_effective_limit then
     return jsonb_build_object(
       'allowed', false,
       'current_count', v_current_count,
-      'daily_limit', p_daily_limit,
+      'daily_limit', v_effective_limit,
       'remaining', 0,
+      'is_trial', not v_is_paid,
       'resets_at', v_resets_at
     );
   end if;
@@ -1133,8 +1148,9 @@ begin
   return jsonb_build_object(
     'allowed', true,
     'current_count', v_current_count + 1,
-    'daily_limit', p_daily_limit,
-    'remaining', p_daily_limit - (v_current_count + 1),
+    'daily_limit', v_effective_limit,
+    'remaining', v_effective_limit - (v_current_count + 1),
+    'is_trial', not v_is_paid,
     'resets_at', v_resets_at
   );
 end;

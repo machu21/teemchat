@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccessToken } from 'livekit-server-sdk';
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rateLimit';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
@@ -28,6 +29,21 @@ export async function POST(req: NextRequest) {
       userIdentifier = token;
     } else {
       return NextResponse.json({ error: 'Unauthorized user token' }, { status: 401 });
+    }
+
+    const userRate = checkRateLimit(`user:livekit:${userId}`, RATE_LIMITS.USER_LIVEKIT_TOKEN);
+    if (!userRate.success) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Too many token requests. Please wait ${userRate.retryAfter} seconds before requesting another token.`,
+          retryAfter: userRate.retryAfter,
+        },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(userRate),
+        }
+      );
     }
 
     const body = await req.json();

@@ -2,6 +2,9 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .header {
@@ -18,6 +21,7 @@
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .logoIcon {
@@ -32,7 +36,30 @@
 .userProfile {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.headerMessengerBtn {
+  display: inline-flex;
+}
+
+.headerUpgradeBtn {
+  display: inline-flex;
+}
+
+.headerSignOutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.desktopText {
+  display: inline;
+}
+
+.mobileText {
+  display: none;
 }
 
 .avatarPill {
@@ -46,6 +73,7 @@
   border-radius: var(--neo-radius-full);
   cursor: pointer;
   transition: transform 0.1s ease;
+  flex-shrink: 0;
 }
 
 .avatarPill:hover {
@@ -400,6 +428,215 @@
   background-color: #F472B6 !important;
   color: #4A0426 !important;
   box-shadow: 3px 3px 0px var(--card-border) !important;
+}
+
+/* Tablet & Mobile Screens (<= 768px) */
+@media (max-width: 768px) {
+  .header {
+    padding: 10px 16px;
+  }
+
+  .headerMessengerBtn {
+    display: none;
+  }
+
+  .main {
+    padding: 24px 16px;
+    gap: 22px;
+  }
+
+  .spaceGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+}
+
+/* Mobile Screens (<= 640px) */
+@media (max-width: 640px) {
+  .header {
+    padding: 10px 12px;
+  }
+
+  .brand {
+    gap: 6px;
+  }
+
+  .logoIcon {
+    font-size: 1.4rem;
+  }
+
+  .logoText {
+    font-size: 1.15rem;
+  }
+
+  .userProfile {
+    gap: 6px;
+  }
+
+  .avatarPill {
+    padding: 2px 4px;
+    gap: 0;
+    box-shadow: 1.5px 1.5px 0px var(--card-border);
+  }
+
+  .userInfo {
+    display: none;
+  }
+
+  .headerUpgradeBtn {
+    display: none;
+  }
+
+  .desktopText {
+    display: none;
+  }
+
+  .mobileText {
+    display: inline;
+    font-size: 1.05rem;
+  }
+
+  .headerSignOutBtn {
+    padding: 6px 10px;
+    min-height: 38px;
+  }
+
+  .main {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .pageTitle {
+    font-size: 1.45rem;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .pageSubtitle {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .actionButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .actionButtons > * {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .spaceGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .spaceCard {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .spaceName {
+    font-size: 1.15rem;
+  }
+
+  .spaceDesc {
+    min-height: auto;
+    font-size: 0.82rem;
+  }
+
+  .pinBtn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+
+  .spaceCardFooter {
+    padding-top: 10px;
+  }
+
+  .floatingMessengerBtn {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    box-shadow: 2.5px 2.5px 0px var(--card-border);
+  }
+
+  .colorPickers {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .colorInput {
+    height: 38px;
+  }
+
+  .genderButtonGroup {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .genderBtn {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+  }
+}
+
+/* Very Small Mobile Screens (<= 380px) */
+@media (max-width: 380px) {
+  .header {
+    padding: 8px 10px;
+  }
+
+  .logoText {
+    display: none;
+  }
+
+  .main {
+    padding: 12px 8px;
+    gap: 14px;
+  }
+
+  .pageTitle {
+    font-size: 1.3rem;
+  }
+
+  .actionButtons {
+    grid-template-columns: 1fr;
+  }
+
+  .spaceCard {
+    padding: 12px;
+  }
+
+  .spaceCardFooter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .spaceCardFooter button {
+    width: 100%;
+  }
+
+  .floatingMessengerBtn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
 }
 
 

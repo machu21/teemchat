@@ -41,6 +41,10 @@ export default function LandingPage() {
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Anti-Bot Defense State ──
+  const [honeypot, setHoneypot] = useState('');
+  const [formRenderedAt, setFormRenderedAt] = useState<number>(() => Date.now());
+
   // ── Mobile Menu & Action States ──
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copiedSafariLink, setCopiedSafariLink] = useState(false);
@@ -154,7 +158,17 @@ export default function LandingPage() {
           setAuthError('Please fill in all fields.');
           return;
         }
-        const res = await signUpWithPassword(email, password, username, displayName, signUpGender);
+        const res = await signUpWithPassword(
+          email,
+          password,
+          username,
+          displayName,
+          signUpGender,
+          {
+            website_url: honeypot,
+            renderedAt: formRenderedAt,
+          }
+        );
         if (res.error) {
           setAuthError(res.error);
         } else {
@@ -847,7 +861,13 @@ export default function LandingPage() {
                 <span className={styles.platformPill}>✓ Fast Direct APK</span>
               </div>
 
-              <a href="/downloads/teemchat-release.apk" download style={{ textDecoration: 'none', width: '100%' }}>
+              <a
+                href="https://github.com/machu21/teemchat/releases/latest/download/teemchat-release.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', width: '100%' }}
+              >
+
                 <NeoButton variant="primary" size="md" fullWidth>
                   <AndroidLogo size={18} color={isDark ? '#180D26' : '#18181B'} />
                   Download Android APK
@@ -952,6 +972,8 @@ export default function LandingPage() {
             onClick={() => {
               setIsSignUp(true);
               setAuthError('');
+              setFormRenderedAt(Date.now());
+              setHoneypot('');
             }}
           >
             Create Account
@@ -959,6 +981,32 @@ export default function LandingPage() {
         </div>
 
         <form onSubmit={handleAuthSubmit} className={styles.authForm}>
+          {/* Anti-Bot Honeypot: Invisible to human users, traps automated form fillers */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              opacity: 0,
+              height: 0,
+              width: 0,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }}
+            aria-hidden="true"
+          >
+            <label htmlFor="company_site_field">Do not fill this</label>
+            <input
+              id="company_site_field"
+              type="text"
+              name="company_site_field"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
+
           {authError && <div className={styles.errorAlert}>{authError}</div>}
 
           {isSignUp && (
