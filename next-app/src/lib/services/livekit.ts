@@ -8,7 +8,48 @@ import {
   LocalVideoTrack,
   LocalTrackPublication,
 } from 'livekit-client';
+import * as log from 'loglevel';
 import { supabase } from '../supabase';
+
+// Demote benign WebRTC data channel teardown notices to warnings so Next.js DevTools
+// doesn't trigger false-positive unhandled crash overlays on room leaves or remounts.
+if (typeof window !== 'undefined') {
+  try {
+    const livekitLoggers = [
+      'livekit',
+      'livekit-room',
+      'livekit-engine',
+      'livekit-signal',
+      'livekit-pc-manager',
+      'livekit-pc-transport',
+    ];
+
+    for (const name of livekitLoggers) {
+      const logger = log.getLogger(name);
+      const originalFactory = logger.methodFactory;
+      logger.methodFactory = (methodName, level, loggerName) => {
+        const rawMethod = originalFactory(methodName, level, loggerName);
+        if (methodName === 'error') {
+          return (msg: unknown, ...args: unknown[]) => {
+            const msgStr = typeof msg === 'string' ? msg : '';
+            if (
+              msgStr.includes('publisher data channel') &&
+              msgStr.includes('closed unexpectedly')
+            ) {
+              console.warn(`[LiveKit teardown notice] ${msgStr}`, ...args);
+              return;
+            }
+            rawMethod(msg, ...args);
+          };
+        }
+        return rawMethod;
+      };
+      logger.setLevel(logger.getLevel());
+    }
+  } catch {
+    // Graceful fallback if loglevel is restricted in environment
+  }
+}
 
 export interface VideoFeedModel {
   track: VideoTrack | MediaStreamTrack;
@@ -20,6 +61,7 @@ export interface VideoFeedModel {
 
 export class LiveKitService {
   private room: Room | null = null;
+  private connectionEpoch: number = 0;
   isConnected: boolean = false;
   isMicEnabled: boolean = false;
   isCameraEnabled: boolean = false;
@@ -47,8 +89,10 @@ export class LiveKitService {
     displayName: string,
     options?: { isVideo?: boolean; enableMic?: boolean }
   ): Promise<boolean> {
+    let currentEpoch = 0;
     try {
       await this.leaveRoom();
+      currentEpoch = ++this.connectionEpoch;
 
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token || `guest_${Date.now()}`;
@@ -67,16 +111,37 @@ export class LiveKitService {
             body: JSON.stringify({ roomName, displayName }),
           });
 
+          if (currentEpoch !== this.connectionEpoch) {
+            return false;
+          }
+
           if (res.ok) {
             const { token } = await res.json();
             if (token) {
-              this.room = new Room({
+              if (currentEpoch !== this.connectionEpoch) {
+                return false;
+              }
+
+              const newRoom = new Room({
                 adaptiveStream: true,
                 dynacast: true,
               });
 
+              this.room = newRoom;
               this.setupListeners();
-              await this.room.connect(livekitUrl, token);
+              await newRoom.connect(livekitUrl, token);
+
+              // If connection was invalidated during connect, teardown aborted room
+              if (currentEpoch !== this.connectionEpoch) {
+                try {
+                  newRoom.removeAllListeners();
+                  await newRoom.disconnect();
+                } catch {
+                  // Suppress abort errors
+                }
+                return false;
+              }
+
               this.isConnected = true;
               this.isFallbackMode = false;
 
@@ -97,6 +162,10 @@ export class LiveKitService {
         }
       }
 
+      if (currentEpoch !== this.connectionEpoch) {
+        return false;
+      }
+
       // Fallback local WebRTC / media stream mode for dev & offline support
       this.isFallbackMode = true;
       this.isConnected = true;
@@ -111,9 +180,11 @@ export class LiveKitService {
       this.notify();
       return true;
     } catch (e) {
-      console.error('Error connecting to room:', e);
-      this.isConnected = false;
-      this.notify();
+      if (currentEpoch === this.connectionEpoch) {
+        console.error('Error connecting to room:', e);
+        this.isConnected = false;
+        this.notify();
+      }
       return false;
     }
   }
@@ -331,18 +402,26 @@ export class LiveKitService {
         if (pub.track) {
           try {
             (pub.track as RemoteAudioTrack).setVolume(volume);
-          } catch (_) {}
+          } catch {
+            // Ignore volume adjustment errors on transient tracks
+          }
         }
       }
     }
   }
 
   async leaveRoom(): Promise<void> {
+    this.connectionEpoch++; // Invalidate pending join connection attempts
+
     if (this.room) {
-      try {
-        await this.room.disconnect();
-      } catch (_) {}
+      const roomToDisconnect = this.room;
       this.room = null;
+      try {
+        roomToDisconnect.removeAllListeners();
+        await roomToDisconnect.disconnect();
+      } catch {
+        // Suppress teardown errors on exiting room
+      }
     }
 
     // Stop and clean up any fallback local tracks
@@ -405,7 +484,9 @@ export function attachTrackToElement(
     return () => {
       try {
         videoTrack.detach(element);
-      } catch (_) {}
+      } catch {
+        // Suppress detach errors
+      }
     };
   }
 

@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,
+      canPublishData: true,
     });
 
     const jwt = await at.toJwt();
