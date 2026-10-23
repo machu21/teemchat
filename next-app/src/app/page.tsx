@@ -117,10 +117,14 @@ export default function LandingPage() {
   }, [initSession, initTheme]);
 
   useEffect(() => {
-    if (session && !isGuest) {
-      router.push('/dashboard');
+    if (session) {
+      if (pendingCode) {
+        router.push(`/space/${pendingCode}`);
+      } else if (!isGuest) {
+        router.push('/dashboard');
+      }
     }
-  }, [session, isGuest, router]);
+  }, [session, isGuest, pendingCode, router]);
 
   // Typewriter loop
   useEffect(() => {
@@ -266,8 +270,19 @@ export default function LandingPage() {
               You were invited to space: <strong>{pendingCode}</strong>! Hop right in to explore.
             </span>
           </div>
-          <NeoButton size="sm" variant="secondary" onClick={() => openGuestModal()} disabled={isSubmitting}>
-            <ZapIcon size={14} style={{ marginRight: 6 }} /> Enter as Guest
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (session) {
+                router.push(`/space/${pendingCode}`);
+              } else {
+                openGuestModal();
+              }
+            }}
+            disabled={isSubmitting}
+          >
+            <ZapIcon size={14} style={{ marginRight: 6 }} /> {session ? 'Join Space →' : 'Enter as Guest'}
           </NeoButton>
         </div>
       )}

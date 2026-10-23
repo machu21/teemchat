@@ -188,7 +188,10 @@ export class WorldSyncService {
 
       // 4. Presence Sync / Join / Leave
       this.channel.on('presence', { event: 'sync' }, () => this.handlePresenceUpdate());
-      this.channel.on('presence', { event: 'join' }, () => this.handlePresenceUpdate());
+      this.channel.on('presence', { event: 'join' }, () => {
+        this.handlePresenceUpdate();
+        this.broadcastMovement(this.lastKnownX, this.lastKnownY, 'down', false, true);
+      });
       this.channel.on('presence', { event: 'leave' }, () => this.handlePresenceUpdate());
 
       this.channel.subscribe(async (status) => {

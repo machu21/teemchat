@@ -23,8 +23,9 @@ import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
-import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/lib/models/avatar';
+import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig, AvatarConfig } from '@/lib/models/avatar';
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
+import { FriendService } from '@/lib/services/friends';
 import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
 import { playMuteSound, playUnmuteSound, playScreenShareSound } from '@/lib/utils/callSounds';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -137,6 +138,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [guestGender, setGuestGender] = useState<Gender>('male');
   const [isJoiningGuest, setIsJoiningGuest] = useState(false);
 
+  // Selected Remote Player for Profile & Add Friend
+  const [selectedPlayer, setSelectedPlayer] = useState<{
+    userId: string;
+    displayName: string;
+    avatarConfig: AvatarConfig;
+  } | null>(null);
+  const [friendReqSending, setFriendReqSending] = useState(false);
+  const [friendReqSent, setFriendReqSent] = useState(false);
+  const [friendReqStatus, setFriendReqStatus] = useState<string | null>(null);
+
   // 1. Initial Space & Session resolution
   useEffect(() => {
     initSession().then(() => {
@@ -163,7 +174,43 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     SpaceService.getSpaceByCodeOrSlug(spaceCode)
       .then((s) => {
-        setSpace(s || defaultHQ());
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (s) {
+          if (s.id && !UUID_REGEX.test(s.id)) {
+            s.id = `room-${(s.slug || spaceCode).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
+          }
+          setSpace(s);
+        } else {
+          const raw = spaceCode.trim();
+          const cleaned = raw.toLowerCase();
+          if (cleaned === 'main-hq' || cleaned === 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b') {
+            setSpace(defaultHQ());
+          } else {
+            const matchedTheme = (Object.keys(MAP_REGISTRY) as (keyof typeof MAP_REGISTRY)[]).find((t) =>
+              cleaned.includes(t)
+            );
+            const theme = matchedTheme || 'village';
+            const cfg = MAP_REGISTRY[theme];
+            setSpace({
+              id: `room-${cleaned.replace(/[^a-z0-9_-]/g, '')}`,
+              name: `${cfg.name} (${raw})`,
+              slug: raw,
+              description: `Shared Hangout in ${cfg.name}`,
+              category: cfg.category,
+              visibility: 'public',
+              tier: 'free',
+              mapTheme: theme,
+              joinCode: raw,
+              ownerId: null,
+              maxCapacity: 50,
+              memberCount: 1,
+              paletteIndex: 0,
+              isActive: true,
+              isTemporary: false,
+              createdAt: null,
+            });
+          }
+        }
       })
       .catch((err) => {
         console.warn('Failed to load space, falling back to default HQ:', err);
@@ -183,8 +230,13 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   useEffect(() => {
     if (!session || !space) return;
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const syncRoomId = (space.id && UUID_REGEX.test(space.id))
+      ? space.id
+      : `room-${(space.slug || spaceCode).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
+
     const sync = new WorldSyncService({
-      spaceId: space.id,
+      spaceId: syncRoomId,
       currentUserId: session.id,
       displayName: session.displayName,
       avatarConfig: session.avatarConfig,
@@ -202,7 +254,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     const livekit = getLiveKit();
 
     // Initial LiveKit room connection
-    livekit.joinSpaceRoom(space.id, session.displayName).catch((err) => {
+    livekit.joinSpaceRoom(syncRoomId, session.displayName).catch((err) => {
       console.warn('LiveKit room connection notice:', err);
     });
 
@@ -254,7 +306,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     );
 
     // Initial playlist load
-    PlaylistService.loadPlaylist(space.id).catch((err) => {
+    PlaylistService.loadPlaylist(syncRoomId).catch((err) => {
       console.warn('Playlist load notice:', err);
     });
 
@@ -265,7 +317,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         removeRealtimeChannel(roomSub);
       }
     };
-  }, [session, space, getLiveKit]);
+  }, [session, space, spaceCode, getLiveKit]);
 
   // 3. 30-Second TTL chat auto-pruner
   useEffect(() => {
@@ -438,6 +490,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           isMicOn={isMicOn}
           isCamOn={isCamOn}
           onCompanionTap={handleCompanionTap}
+          onRemotePlayerTap={(player) => {
+            setSelectedPlayer(player);
+            setFriendReqSent(false);
+            setFriendReqStatus(null);
+          }}
           onProximityChanged={handleProximityChanged}
           onZoneChanged={setCurrentZone}
         />
@@ -884,6 +941,59 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             })}
           </div>
         </div>
+      </NeoModal>
+
+      {/* Player Profile & Add Friend Modal */}
+      <NeoModal
+        isOpen={Boolean(selectedPlayer)}
+        onClose={() => {
+          setSelectedPlayer(null);
+          setFriendReqSent(false);
+          setFriendReqStatus(null);
+        }}
+        title="Player Profile"
+      >
+        {selectedPlayer && (
+          <div className={styles.characterSetupContent}>
+            <div className={styles.avatarStage}>
+              <PixelAvatar config={selectedPlayer.avatarConfig} size={72} />
+              <div style={{ marginTop: '8px', fontWeight: 900, fontSize: '1.2rem' }}>
+                {selectedPlayer.displayName}
+              </div>
+              <NeoBadge color="#22C55E">Online in this Space</NeoBadge>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+              <NeoButton
+                variant="primary"
+                size="lg"
+                disabled={friendReqSending || friendReqSent}
+                onClick={async () => {
+                  if (!session) return;
+                  setFriendReqSending(true);
+                  const res = await FriendService.sendFriendRequest(session.id, selectedPlayer.userId);
+                  setFriendReqSending(false);
+                  if (res.success) {
+                    setFriendReqSent(true);
+                    setFriendReqStatus(res.message || 'Friend request sent! 🎉');
+                    showMediaStatus('🤝', res.message || 'Friend request sent! 🎉', '#22C55E');
+                  } else {
+                    setFriendReqStatus(res.message || 'Could not send friend request.');
+                    showMediaStatus('⚠️', res.message || 'Could not send friend request.', '#EF4444');
+                  }
+                }}
+              >
+                {friendReqSent ? '✓ Request Sent' : friendReqSending ? 'Sending Request...' : '🤝 Add Friend'}
+              </NeoButton>
+
+              {friendReqStatus && (
+                <div style={{ textAlign: 'center', fontSize: '0.9rem', fontWeight: 700, color: friendReqSent ? '#16A34A' : '#DC2626' }}>
+                  {friendReqStatus}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </NeoModal>
 
       {/* Group & DM Call Overlay Container (Stage, Floating Dock, Incoming Ring) */}

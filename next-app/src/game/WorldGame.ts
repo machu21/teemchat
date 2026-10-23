@@ -47,6 +47,13 @@ export class WorldGame {
   onCompanionTap?: () => void;
   onZoneChanged?: (zoneName: string) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
+  onRemotePlayerTap?: (player: {
+    userId: string;
+    displayName: string;
+    avatarConfig: PlayerEntity['avatarConfig'];
+    x: number;
+    y: number;
+  }) => void;
 
   constructor(params: {
     canvas: HTMLCanvasElement;
@@ -463,13 +470,34 @@ export class WorldGame {
         return;
       }
 
-      // 2. Build Mode Placement
+      // 2. Remote Player Hit-test (Profile Card / Add Friend)
+      const worldClickX = clickX / this.camera.zoom + this.camera.x;
+      const worldClickY = clickY / this.camera.zoom + this.camera.y;
+
+      for (const [id, avatar] of this.remoteAvatars.entries()) {
+        const dx = worldClickX - (avatar.x + 16);
+        const dy = worldClickY - (avatar.y + 20);
+        if (Math.hypot(dx, dy) < 28) {
+          if (this.onRemotePlayerTap) {
+            this.onRemotePlayerTap({
+              userId: id,
+              displayName: avatar.displayName,
+              avatarConfig: avatar.avatarConfig,
+              x: avatar.x,
+              y: avatar.y,
+            });
+            return;
+          }
+        }
+      }
+
+      // 3. Build Mode Placement
       if (this.buildModeEnabled && this.selectedFurniture) {
         this.placeFurnitureAtScreen(clickX, clickY);
         return;
       }
 
-      // 3. Tap-to-Move / Click-to-Move Navigation
+      // 4. Tap-to-Move / Click-to-Move Navigation
       const worldX = clickX / this.camera.zoom + this.camera.x - 16;
       const worldY = clickY / this.camera.zoom + this.camera.y - 20;
       this.player.setTargetDestination(worldX, worldY);

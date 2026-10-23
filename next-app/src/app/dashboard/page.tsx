@@ -5,6 +5,7 @@ import styles from './dashboard.module.css';
 import { useSessionStore } from '@/stores/session';
 import { useSocialStore } from '@/stores/social';
 import { SpaceService } from '@/lib/services/spaces';
+import { InviteLinkService } from '@/lib/services/invite';
 import { SpaceModel, spaceTiers } from '@/lib/models/space';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoCard } from '@/components/neo/NeoCard';
@@ -185,14 +186,22 @@ export default function DashboardPage() {
     if (!joinCodeInput.trim()) return;
 
     setIsSubmitting(true);
-    const space = await SpaceService.getSpaceByCodeOrSlug(joinCodeInput.trim());
+    const rawInput = joinCodeInput.trim();
+    const extracted = InviteLinkService.extractCode(rawInput) || rawInput;
+    const space = await SpaceService.getSpaceByCodeOrSlug(extracted);
     setIsSubmitting(false);
 
     if (space) {
       setJoinModalOpen(false);
-      router.push(`/space/${space.slug || space.id}`);
+      router.push(`/space/${space.slug || space.joinCode || space.id}`);
     } else {
-      setFormError('Could not find space with that invite code or slug.');
+      const cleanSlug = extracted.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      if (cleanSlug) {
+        setJoinModalOpen(false);
+        router.push(`/space/${cleanSlug}`);
+      } else {
+        setFormError('Could not find space with that invite code or slug.');
+      }
     }
   };
 

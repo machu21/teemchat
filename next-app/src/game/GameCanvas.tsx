@@ -10,6 +10,8 @@ import { FurnitureType } from '@/game/entities/furniture';
 import { CompanionModel } from '@/lib/models/chat';
 import { getMapConfig } from '@/game/map/mapRegistry';
 
+import { AvatarConfig } from '@/lib/models/avatar';
+
 interface GameCanvasProps {
   space: SpaceModel;
   session: UserSession;
@@ -22,6 +24,13 @@ interface GameCanvasProps {
   isMicOn?: boolean;
   isCamOn?: boolean;
   onCompanionTap?: () => void;
+  onRemotePlayerTap?: (player: {
+    userId: string;
+    displayName: string;
+    avatarConfig: AvatarConfig;
+    x: number;
+    y: number;
+  }) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
   onZoneChanged?: (zoneName: string) => void;
 }
@@ -38,6 +47,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   isMicOn = false,
   isCamOn = false,
   onCompanionTap,
+  onRemotePlayerTap,
   onProximityChanged,
   onZoneChanged,
 }) => {
@@ -118,6 +128,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (onCompanionTap) {
       game.onCompanionTap = onCompanionTap;
     }
+    if (onRemotePlayerTap) {
+      game.onRemotePlayerTap = onRemotePlayerTap;
+    }
     if (onProximityChanged) {
       game.onProximityChanged = onProximityChanged;
     }
@@ -152,7 +165,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [space.id, session.id]); // ONLY re-initialize if the space or user changes!
+  }, [space.id, space.mapTheme, session.id]); // Re-initialize if the space, map theme, or user changes!
 
   // 2. Dynamic prop synchronizers without restarting the game engine
   useEffect(() => {
@@ -160,6 +173,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current.onCompanionTap = onCompanionTap;
     }
   }, [onCompanionTap]);
+
+  useEffect(() => {
+    if (gameRef.current && onRemotePlayerTap) {
+      gameRef.current.onRemotePlayerTap = onRemotePlayerTap;
+    }
+  }, [onRemotePlayerTap]);
 
   useEffect(() => {
     if (gameRef.current && onProximityChanged) {
