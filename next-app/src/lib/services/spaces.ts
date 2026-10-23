@@ -289,7 +289,7 @@ export const SpaceService = {
           };
         }
       }
-    } catch (_) {}
+    } catch {}
 
     // Direct slug lookup
     const { data: bySlug } = await supabase.from('spaces').select('*').ilike('slug', q).maybeSingle();

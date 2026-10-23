@@ -14,5 +14,13 @@
     "cap:sync": "npm --prefix next-app run cap:sync",
     "cap:android": "npm --prefix next-app run cap:open:android",
     "cap:ios": "npm --prefix next-app run cap:open:ios"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

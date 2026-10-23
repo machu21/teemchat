@@ -42,7 +42,7 @@ function playTone(freq: number, duration: number, type: OscillatorType = 'sine',
 
     osc.start();
     osc.stop(ctx.currentTime + duration);
-  } catch (_) {}
+  } catch {}
 }
 
 /**
@@ -108,7 +108,7 @@ export function playScreenShareSound(): void {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.25);
-  } catch (_) {}
+  } catch {}
 }
 
 /**

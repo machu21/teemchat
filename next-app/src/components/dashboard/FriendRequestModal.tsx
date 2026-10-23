@@ -110,6 +110,26 @@ export function FriendRequestModal() {
         {/* Tab 1: Search */}
         {activeTab === 'search' && (
           <div className={styles.searchSection}>
+            {session && (
+              <div className={styles.myHandleBanner}>
+                <span className={styles.myHandleLabel}>YOUR HANDLE:</span>
+                <code className={styles.myHandleCode}>@{session.username || 'guest'}</code>
+                <button
+                  type="button"
+                  className={styles.copyHandleBtn}
+                  onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(session.username || '');
+                      setStatusMessage('Handle copied to clipboard! 📋');
+                    }
+                  }}
+                  title="Copy your handle"
+                >
+                  📋 Copy Handle
+                </button>
+              </div>
+            )}
+
             <input
               className={styles.searchInput}
               placeholder="Search by username or display name..."

@@ -13,7 +13,6 @@ export function NotificationBell() {
     incomingRequests,
     refreshRequests,
     refreshFriends,
-    openDrawer,
     setSearchModalOpen,
   } = useSocialStore();
 

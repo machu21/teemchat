@@ -11,6 +11,7 @@ export type FurnitureType =
   | 'woodenSign'
   | 'boulder'
   | 'stoneWell'
+  | 'villageFountain'
   | 'streetLantern'
   | 'woodenFence'
   | 'pingPongTable'
@@ -65,6 +66,8 @@ export class FurnitureEntity {
         return { x: this.x + 6, y: this.y + 10, w: 32, h: 22 };
       case 'stoneWell':
         return { x: this.x + 6, y: this.y + 22, w: 36, h: 26 };
+      case 'villageFountain':
+        return { x: this.x + 8, y: this.y + 16, w: 64, h: 48 };
       case 'streetLantern':
         return { x: this.x + 8, y: this.y + 30, w: 8, h: 14 };
       case 'woodenFence':
@@ -490,6 +493,88 @@ export class FurnitureEntity {
         span(16, 8, 15, '#183858');
         p(11, 12, '#C0A060');
         p(11, 13, '#C0A060');
+        break;
+      }
+
+      case 'villageFountain': {
+        // Multi-tier circular stone fountain matching reference screenshot
+        const stoneOut = '#1E293B';
+        const stoneDark = '#475569';
+        const stoneMid = '#94A3B8';
+        const stoneLight = '#CBD5E1';
+        const stoneHi = '#F8FAFC';
+
+        const waterDark = '#0284C7';
+        const waterMid = '#38BDF8';
+        const waterLight = '#7DD3FC';
+        const waterFoam = '#F0F9FF';
+
+        // Outer Stone Basin (Octagonal/Circular rim: 40px wide internal = 80px world)
+        span(12, 10, 30, stoneOut);
+        span(13, 6, 34, stoneOut);
+        span(14, 4, 36, stoneDark);
+        span(15, 3, 37, stoneLight);
+        span(16, 2, 38, stoneLight);
+
+        // Water Basin Interior
+        for (let y = 17; y <= 24; y++) {
+          const inL = y <= 18 ? 4 : 3;
+          const inR = y <= 18 ? 36 : 37;
+          span(y, inL, inR, waterMid);
+          // Darker water depth around edges
+          p(inL, y, waterDark);
+          p(inL + 1, y, waterDark);
+          p(inR, y, waterDark);
+          p(inR - 1, y, waterDark);
+          // Outer stone edge
+          p(inL - 1, y, stoneLight);
+          p(inL - 2, y, stoneOut);
+          p(inR + 1, y, stoneDark);
+          p(inR + 2, y, stoneOut);
+        }
+
+        // Water caustic ripples in basin
+        span(18, 8, 14, waterLight);
+        span(19, 26, 32, waterLight);
+        span(21, 10, 16, waterFoam);
+        span(22, 24, 30, waterLight);
+        span(23, 14, 20, waterFoam);
+
+        // Basin lower stone rim & drop shadow
+        span(25, 3, 37, stoneDark);
+        span(26, 4, 36, stoneDark);
+        span(27, 6, 34, stoneOut);
+        span(28, 10, 30, stoneOut);
+
+        // Center Pedestal & Mid Basin Tier
+        span(10, 15, 25, stoneDark);
+        span(11, 14, 26, stoneMid);
+        for (let y = 7; y <= 9; y++) {
+          span(y, 16, 24, stoneLight);
+          p(15, y, stoneOut);
+          p(25, y, stoneOut);
+          span(y, 18, 22, waterMid);
+        }
+
+        // Top Spire & Spouting Tier
+        span(3, 19, 21, stoneHi);
+        span(4, 18, 22, stoneLight);
+        span(5, 17, 23, stoneLight);
+        span(6, 18, 22, stoneDark);
+
+        // Spouting water streams & splashes
+        p(20, 1, waterFoam);
+        p(20, 2, waterLight);
+        p(19, 2, waterFoam);
+        p(21, 2, waterFoam);
+
+        // Cascading water streams falling into basin
+        for (let y = 7; y <= 16; y += 2) {
+          p(14, y, waterFoam);
+          p(14, y + 1, waterLight);
+          p(26, y, waterFoam);
+          p(26, y + 1, waterLight);
+        }
         break;
       }
 
@@ -1076,6 +1161,8 @@ export class FurnitureEntity {
         return { w: 44, h: 36 };
       case 'stoneWell':
         return { w: 48, h: 54 };
+      case 'villageFountain':
+        return { w: 80, h: 64 };
       case 'streetLantern':
         return { w: 24, h: 48 };
       case 'woodenFence':

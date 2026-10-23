@@ -13,8 +13,31 @@ import { NeoInput } from '@/components/neo/NeoInput';
 import { ThemeToggle } from '@/components/neo/ThemeToggle';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { AndroidLogo, AppleLogo } from '@/components/icons/BrandLogos';
+import {
+  ZapIcon,
+  HeartIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  XIcon,
+  MenuIcon,
+  LinkIcon,
+  SparklesIcon,
+  MapIcon,
+  GemIcon,
+  SmartphoneIcon,
+  KeyIcon,
+  LockIcon,
+  CompassIcon,
+  AudioWavesIcon,
+  BotIcon,
+  PaletteIcon,
+  UserMaleIcon,
+  UserFemaleIcon,
+  FlameIcon,
+} from '@/components/icons/LandingIcons';
 import { InviteLinkService } from '@/lib/services/invite';
 import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/lib/models/avatar';
+import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { useRouter } from 'next/navigation';
 
 const TYPEWRITER_PHRASES = [
@@ -52,6 +75,7 @@ export default function LandingPage() {
   // ── Guest & Character Setup State ──
   const [characterModalOpen, setCharacterModalOpen] = useState(false);
   const [guestName, setGuestName] = useState('');
+  const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const [guestGender, setGuestGender] = useState<Gender>('male');
   const [signUpGender, setSignUpGender] = useState<Gender>('male');
 
@@ -87,6 +111,9 @@ export default function LandingPage() {
   useEffect(() => {
     initSession();
     initTheme();
+    getOrFetchGuestIdentity()
+      .then((ident) => setGuestIdentity(ident))
+      .catch(() => {});
   }, [initSession, initTheme]);
 
   useEffect(() => {
@@ -127,8 +154,19 @@ export default function LandingPage() {
     }
   };
 
-  const openGuestModal = (defaultName?: string) => {
-    const name = defaultName !== undefined ? defaultName : (spaceName.trim() ? `${spaceName.trim()} Explorer` : 'Explorer');
+  const openGuestModal = async (defaultName?: string) => {
+    let identity = guestIdentity;
+    if (!identity) {
+      try {
+        identity = await getOrFetchGuestIdentity();
+        setGuestIdentity(identity);
+      } catch {}
+    }
+    const name = defaultName !== undefined
+      ? defaultName
+      : (spaceName.trim() && spaceName !== 'Teemchat HQ'
+          ? `${spaceName.trim()} Explorer`
+          : (identity?.displayName || 'Explorer'));
     setGuestName(name);
     setCharacterModalOpen(true);
   };
@@ -136,7 +174,8 @@ export default function LandingPage() {
   const handleConfirmGuest = async () => {
     setIsSubmitting(true);
     try {
-      await signInGuest(guestName.trim() || 'Explorer', guestGender);
+      const chosenName = guestName.trim() || guestIdentity?.displayName || 'Explorer';
+      await signInGuest(chosenName, guestGender, guestIdentity?.username);
       setCharacterModalOpen(false);
       const target = pendingCode ? `/space/${pendingCode}` : '/dashboard';
       router.push(target);
@@ -222,13 +261,13 @@ export default function LandingPage() {
       {pendingCode && (
         <div className={styles.inviteBanner}>
           <div className={styles.inviteBannerContent}>
-            <span>🔗</span>
+            <LinkIcon size={16} />
             <span>
               You were invited to space: <strong>{pendingCode}</strong>! Hop right in to explore.
             </span>
           </div>
           <NeoButton size="sm" variant="secondary" onClick={() => openGuestModal()} disabled={isSubmitting}>
-            ⚡ Enter as Guest
+            <ZapIcon size={14} style={{ marginRight: 6 }} /> Enter as Guest
           </NeoButton>
         </div>
       )}
@@ -299,7 +338,7 @@ export default function LandingPage() {
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? '✕' : '☰'}
+            {mobileMenuOpen ? <XIcon size={18} /> : <MenuIcon size={18} />}
           </button>
         </div>
       </header>
@@ -316,7 +355,7 @@ export default function LandingPage() {
                 setMobileMenuOpen(false);
               }}
             >
-              ✨ Try It Out
+              <SparklesIcon size={18} style={{ marginRight: 8 }} /> Try It Out
             </button>
             <button
               type="button"
@@ -326,7 +365,7 @@ export default function LandingPage() {
                 setMobileMenuOpen(false);
               }}
             >
-              🗺️ How It Works
+              <MapIcon size={18} style={{ marginRight: 8 }} /> How It Works
             </button>
             <button
               type="button"
@@ -336,7 +375,7 @@ export default function LandingPage() {
                 setMobileMenuOpen(false);
               }}
             >
-              ⚡ Features
+              <ZapIcon size={18} style={{ marginRight: 8 }} /> Features
             </button>
             <button
               type="button"
@@ -346,7 +385,7 @@ export default function LandingPage() {
                 setMobileMenuOpen(false);
               }}
             >
-              💎 Pricing
+              <GemIcon size={18} style={{ marginRight: 8 }} /> Pricing
             </button>
             <button
               type="button"
@@ -356,7 +395,7 @@ export default function LandingPage() {
                 setMobileMenuOpen(false);
               }}
             >
-              📱 Download Apps
+              <SmartphoneIcon size={18} style={{ marginRight: 8 }} /> Download Apps
             </button>
           </nav>
           <div className={styles.mobileMenuActions}>
@@ -370,7 +409,7 @@ export default function LandingPage() {
                 setAuthModalOpen(true);
               }}
             >
-              🔑 Log In / Sign Up
+              <KeyIcon size={16} style={{ marginRight: 6 }} /> Log In / Sign Up
             </NeoButton>
             <NeoButton
               variant="primary"
@@ -382,7 +421,7 @@ export default function LandingPage() {
               }}
               disabled={isSubmitting}
             >
-              ⚡ Enter as Guest
+              <ZapIcon size={16} style={{ marginRight: 6 }} /> Enter as Guest
             </NeoButton>
           </div>
         </div>
@@ -430,15 +469,15 @@ export default function LandingPage() {
 
             <div className={styles.heroTrustRow}>
               <span className={styles.heroTrustItem}>
-                <span style={{ color: '#10B981' }}>⚡</span> Instant guest pass
+                <ZapIcon size={14} color="#10B981" /> Instant guest pass
               </span>
               <span className={styles.heroTrustDot}>•</span>
               <span className={styles.heroTrustItem}>
-                <span style={{ color: '#8B5CF6' }}>🔒</span> Zero setup required
+                <LockIcon size={14} color="#8B5CF6" /> Zero setup required
               </span>
               <span className={styles.heroTrustDot}>•</span>
               <span className={styles.heroTrustItem}>
-                <span style={{ color: '#F59E0B' }}>📱</span> Web &amp; Mobile ready
+                <SmartphoneIcon size={14} color="#F59E0B" /> Web &amp; Mobile ready
               </span>
             </div>
           </div>
@@ -452,8 +491,12 @@ export default function LandingPage() {
                   <div className={styles.cardTitle}>Start a space</div>
                 </div>
                 <div className={styles.mascotBadge}>
-                  <div className={styles.sparkleOne}>✨</div>
-                  <div className={styles.sparkleTwo}>✦</div>
+                  <div className={styles.sparkleOne}>
+                    <SparklesIcon size={14} color="#FAB936" />
+                  </div>
+                  <div className={styles.sparkleTwo}>
+                    <SparklesIcon size={12} color="#FAB936" />
+                  </div>
                   <div className={styles.mascotCircle}>
                     <Image
                       src={isDark ? '/images/teamchat_logo_dark.jpg' : '/images/teamchat_logo.jpg'}
@@ -581,8 +624,9 @@ export default function LandingPage() {
                     </div>
 
                     <div className={styles.chatMessageRow} style={{ justifyContent: 'flex-end' }}>
-                      <div className={styles.chatBubbleUser}>
-                        Hey TeemChat Cat! Love this cozy world 🔥
+                      <div className={styles.chatBubbleUser} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span>Hey TeemChat Cat! Love this cozy world</span>
+                        <FlameIcon size={14} color="#F97316" />
                       </div>
                     </div>
 
@@ -681,7 +725,9 @@ export default function LandingPage() {
 
           <div className={styles.featuresGrid}>
             <NeoCard inner>
-              <div className={styles.featIconBox}>🧭</div>
+              <div className={styles.featIconBox}>
+                <CompassIcon size={24} color="var(--primary)" />
+              </div>
               <div className={styles.stepTitle}>Rooms that keep up</div>
               <div className={styles.stepDesc}>
                 Ephemeral 30-second disappearing chat bubbles that keep conversations fresh and natural.
@@ -689,7 +735,9 @@ export default function LandingPage() {
             </NeoCard>
 
             <NeoCard inner>
-              <div className={styles.featIconBox}>🎙️</div>
+              <div className={styles.featIconBox}>
+                <AudioWavesIcon size={24} color="#2A9D8F" />
+              </div>
               <div className={styles.stepTitle}>Voice huts & Proximity</div>
               <div className={styles.stepDesc}>
                 High-bitrate LiveKit spatial WebRTC audio. Walk near players to hear them; walk away to fade.
@@ -697,7 +745,9 @@ export default function LandingPage() {
             </NeoCard>
 
             <NeoCard inner>
-              <div className={styles.featIconBox}>🤖</div>
+              <div className={styles.featIconBox}>
+                <BotIcon size={24} color="#E76F51" />
+              </div>
               <div className={styles.stepTitle}>Buddy chat & AI RAG</div>
               <div className={styles.stepDesc}>
                 Your personal AI Companion travels with you, learns from your talks, and remembers past facts.
@@ -705,7 +755,9 @@ export default function LandingPage() {
             </NeoCard>
 
             <NeoCard inner>
-              <div className={styles.featIconBox}>🛠️</div>
+              <div className={styles.featIconBox}>
+                <PaletteIcon size={24} color="#FAB936" />
+              </div>
               <div className={styles.stepTitle}>Yours to run</div>
               <div className={styles.stepDesc}>
                 Interactive build mode, furniture placement, campfire roasting, and one-tap invite sharing.
@@ -762,13 +814,13 @@ export default function LandingPage() {
               </div>
 
               <ul className={styles.featureList}>
-                <li><span>✓</span> Join any space instantly as Guest</li>
-                <li><span>✓</span> No account registration needed</li>
-                <li><span>✓</span> 2D Virtual world & river swimming</li>
-                <li><span>✓</span> Proximity spatial voice audio</li>
-                <li><span>✓</span> In-world messaging & campfire chat</li>
-                <li style={{ opacity: 0.5 }}><span>✕</span> No AI companion persona</li>
-                <li style={{ opacity: 0.5 }}><span>✕</span> No persistent account or space saves</li>
+                <li><CheckIcon size={16} color="#10B981" /> Join any space instantly as Guest</li>
+                <li><CheckIcon size={16} color="#10B981" /> No account registration needed</li>
+                <li><CheckIcon size={16} color="#10B981" /> 2D Virtual world &amp; river swimming</li>
+                <li><CheckIcon size={16} color="#10B981" /> Proximity spatial voice audio</li>
+                <li><CheckIcon size={16} color="#10B981" /> In-world messaging &amp; campfire chat</li>
+                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No AI companion persona</li>
+                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No persistent account or space saves</li>
               </ul>
 
               <NeoButton
@@ -801,13 +853,13 @@ export default function LandingPage() {
               </div>
 
               <ul className={styles.featureList}>
-                <li><span>✓</span> Full registered account & profile</li>
-                <li><span>✓</span> 🤖 Personal AI Companion (learns from scratch)</li>
-                <li><span>✓</span> Custom AI Persona, memories & sprite avatar</li>
-                <li><span>✓</span> Permanent cloud spaces & world decorator</li>
-                <li><span>✓</span> Interactive screen sharing & video calls</li>
-                <li><span>✓</span> High-bitrate low-latency spatial voice</li>
-                <li><span>✓</span> Custom retro outfits & accessories</li>
+                <li><CheckIcon size={16} color="#10B981" /> Full registered account &amp; profile</li>
+                <li><CheckIcon size={16} color="#10B981" /> Personal AI Companion (learns from scratch)</li>
+                <li><CheckIcon size={16} color="#10B981" /> Custom AI Persona, memories &amp; sprite avatar</li>
+                <li><CheckIcon size={16} color="#10B981" /> Permanent cloud spaces &amp; world decorator</li>
+                <li><CheckIcon size={16} color="#10B981" /> Interactive screen sharing &amp; video calls</li>
+                <li><CheckIcon size={16} color="#10B981" /> High-bitrate low-latency spatial voice</li>
+                <li><CheckIcon size={16} color="#10B981" /> Custom retro outfits &amp; accessories</li>
               </ul>
 
               <NeoButton
@@ -855,10 +907,10 @@ export default function LandingPage() {
               </p>
 
               <div className={styles.platformPillTags}>
-                <span className={styles.platformPill}>✓ Android 8.0+</span>
-                <span className={styles.platformPill}>✓ WebRTC Voice</span>
-                <span className={styles.platformPill}>✓ Retro Joystick</span>
-                <span className={styles.platformPill}>✓ Fast Direct APK</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Android 8.0+</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> WebRTC Voice</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Retro Joystick</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Fast Direct APK</span>
               </div>
 
               <a
@@ -897,10 +949,10 @@ export default function LandingPage() {
               </p>
 
               <div className={styles.platformPillTags}>
-                <span className={styles.platformPill}>✓ iPhone &amp; iPad</span>
-                <span className={styles.platformPill}>✓ Zero Install Time</span>
-                <span className={styles.platformPill}>✓ Spatial Audio</span>
-                <span className={styles.platformPill}>✓ Standalone Window</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> iPhone &amp; iPad</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Zero Install Time</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Spatial Audio</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Standalone Window</span>
               </div>
 
               <NeoButton
@@ -909,8 +961,15 @@ export default function LandingPage() {
                 fullWidth
                 onClick={handleCopySafariLink}
               >
-                <AppleLogo size={18} color="currentColor" />
-                {copiedSafariLink ? '✓ Link Copied to Clipboard!' : 'Copy Link for Safari'}
+                {copiedSafariLink ? (
+                  <>
+                    <CheckIcon size={16} color="currentColor" /> Link Copied to Clipboard!
+                  </>
+                ) : (
+                  <>
+                    <AppleLogo size={18} color="currentColor" /> Copy Link for Safari
+                  </>
+                )}
               </NeoButton>
             </NeoCard>
           </div>
@@ -937,15 +996,162 @@ export default function LandingPage() {
 
       {/* ── Footer ── */}
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>
-          <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>
-            teemchat<span style={{ color: 'var(--hero-highlight)' }}>.</span>
-          </span>
-          <span>© 2026 TeemChat Inc. Built with Next.js & Supabase.</span>
-        </div>
-        <div className={styles.statusIndicator}>
-          <span>●</span>
-          <span>All Systems Operational</span>
+        <div className={styles.footerContent}>
+          <div className={styles.footerGrid}>
+            {/* Brand Column */}
+            <div className={styles.footerBrandCol}>
+              <button
+                type="button"
+                className={styles.footerLogo}
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                aria-label="TeemChat Home"
+              >
+                <div className={styles.footerLogoCircle}>
+                  <Image
+                    src={isDark ? '/images/teamchat_logo_dark.jpg' : '/images/teamchat_logo.jpg'}
+                    alt="TeemChat Logo"
+                    width={36}
+                    height={36}
+                    className={styles.footerLogoImg}
+                  />
+                </div>
+                <span className={styles.footerLogoText}>
+                  teemchat<span className={styles.logoDot}>.</span>
+                </span>
+                <span className={styles.footerBetaBadge}>BETA</span>
+              </button>
+
+              <p className={styles.footerTagline}>
+                The 16-bit virtual hangout space for remote teams, study squads, and friends. Proximity spatial voice, interactive rooms, and retro avatars.
+              </p>
+
+              <div className={styles.footerStatusPill}>
+                <span className={styles.statusPulseDot} />
+                <span>All Systems Operational</span>
+              </div>
+            </div>
+
+            {/* Product Column */}
+            <div className={styles.footerCol}>
+              <h4 className={styles.footerHeading}>PRODUCT</h4>
+              <ul className={styles.footerList}>
+                <li>
+                  <button type="button" onClick={() => scrollTo('try-it')} className={styles.footerLink}>
+                    Interactive Preview
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => scrollTo('how-it-works')} className={styles.footerLink}>
+                    How It Works
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => scrollTo('features')} className={styles.footerLink}>
+                    Core Features
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => scrollTo('pricing')} className={styles.footerLink}>
+                    Pricing &amp; Plans
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => scrollTo('download')} className={styles.footerLink}>
+                    Mobile &amp; Desktop
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Experience Column */}
+            <div className={styles.footerCol}>
+              <h4 className={styles.footerHeading}>EXPERIENCE</h4>
+              <ul className={styles.footerList}>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => openGuestModal()}
+                    className={styles.footerLinkHighlight}
+                  >
+                    <ZapIcon size={14} style={{ marginRight: 6 }} /> Enter as Guest
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(true);
+                      setAuthModalOpen(true);
+                    }}
+                    className={styles.footerLink}
+                  >
+                    Create Account
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(false);
+                      setAuthModalOpen(true);
+                    }}
+                    className={styles.footerLink}
+                  >
+                    Sign In
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => openGuestModal()}
+                    className={styles.footerLink}
+                  >
+                    Avatar Builder
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Community Column */}
+            <div className={styles.footerCol}>
+              <h4 className={styles.footerHeading}>COMMUNITY</h4>
+              <ul className={styles.footerList}>
+                <li>
+                  <span className={styles.footerStaticItem}>Community Lounge</span>
+                </li>
+                <li>
+                  <span className={styles.footerStaticItem}>Virtual Office Hub</span>
+                </li>
+                <li>
+                  <span className={styles.footerStaticItem}>Privacy &amp; Safety</span>
+                </li>
+                <li>
+                  <span className={styles.footerStaticItem}>Community Guidelines</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar: Copyright & Back to Top */}
+          <div className={styles.footerBottomBar}>
+            <div className={styles.footerCopy}>
+              <span>© 2026 TeemChat Inc. All rights reserved.</span>
+              <span className={styles.footerCopyTag}>
+                • Crafted with <HeartIcon size={13} color="#EF4444" style={{ display: 'inline-flex', verticalAlign: 'middle', margin: '0 2px' }} /> for cozy virtual spaces.
+              </span>
+            </div>
+
+            <div className={styles.footerActions}>
+              <button
+                type="button"
+                className={styles.backToTopBtn}
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                aria-label="Scroll back to top"
+              >
+                <ArrowUpIcon size={14} style={{ marginRight: 4 }} /> Back to Top
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
 
@@ -1033,7 +1239,7 @@ export default function LandingPage() {
                     className={`${styles.genderCard} ${signUpGender === 'male' ? styles.genderCardMaleActive : ''}`}
                     onClick={() => setSignUpGender('male')}
                   >
-                    <span>👨</span>
+                    <UserMaleIcon size={18} />
                     <span>Male</span>
                   </button>
                   <button
@@ -1041,7 +1247,7 @@ export default function LandingPage() {
                     className={`${styles.genderCard} ${signUpGender === 'female' ? styles.genderCardFemaleActive : ''}`}
                     onClick={() => setSignUpGender('female')}
                   >
-                    <span>👩</span>
+                    <UserFemaleIcon size={18} />
                     <span>Female</span>
                   </button>
                 </div>
@@ -1116,15 +1322,18 @@ export default function LandingPage() {
                 size={72}
               />
             </div>
-            <div className={styles.pedestalName}>{guestName.trim() || 'Explorer'}</div>
+            <div className={styles.pedestalName}>{guestName.trim() || guestIdentity?.displayName || 'Explorer'}</div>
+            {guestIdentity?.username && (
+              <div className={styles.pedestalHandle}>@{guestIdentity.username}</div>
+            )}
             <div className={styles.pedestalMeta}>
-              {guestGender === 'female' ? '♀ Female Character' : '♂ Male Character'}
+              {guestGender === 'female' ? 'Female Persona' : 'Male Persona'}
             </div>
           </div>
 
           <NeoInput
             label="EXPLORER NAME"
-            placeholder="Explorer"
+            placeholder={guestIdentity?.displayName || "Explorer"}
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
             required
@@ -1138,7 +1347,7 @@ export default function LandingPage() {
                 className={`${styles.genderCard} ${guestGender === 'male' ? styles.genderCardMaleActive : ''}`}
                 onClick={() => setGuestGender('male')}
               >
-                <span>👨</span>
+                <UserMaleIcon size={18} />
                 <span>Male</span>
               </button>
               <button
@@ -1146,7 +1355,7 @@ export default function LandingPage() {
                 className={`${styles.genderCard} ${guestGender === 'female' ? styles.genderCardFemaleActive : ''}`}
                 onClick={() => setGuestGender('female')}
               >
-                <span>👩</span>
+                <UserFemaleIcon size={18} />
                 <span>Female</span>
               </button>
             </div>
@@ -1158,7 +1367,13 @@ export default function LandingPage() {
             onClick={handleConfirmGuest}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Entering World...' : '⚡ Enter Virtual World'}
+            {isSubmitting ? (
+              'Entering World...'
+            ) : (
+              <>
+                <ZapIcon size={18} style={{ marginRight: 6 }} /> Enter Virtual World
+              </>
+            )}
           </NeoButton>
         </div>
       </NeoModal>

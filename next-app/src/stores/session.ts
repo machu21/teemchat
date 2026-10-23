@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { UserSession, createGuestSession } from '@/lib/models/user';
+import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
 import {
   AvatarConfig,
   Gender,
@@ -15,7 +16,7 @@ interface SessionState {
   isLoading: boolean;
   isGuest: boolean;
   initSession: () => Promise<void>;
-  signInGuest: (displayName?: string, gender?: Gender) => Promise<void>;
+  signInGuest: (displayName?: string, gender?: Gender, preferredUsername?: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithPassword: (
     email: string,
@@ -171,7 +172,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  signInGuest: async (displayName?: string, gender: Gender = 'male') => {
+  signInGuest: async (displayName?: string, gender: Gender = 'male', preferredUsername?: string) => {
     // Prevent repeated guest provisioning in the same browser/device
     try {
       if (typeof window !== 'undefined') {
@@ -186,12 +187,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
     } catch {}
 
+    // Resolve deterministic IP-derived identity
+    let guestIdentity = null;
+    try {
+      guestIdentity = await getOrFetchGuestIdentity();
+    } catch {}
+
+    const randomId = Math.floor(Math.random() * 9000) + 1000;
+    const targetUsername = (preferredUsername && preferredUsername.trim())
+      ? preferredUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+      : (guestIdentity?.username || `guest_${randomId}`);
+
+    const guestName = displayName && displayName.trim()
+      ? displayName.trim()
+      : (guestIdentity?.displayName || `Guest #${randomId}`);
+    const guestPw = `Guest_${Date.now()}_${randomId}!`;
+
     // Attempt provision via Supabase RPC
     try {
-      const randomId = Math.floor(Math.random() * 9000) + 1000;
-      const guestName = displayName && displayName.trim() ? displayName.trim() : `Guest #${randomId}`;
-      const guestPw = `Guest_${Date.now()}_${randomId}!`;
-
       const maleColors = ['#3B82F6', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6', '#06B6D4'];
       const femaleColors = ['#EC4899', '#8B5CF6', '#F43F5E', '#10B981', '#06B6D4', '#F59E0B'];
       const colors = gender === 'female' ? femaleColors : maleColors;
@@ -208,6 +221,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         p_password: guestPw,
         p_avatar_config: avatarConfig as unknown as Record<string, unknown>,
         p_gender: gender,
+        p_username: targetUsername,
       });
 
       if (!rpcErr && res && typeof res === 'object') {
@@ -221,7 +235,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           const guestSession: UserSession = {
             id: authRes.user.id,
             displayName: guestName,
-            username: (res as { username?: string }).username || `guest_${randomId}`,
+            username: (res as { username?: string }).username || targetUsername,
             email,
             status: 'available',
             gender,
@@ -248,7 +262,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
 
     // Fallback to local guest session
-    const localGuest = createGuestSession(displayName, gender);
+    const localGuest = createGuestSession(displayName, gender, targetUsername);
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem('teem_guest_session', JSON.stringify(localGuest));

@@ -105,34 +105,56 @@ export const MAP_REGISTRY: Record<MapThemeId, MapThemeConfig> = {
         y: 480,
         color: '#38BDF8',
       },
+      {
+        id: 'cottage',
+        name: 'Cozy Cottage Interior',
+        tag: '🏡 Potion Shop',
+        description: 'Warm fireplace, alchemist study desk, and potion racks.',
+        x: 184,
+        y: 120,
+        color: '#D97706',
+      },
+      {
+        id: 'townhall',
+        name: 'Town Hall Interior',
+        tag: '🏛️ Guild Hall',
+        description: 'Grand council meeting table, reception ledger, and library.',
+        x: 424,
+        y: 110,
+        color: '#2563EB',
+      },
     ],
     boundaryWalls: [
       ...PERIMETER_WALLS,
-      // Building 1 (Village HQ)
-      { x: 16 * 5, y: 16 * 5, w: 16 * 12, h: 16 * 8 },
-      // Building 2 (Library / Cafe)
-      { x: 16 * 19, y: 16 * 4, w: 16 * 15, h: 16 * 9 },
+      // Building 1 (Cottage / Potion Shop): Perimeter walls with open doorway (x: 164..204)
+      { x: 80, y: 48, w: 192, h: 32 }, // North elevated wall
+      { x: 80, y: 48, w: 16, h: 148 }, // West wall
+      { x: 256, y: 48, w: 16, h: 148 }, // East wall
+      { x: 80, y: 180, w: 84, h: 16 }, // South wall left
+      { x: 204, y: 180, w: 68, h: 16 }, // South wall right (doorway open 164..204)
+
+      // Building 2 (Town Hall / Guild House): Perimeter walls with open double doorway (x: 400..448)
+      { x: 304, y: 32, w: 240, h: 32 }, // North elevated wall
+      { x: 304, y: 32, w: 16, h: 156 }, // West wall
+      { x: 528, y: 32, w: 16, h: 156 }, // East wall
+      { x: 304, y: 172, w: 96, h: 16 }, // South wall left
+      { x: 448, y: 172, w: 96, h: 16 }, // South wall right (double doorway open 400..448)
     ],
     defaultProps: [
-      // Lounge Area
-      { type: 'blueSofa', x: 128, y: 272 },
-      { type: 'coffeeTable', x: 144, y: 224 },
-      { type: 'armchair', x: 224, y: 208 },
-      { type: 'floorLamp', x: 88, y: 256 },
-      { type: 'pottedPlant', x: 88, y: 192 },
-      { type: 'pingPongTable', x: 368, y: 224 },
-      { type: 'beanBagRed', x: 304, y: 352 },
-      { type: 'beanBagBlue', x: 352, y: 352 },
-      { type: 'beanBagYellow', x: 400, y: 352 },
-      { type: 'pottedPlant', x: 496, y: 336 },
-      // Outdoor Village
-      { type: 'stoneWell', x: 288, y: 448 },
-      { type: 'woodenSign', x: 224, y: 448 },
-      { type: 'streetLantern', x: 64, y: 448 },
-      { type: 'streetLantern', x: 560, y: 448 },
-      { type: 'woodenFence', x: 96, y: 496 },
-      { type: 'flowerPatch', x: 96, y: 528 },
-      { type: 'logBench', x: 368, y: 480 },
+      // Village Plaza Center & Surroundings
+      { type: 'villageFountain', x: 336, y: 320 },
+      { type: 'logBench', x: 224, y: 280 },
+      { type: 'logBench', x: 448, y: 360 },
+      { type: 'streetLantern', x: 192, y: 200 },
+      { type: 'streetLantern', x: 480, y: 200 },
+      { type: 'streetLantern', x: 192, y: 440 },
+      { type: 'streetLantern', x: 480, y: 440 },
+      { type: 'woodenSign', x: 160, y: 430 },
+      { type: 'woodenSign', x: 500, y: 280 },
+      { type: 'flowerPatch', x: 130, y: 460 },
+      { type: 'flowerPatch', x: 530, y: 460 },
+      { type: 'pottedPlant', x: 260, y: 200 },
+      { type: 'pottedPlant', x: 420, y: 200 },
       { type: 'berryBush', x: 544, y: 480 },
       { type: 'pineTree', x: 576, y: 128 },
       // Woods & Camp
@@ -151,6 +173,12 @@ export const MAP_REGISTRY: Record<MapThemeId, MapThemeConfig> = {
       return false;
     },
     getCurrentZone(x: number, y: number) {
+      if (x >= 96 && x <= 256 && y >= 64 && y <= 180) {
+        return { name: 'Cozy Cottage Interior', tag: '🏡 Potion Shop', color: '#D97706' };
+      }
+      if (x >= 320 && x <= 528 && y >= 48 && y <= 172) {
+        return { name: 'Town Hall Interior', tag: '🏛️ Guild Hall', color: '#2563EB' };
+      }
       if (x >= 1290) return { name: 'Crystal Bay Beach', tag: '🏖️ Coastal Bay', color: '#38BDF8' };
       if (y <= 400 && x >= 600) return { name: 'Whispering Woods', tag: '🌲 Woods', color: '#10B981' };
       if (x >= 710 && x <= 826 && y >= 660 && y <= 745) return { name: 'River Crossing Bridge', tag: '🌉 Bridge', color: '#D97706' };

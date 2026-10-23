@@ -24,7 +24,9 @@ import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/lib/models/avatar';
+import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
+import { playMuteSound, playUnmuteSound, playScreenShareSound } from '@/lib/utils/callSounds';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   MicIcon,
@@ -78,6 +80,18 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [isCamOn, setIsCamOn] = useState(false);
   const [isScreenShareOn, setIsScreenShareOn] = useState(false);
   const [videoFeeds, setVideoFeeds] = useState<VideoFeedModel[]>([]);
+  const [mediaStatusToast, setMediaStatusToast] = useState<{ icon: string; message: string; color: string } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showMediaStatus = useCallback((icon: string, message: string, color: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setMediaStatusToast({ icon, message, color });
+    toastTimeoutRef.current = setTimeout(() => {
+      setMediaStatusToast(null);
+    }, 2800);
+  }, []);
 
   // Roblox-style Chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -119,6 +133,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   // Guest Character Setup Modal State
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [guestName, setGuestName] = useState('Explorer');
+  const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const [guestGender, setGuestGender] = useState<Gender>('male');
   const [isJoiningGuest, setIsJoiningGuest] = useState(false);
 
@@ -127,11 +142,23 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     initSession().then(() => {
       const current = useSessionStore.getState().session;
       if (!current) {
-        setGuestModalOpen(true);
+        getOrFetchGuestIdentity().then((id) => {
+          setGuestIdentity(id);
+          setGuestName(id.displayName);
+          setGuestModalOpen(true);
+        }).catch(() => {
+          setGuestModalOpen(true);
+        });
       }
     }).catch((err) => {
       console.warn('Error during initSession:', err);
-      setGuestModalOpen(true);
+      getOrFetchGuestIdentity().then((id) => {
+        setGuestIdentity(id);
+        setGuestName(id.displayName);
+        setGuestModalOpen(true);
+      }).catch(() => {
+        setGuestModalOpen(true);
+      });
     });
 
     SpaceService.getSpaceByCodeOrSlug(spaceCode)
@@ -146,7 +173,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   const handleJoinAsGuest = async () => {
     setIsJoiningGuest(true);
-    await useSessionStore.getState().signInGuest(guestName.trim() || 'Explorer', guestGender);
+    const chosenName = guestName.trim() || guestIdentity?.displayName || 'Explorer';
+    await useSessionStore.getState().signInGuest(chosenName, guestGender, guestIdentity?.username);
     setIsJoiningGuest(false);
     setGuestModalOpen(false);
   };
@@ -182,7 +210,34 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       setIsMicOn(livekit.isMicEnabled);
       setIsCamOn(livekit.isCameraEnabled);
       setIsScreenShareOn(livekit.isScreenShareEnabled);
-      setVideoFeeds([...livekit.remoteVideoFeeds]);
+
+      const allFeeds: VideoFeedModel[] = [];
+
+      // If local camera is active and track is available, add local preview feed
+      if (livekit.isCameraEnabled && livekit.localVideoTrack) {
+        allFeeds.push({
+          track: livekit.localVideoTrack,
+          participantName: `${session.displayName} (You)`,
+          participantId: `local-cam-${session.id}`,
+          isScreenShare: false,
+          isLocal: true,
+        });
+      }
+
+      // If local screen share is active, add local screen share feed
+      if (livekit.isScreenShareEnabled && livekit.localScreenShareTrack) {
+        allFeeds.push({
+          track: livekit.localScreenShareTrack,
+          participantName: `${session.displayName}'s Screen (You)`,
+          participantId: `local-screen-${session.id}`,
+          isScreenShare: true,
+          isLocal: true,
+        });
+      }
+
+      // Add remote feeds
+      allFeeds.push(...livekit.remoteVideoFeeds);
+      setVideoFeeds(allFeeds);
     };
 
     // Load initial 30s room chat
@@ -221,6 +276,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       );
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Cleanup media status toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Scroll to bottom on new message
@@ -371,11 +435,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           selectedFurniture={selectedFurniture}
           targetTeleport={targetTeleport}
           initialTargetZone={initialTargetZone}
+          isMicOn={isMicOn}
+          isCamOn={isCamOn}
           onCompanionTap={handleCompanionTap}
           onProximityChanged={handleProximityChanged}
           onZoneChanged={setCurrentZone}
         />
       </div>
+
+      {/* Media Status Pill / Toast */}
+      {mediaStatusToast && (
+        <div className={styles.mediaStatusPill} role="status">
+          <span style={{ fontSize: '1.05rem' }}>{mediaStatusToast.icon}</span>
+          <span style={{ color: mediaStatusToast.color }}>{mediaStatusToast.message}</span>
+        </div>
+      )}
 
       {/* Top HUD */}
       <header className={styles.topHud}>
@@ -409,16 +483,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {videoFeeds.length > 0 && (
         <div className={styles.pipGrid}>
           {videoFeeds.map((feed) => (
-            <div key={feed.participantId} className={styles.pipCard}>
+            <div
+              key={feed.participantId}
+              className={`${styles.pipCard} ${feed.isLocal ? styles.pipLocalCard : ''}`}
+            >
               <video
                 ref={(el) => {
                   attachTrackToElement(feed.track, el);
                 }}
                 autoPlay
                 playsInline
-                className={styles.pipVideo}
+                muted={feed.isLocal}
+                className={`${styles.pipVideo} ${feed.isLocal && !feed.isScreenShare ? styles.pipVideoMirrored : ''}`}
               />
               <span className={styles.pipLabel}>
+                {feed.isLocal && <span className={styles.pipLiveDot} />}
                 {feed.participantName} {feed.isScreenShare ? '📺' : ''}
               </span>
             </div>
@@ -429,26 +508,58 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {/* Bottom Dock */}
       <footer className={styles.bottomDock}>
         <button
-          className={`${styles.dockBtn} ${isMicOn ? styles.dockBtnActive : ''}`}
-          onClick={() => getLiveKit().toggleMicrophone()}
-          title={isMicOn ? 'Mute Microphone' : 'Unmute Microphone'}
-          aria-label={isMicOn ? 'Mute Microphone' : 'Unmute Microphone'}
+          className={`${styles.dockBtn} ${isMicOn ? styles.dockBtnActiveMic : ''}`}
+          onClick={async () => {
+            const willBeOn = !isMicOn;
+            if (willBeOn) {
+              playUnmuteSound();
+              showMediaStatus('🎙️', 'Microphone is ON (Broadcasting)', '#22C55E');
+            } else {
+              playMuteSound();
+              showMediaStatus('🔇', 'Microphone Muted', '#EF4444');
+            }
+            await getLiveKit().toggleMicrophone();
+          }}
+          title={isMicOn ? 'Microphone: ON (Broadcasting) - Click to Mute' : 'Microphone: OFF (Muted) - Click to Unmute'}
+          aria-label={isMicOn ? 'Microphone: ON (Broadcasting) - Click to Mute' : 'Microphone: OFF (Muted) - Click to Unmute'}
         >
           {isMicOn ? <MicIcon size={20} /> : <MicOffIcon size={20} />}
+          {isMicOn && <span className={`${styles.dockIndicatorDot} ${styles.dockDotGreen}`} />}
         </button>
 
         <button
-          className={`${styles.dockBtn} ${isCamOn ? styles.dockBtnActive : ''}`}
-          onClick={() => getLiveKit().toggleCamera()}
-          title={isCamOn ? 'Turn Off Camera' : 'Turn On Camera'}
-          aria-label={isCamOn ? 'Turn Off Camera' : 'Turn On Camera'}
+          className={`${styles.dockBtn} ${isCamOn ? styles.dockBtnActiveCam : ''}`}
+          onClick={async () => {
+            const willBeOn = !isCamOn;
+            if (willBeOn) {
+              playScreenShareSound();
+              showMediaStatus('📷', 'Camera is ON (Preview in PiP)', '#38BDF8');
+            } else {
+              playMuteSound();
+              showMediaStatus('🚫', 'Camera Turned Off', '#94A3B8');
+            }
+            await getLiveKit().toggleCamera();
+          }}
+          title={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
+          aria-label={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
         >
           {isCamOn ? <VideoIcon size={20} /> : <VideoOffIcon size={20} />}
+          {isCamOn && <span className={`${styles.dockIndicatorDot} ${styles.dockDotBlue}`} />}
         </button>
 
         <button
           className={`${styles.dockBtn} ${isScreenShareOn ? styles.dockBtnActive : ''}`}
-          onClick={() => getLiveKit().toggleScreenShare()}
+          onClick={async () => {
+            const willBeOn = !isScreenShareOn;
+            if (willBeOn) {
+              playScreenShareSound();
+              showMediaStatus('📺', 'Screen Share Active', '#F59E0B');
+            } else {
+              playMuteSound();
+              showMediaStatus('🛑', 'Screen Share Stopped', '#94A3B8');
+            }
+            await getLiveKit().toggleScreenShare();
+          }}
           title={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
           aria-label={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
         >
@@ -688,14 +799,19 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               config={guestGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
               size={72}
             />
-            <div style={{ marginTop: '8px', fontWeight: 900 }}>{guestName.trim() || 'Explorer'}</div>
+            <div style={{ marginTop: '8px', fontWeight: 900 }}>{guestName.trim() || guestIdentity?.displayName || 'Explorer'}</div>
+            {guestIdentity?.username && (
+              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#7C3AED', background: 'rgba(124, 58, 237, 0.1)', padding: '2px 8px', borderRadius: '9999px', display: 'inline-block', marginTop: '4px' }}>
+                @{guestIdentity.username}
+              </div>
+            )}
           </div>
 
           <NeoInput
             label="Your Name"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            placeholder="Explorer"
+            placeholder={guestIdentity?.displayName || "Explorer"}
           />
 
           <div>

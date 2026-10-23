@@ -17,6 +17,8 @@ export class PlayerEntity {
 
   // Tap-to-move / Click-to-move target destination (for PC click & Phone touchscreen tap)
   targetDestination: { x: number; y: number } | null = null;
+  isMicOn: boolean = false;
+  isCameraOn: boolean = false;
 
   private animTimer: number = 0;
   private swimTimer: number = 0;
@@ -147,9 +149,14 @@ export class PlayerEntity {
     const roleBg = this.role === 'captain' ? '#F59E0B' : '#3B82F6';
     const textW = ctx.measureText(this.displayName).width;
 
+    // Extra width for mic and camera indicators if active
+    let extraW = 0;
+    if (this.isMicOn) extraW += 14;
+    if (this.isCameraOn) extraW += 14;
+
     const pillH = 16;
     const badgeR = 5;
-    const pillW = textW + 22;
+    const pillW = textW + 22 + extraW;
     const pillX = 16 - pillW / 2;
     const pillY = -14;
 
@@ -159,15 +166,19 @@ export class PlayerEntity {
     ctx.roundRect(pillX + 1, pillY + 1, pillW, pillH, 8);
     ctx.fill();
 
-    // Pill background
-    ctx.fillStyle = 'rgba(24, 24, 27, 0.88)';
+    // Pill background: slightly greenish glow if mic is live
+    ctx.fillStyle = this.isMicOn ? 'rgba(16, 36, 24, 0.92)' : 'rgba(24, 24, 27, 0.88)';
     ctx.beginPath();
     ctx.roundRect(pillX, pillY, pillW, pillH, 8);
     ctx.fill();
 
-    // Subtle 1px border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1;
+    // Border: highlighted green if mic on, blue if cam on
+    ctx.strokeStyle = this.isMicOn
+      ? 'rgba(34, 197, 94, 0.8)'
+      : this.isCameraOn
+      ? 'rgba(56, 189, 248, 0.8)'
+      : 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = this.isMicOn || this.isCameraOn ? 1.5 : 1;
     ctx.stroke();
 
     // Circular role badge (C or D)
@@ -188,6 +199,20 @@ export class PlayerEntity {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(this.displayName, pillX + 16, circleCy);
+
+    // Live status badges (Mic & Cam icons)
+    let iconOffset = pillX + 18 + textW;
+    if (this.isMicOn) {
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('🎙️', iconOffset, circleCy);
+      iconOffset += 14;
+    }
+    if (this.isCameraOn) {
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('📷', iconOffset, circleCy);
+    }
   }
 
   private renderSpeechBubble(ctx: CanvasRenderingContext2D, text: string) {

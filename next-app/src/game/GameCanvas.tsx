@@ -19,6 +19,8 @@ interface GameCanvasProps {
   selectedFurniture: FurnitureType | null;
   targetTeleport?: { x: number; y: number; name?: string; seq?: number } | null;
   initialTargetZone?: string | null;
+  isMicOn?: boolean;
+  isCamOn?: boolean;
   onCompanionTap?: () => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
   onZoneChanged?: (zoneName: string) => void;
@@ -33,6 +35,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   selectedFurniture,
   targetTeleport,
   initialTargetZone,
+  isMicOn = false,
+  isCamOn = false,
   onCompanionTap,
   onProximityChanged,
   onZoneChanged,
@@ -194,6 +198,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current.player.avatarConfig = session.avatarConfig;
     }
   }, [session.displayName, session.avatarConfig]);
+
+  useEffect(() => {
+    if (gameRef.current) {
+      gameRef.current.player.isMicOn = isMicOn;
+      gameRef.current.player.isCameraOn = isCamOn;
+    }
+  }, [isMicOn, isCamOn]);
 
   useEffect(() => {
     if (gameRef.current && targetTeleport) {

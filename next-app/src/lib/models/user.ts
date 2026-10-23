@@ -19,9 +19,20 @@ export interface UserSession {
   hasAiCompanion: boolean;
 }
 
-export function createGuestSession(name?: string, gender: Gender = 'male'): UserSession {
+export function createGuestSession(
+  name?: string,
+  gender: Gender = 'male',
+  preferredUsername?: string
+): UserSession {
   const randomId = Math.floor(Math.random() * 9000) + 1000;
-  const guestName = name && name.trim() ? name.trim() : `Guest #${randomId}`;
+  const cleanUsername = preferredUsername && preferredUsername.trim()
+    ? preferredUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+    : `guest_${randomId}`;
+  
+  const guestTag = cleanUsername.replace(/^guest_/i, '').toUpperCase();
+  const guestName = name && name.trim()
+    ? name.trim()
+    : (guestTag ? `Explorer #${guestTag}` : `Guest #${randomId}`);
   
   const maleColors = ['#3B82F6', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6', '#06B6D4'];
   const femaleColors = ['#EC4899', '#8B5CF6', '#F43F5E', '#10B981', '#06B6D4', '#F59E0B'];
@@ -34,8 +45,8 @@ export function createGuestSession(name?: string, gender: Gender = 'male'): User
   return {
     id: `guest_${Date.now()}_${randomId}`,
     displayName: guestName,
-    username: `guest_${randomId}`,
-    email: `guest_${randomId}@virtualworld.local`,
+    username: cleanUsername,
+    email: `${cleanUsername}@virtualworld.local`,
     status: 'available',
     gender,
     avatarConfig: {

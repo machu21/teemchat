@@ -48,15 +48,15 @@ export class FriendService {
   private static requestListeners: Set<() => void> = new Set();
 
   static async searchUsers(query: string, currentUserId: string): Promise<Array<{ id: string; username: string; displayName: string; avatarConfig: AvatarConfig }>> {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return [];
+    const clean = query.trim().toLowerCase().replace(/^@/, '');
+    if (!clean) return [];
 
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_config')
         .neq('id', currentUserId)
-        .or(`username.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`)
+        .or(`username.ilike.%${clean}%,display_name.ilike.%${clean}%`)
         .limit(10);
 
       if (error || !data) return [];

@@ -17,6 +17,7 @@ export class DirectMessageService {
         .eq('user_two', u2)
         .maybeSingle();
 
+      if (error) console.warn('Error looking up buddy conversation:', error.message);
       if (data?.id) return data.id;
 
       const { data: created, error: cErr } = await supabase
@@ -29,6 +30,7 @@ export class DirectMessageService {
         .select('id')
         .single();
 
+      if (cErr) console.warn('Error creating buddy conversation:', cErr.message);
       if (created?.id) return created.id;
     } catch (e) {
       console.warn('Error with buddy conversation, fallback to deterministic id:', e);
@@ -119,7 +121,7 @@ export class DirectMessageService {
 
       this.localMessageCache.set(conversationId, list);
       return list;
-    } catch (e) {
+    } catch {
       return this.localMessageCache.get(conversationId) || [];
     }
   }

@@ -74,6 +74,12 @@
   box-shadow: var(--neo-shadow);
   overflow: hidden;
   position: relative;
+  transition: transform 0.15s ease;
+}
+
+.pipLocalCard {
+  border: 2.5px solid #38BDF8;
+  box-shadow: 2px 2px 0px #0284C7;
 }
 
 .pipVideo {
@@ -82,16 +88,66 @@
   object-fit: cover;
 }
 
+.pipVideoMirrored {
+  transform: scaleX(-1);
+}
+
 .pipLabel {
   position: absolute;
   bottom: 4px;
   left: 6px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.75);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.pipLiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #22C55E;
+  display: inline-block;
+  box-shadow: 0 0 6px #22C55E;
+}
+
+/* Status Feedback Pill / Toast */
+.mediaStatusPill {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-full);
+  box-shadow: 2px 2px 0px var(--card-border);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-main);
+  animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 /* Bottom Dock */
@@ -112,6 +168,7 @@
 }
 
 .dockBtn {
+  position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -123,7 +180,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 1.5px 1.5px 0px var(--card-border);
-  transition: transform 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+  transition: transform 0.1s ease, background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
 }
 
 .dockBtn svg {
@@ -139,6 +196,40 @@
 .dockBtnActive {
   background-color: var(--cta-btn);
   color: var(--cta-text);
+}
+
+.dockBtnActiveMic {
+  background-color: #22C55E !important;
+  color: #052E16 !important;
+  border-color: #15803D !important;
+  box-shadow: 1.5px 1.5px 0px #14532D !important;
+}
+
+.dockBtnActiveCam {
+  background-color: #38BDF8 !important;
+  color: #082F49 !important;
+  border-color: #0284C7 !important;
+  box-shadow: 1.5px 1.5px 0px #0369A1 !important;
+}
+
+.dockIndicatorDot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-bg);
+}
+
+.dockDotGreen {
+  background-color: #22C55E;
+  box-shadow: 0 0 6px #22C55E;
+}
+
+.dockDotBlue {
+  background-color: #38BDF8;
+  box-shadow: 0 0 6px #38BDF8;
 }
 
 .dockDivider {

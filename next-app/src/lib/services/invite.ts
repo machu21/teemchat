@@ -52,7 +52,7 @@ export class InviteLinkService {
         if (pathSegments.length >= 2 && (pathSegments[0] === 'space' || pathSegments[0] === 'join')) {
           return pathSegments[1].trim();
         }
-      } catch (_) {}
+      } catch {}
 
       // If it's a URL but has no space code, return null
       return null;

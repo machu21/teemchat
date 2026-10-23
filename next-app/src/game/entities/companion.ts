@@ -15,9 +15,9 @@ export class CompanionEntity {
   update(dt: number, targetX: number, targetY: number) {
     this.floatTimer += dt * 3;
 
-    // Follow player smoothly at offset (-24, -16)
-    const desiredX = targetX - 24;
-    const desiredY = targetY - 16;
+    // Follow player smoothly at right side (+28, +6), completely clear of avatar's name tag pill (y: -14..+2)
+    const desiredX = targetX + 28;
+    const desiredY = targetY + 6;
 
     this.x += (desiredX - this.x) * Math.min(1, dt * 4);
     this.y += (desiredY - this.y) * Math.min(1, dt * 4);
@@ -52,11 +52,26 @@ export class CompanionEntity {
     ctx.fillRect(11, 1, 2, 3);
     ctx.fillRect(10, 0, 4, 1);
 
-    // Name tag
-    ctx.font = 'bold 9px sans-serif';
+    // Name tag: dedicated pill badge above antenna, clearly separated from avatar name
+    ctx.font = 'bold 8px "Plus Jakarta Sans", monospace, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(this.companion.name, 12, -4);
+    const nameW = ctx.measureText(this.companion.name).width;
+    const badgeW = nameW + 10;
+    const badgeH = 12;
+    const badgeX = 12 - badgeW / 2;
+    const badgeY = -15;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#E2F952';
+    ctx.fillText(this.companion.name, 12, badgeY + 8.5);
 
     ctx.restore();
   }
@@ -65,10 +80,10 @@ export class CompanionEntity {
     const worldX = screenX / zoom + cameraX;
     const worldY = screenY / zoom + cameraY;
     return (
-      worldX >= this.x &&
-      worldX <= this.x + 24 &&
-      worldY >= this.y &&
-      worldY <= this.y + 24
+      worldX >= this.x - 4 &&
+      worldX <= this.x + 28 &&
+      worldY >= this.y - 16 &&
+      worldY <= this.y + 28
     );
   }
 }

@@ -38,7 +38,6 @@ vi.mock('../src/lib/utils/callSounds', () => ({
 }));
 
 import { useCallStore } from '../src/stores/call';
-import { CallService } from '../src/lib/services/callService';
 
 describe('Group & DM Call Unit Tests', () => {
   beforeEach(() => {

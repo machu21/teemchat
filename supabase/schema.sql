@@ -333,7 +333,8 @@ create or replace function public.provision_guest_account(
   p_display_name text,
   p_password text,
   p_avatar_config jsonb default '{}'::jsonb,
-  p_gender text default 'male'
+  p_gender text default 'male',
+  p_username text default null
 )
 returns jsonb
 language plpgsql
@@ -343,8 +344,8 @@ as $$
 declare
   v_user_id uuid := gen_random_uuid();
   v_rand int := floor(random() * 9000 + 1000)::int;
-  v_username text := 'guest_' || v_rand || '_' || to_char(now(), 'HH24MISS');
-  v_email text := v_username || '@guest.teemchat.local';
+  v_username text;
+  v_email text;
   v_encrypted_pw text;
   v_gender text;
 begin
@@ -353,6 +354,17 @@ begin
     v_gender := 'male';
   end if;
 
+  if p_username is not null and length(trim(p_username)) > 0 then
+    v_username := lower(regexp_replace(trim(p_username), '[^a-zA-Z0-9_]', '', 'g'));
+    -- If this username is already taken, append a random discriminator
+    if exists (select 1 from public.profiles where username = v_username) then
+      v_username := v_username || '_' || v_rand;
+    end if;
+  else
+    v_username := 'guest_' || v_rand || '_' || to_char(now(), 'HH24MISS');
+  end if;
+
+  v_email := v_username || '@guest.teemchat.local';
   v_encrypted_pw := crypt(p_password, gen_salt('bf'));
 
   insert into auth.users (
@@ -512,7 +524,7 @@ $$;
 
 grant execute on function public.resolve_space_invite(text) to anon, authenticated;
 grant execute on function public.join_space_via_invite(text) to anon, authenticated;
-grant execute on function public.provision_guest_account(text, text, jsonb, text) to anon, authenticated;
+grant execute on function public.provision_guest_account(text, text, jsonb, text, text) to anon, authenticated;
 grant execute on function public.delete_guest_account() to authenticated;
 grant execute on function public.cleanup_guest_user(uuid) to anon, authenticated;
 

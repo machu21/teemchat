@@ -265,8 +265,8 @@
 
 .colorPickers {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 10px;
 }
 
 .colorInput {
@@ -277,6 +277,18 @@
   cursor: pointer;
   background: none;
   box-shadow: 2px 2px 0px var(--card-border);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 500px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Upgrade Card */

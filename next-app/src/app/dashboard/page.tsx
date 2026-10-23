@@ -16,8 +16,14 @@ import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import {
   AvatarConfig,
   Gender,
+  TopStyle,
+  BottomStyle,
+  FacialHair,
   availableAccessories,
   availableHairStyles,
+  availableTopStyles,
+  availableBottomStyles,
+  availableFacialHair,
 } from '@/lib/models/avatar';
 import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
@@ -46,7 +52,7 @@ export default function DashboardPage() {
     try {
       const saved = localStorage.getItem('teem_pinned_spaces');
       return saved ? JSON.parse(saved) : [];
-    } catch (_) {
+    } catch {
       return [];
     }
   });
@@ -68,11 +74,16 @@ export default function DashboardPage() {
 
   // Avatar editor local state
   const [editGender, setEditGender] = useState<Gender>('male');
-  const [editSkin, setEditSkin] = useState('#FCD5B5');
-  const [editShirt, setEditShirt] = useState('#7C3AED');
-  const [editHair, setEditHair] = useState('#37271E');
+  const [editSkin, setEditSkin] = useState('#ffe2cc');
+  const [editShirt, setEditShirt] = useState('#4a86d8');
+  const [editHair, setEditHair] = useState('#2b2530');
   const [editHairStyle, setEditHairStyle] = useState<AvatarConfig['hairStyle']>('short');
   const [editAccessory, setEditAccessory] = useState<AvatarConfig['accessory']>('none');
+  const [editTopStyle, setEditTopStyle] = useState<TopStyle>('tshirt');
+  const [editBottomStyle, setEditBottomStyle] = useState<BottomStyle>('pants');
+  const [editBottomColor, setEditBottomColor] = useState('#2c3655');
+  const [editShoesColor, setEditShoesColor] = useState('#2b2b33');
+  const [editFacialHair, setEditFacialHair] = useState<FacialHair>('none');
   const [editDisplayName, setEditDisplayName] = useState('');
 
   const loadSpaces = useCallback(async () => {
@@ -88,14 +99,28 @@ export default function DashboardPage() {
     initSession();
   }, [initSession]);
 
+  const handleSelectGender = (gender: Gender) => {
+    setEditGender(gender);
+    if (gender === 'female') {
+      if (editTopStyle === 'shirt_tie' || editTopStyle === 'polo') setEditTopStyle('blouse');
+      if (editFacialHair !== 'none') setEditFacialHair('none');
+    }
+  };
+
   const openAvatarEditor = () => {
     if (session) {
-      setEditGender(session.gender || session.avatarConfig.gender || 'male');
-      setEditSkin(session.avatarConfig.skinColor);
-      setEditShirt(session.avatarConfig.shirtColor);
-      setEditHair(session.avatarConfig.hairColor);
-      setEditHairStyle(session.avatarConfig.hairStyle);
-      setEditAccessory(session.avatarConfig.accessory);
+      const isFemale = (session.gender || session.avatarConfig.gender) === 'female';
+      setEditGender(isFemale ? 'female' : 'male');
+      setEditSkin(session.avatarConfig.skinColor || '#ffe2cc');
+      setEditShirt(session.avatarConfig.shirtColor || (isFemale ? '#e47aa8' : '#4a86d8'));
+      setEditHair(session.avatarConfig.hairColor || (isFemale ? '#5f3c28' : '#2b2530'));
+      setEditHairStyle(session.avatarConfig.hairStyle || (isFemale ? 'long' : 'short'));
+      setEditAccessory(session.avatarConfig.accessory || 'none');
+      setEditTopStyle(session.avatarConfig.topStyle || (isFemale ? 'blouse' : 'tshirt'));
+      setEditBottomStyle(session.avatarConfig.bottomStyle || (isFemale ? 'skirt' : 'pants'));
+      setEditBottomColor(session.avatarConfig.bottomColor || (isFemale ? '#3f5f8c' : '#2c3655'));
+      setEditShoesColor(session.avatarConfig.shoesColor || '#2b2b33');
+      setEditFacialHair(session.avatarConfig.facialHair || 'none');
       setEditDisplayName(session.displayName);
     }
     setAvatarDrawerOpen(true);
@@ -117,7 +142,7 @@ export default function DashboardPage() {
       const updated = prev.includes(spaceId) ? prev.filter((id) => id !== spaceId) : [...prev, spaceId];
       try {
         localStorage.setItem('teem_pinned_spaces', JSON.stringify(updated));
-      } catch (e) {
+      } catch {
         // ignore
       }
       return updated;
@@ -183,6 +208,11 @@ export default function DashboardPage() {
         hairColor: editHair,
         hairStyle: editHairStyle,
         accessory: editAccessory,
+        topStyle: editTopStyle,
+        bottomStyle: editBottomStyle,
+        bottomColor: editBottomColor,
+        shoesColor: editShoesColor,
+        facialHair: editFacialHair,
       },
       editGender
     );
@@ -259,7 +289,7 @@ export default function DashboardPage() {
               <div className={styles.userInfo}>
                 <span className={styles.userName}>{session.displayName}</span>
                 <span className={styles.userRole}>
-                  {session.isGuest ? 'Guest' : session.tier.toUpperCase()}
+                  {session.isGuest ? `@${session.username}` : session.tier.toUpperCase()}
                 </span>
               </div>
             </div>
@@ -510,8 +540,14 @@ export default function DashboardPage() {
                 hairColor: editHair,
                 hairStyle: editHairStyle,
                 accessory: editAccessory,
+                topStyle: editTopStyle,
+                bottomStyle: editBottomStyle,
+                bottomColor: editBottomColor,
+                shoesColor: editShoesColor,
+                facialHair: editFacialHair,
               }}
-              size={96}
+              size={120}
+              bustOnly={false}
             />
           </div>
 
@@ -521,14 +557,14 @@ export default function DashboardPage() {
               <button
                 type="button"
                 className={`${styles.genderBtn} ${editGender === 'male' ? styles.genderBtnMaleActive : ''}`}
-                onClick={() => setEditGender('male')}
+                onClick={() => handleSelectGender('male')}
               >
                 <span>👨 Male</span>
               </button>
               <button
                 type="button"
                 className={`${styles.genderBtn} ${editGender === 'female' ? styles.genderBtnFemaleActive : ''}`}
-                onClick={() => setEditGender('female')}
+                onClick={() => handleSelectGender('female')}
               >
                 <span>👩 Female</span>
               </button>
@@ -541,9 +577,50 @@ export default function DashboardPage() {
             onChange={(e) => setEditDisplayName(e.target.value)}
           />
 
+          <div className={styles.formRow}>
+            <div className={styles.selectGroup}>
+              <label className={styles.label}>Top / Outfit</label>
+              <select
+                value={editTopStyle}
+                onChange={(e) => setEditTopStyle(e.target.value as TopStyle)}
+                className={styles.select}
+              >
+                {availableTopStyles.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace('_', ' ').toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.selectGroup}>
+              <label className={styles.label}>Bottom Style</label>
+              <select
+                value={editBottomStyle}
+                onChange={(e) => setEditBottomStyle(e.target.value as BottomStyle)}
+                className={styles.select}
+              >
+                {availableBottomStyles.map((b) => (
+                  <option key={b} value={b}>
+                    {b.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className={styles.colorPickers}>
             <div>
-              <label className={styles.label}>Shirt Color</label>
+              <label className={styles.label}>Skin</label>
+              <input
+                type="color"
+                value={editSkin}
+                onChange={(e) => setEditSkin(e.target.value)}
+                className={styles.colorInput}
+              />
+            </div>
+            <div>
+              <label className={styles.label}>Top</label>
               <input
                 type="color"
                 value={editShirt}
@@ -552,7 +629,16 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Hair Color</label>
+              <label className={styles.label}>Bottom</label>
+              <input
+                type="color"
+                value={editBottomColor}
+                onChange={(e) => setEditBottomColor(e.target.value)}
+                className={styles.colorInput}
+              />
+            </div>
+            <div>
+              <label className={styles.label}>Hair</label>
               <input
                 type="color"
                 value={editHair}
@@ -561,47 +647,64 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Skin Tone</label>
+              <label className={styles.label}>Shoes</label>
               <input
                 type="color"
-                value={editSkin}
-                onChange={(e) => setEditSkin(e.target.value)}
+                value={editShoesColor}
+                onChange={(e) => setEditShoesColor(e.target.value)}
                 className={styles.colorInput}
               />
             </div>
           </div>
 
-          <div className={styles.selectGroup}>
-            <label className={styles.label}>Hair Style</label>
-            <select
-              value={editHairStyle}
-              onChange={(e) =>
-                setEditHairStyle(e.target.value as AvatarConfig['hairStyle'])
-              }
-              className={styles.select}
-            >
-              {availableHairStyles.map((s) => (
-                <option key={s} value={s}>
-                  {s.toUpperCase()}
-                </option>
-              ))}
-            </select>
+          <div className={styles.formRow}>
+            <div className={styles.selectGroup}>
+              <label className={styles.label}>Hair Style</label>
+              <select
+                value={editHairStyle}
+                onChange={(e) =>
+                  setEditHairStyle(e.target.value as AvatarConfig['hairStyle'])
+                }
+                className={styles.select}
+              >
+                {availableHairStyles.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace('_', ' ').toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.selectGroup}>
+              <label className={styles.label}>Accessory</label>
+              <select
+                value={editAccessory}
+                onChange={(e) =>
+                  setEditAccessory(
+                    e.target.value as AvatarConfig['accessory']
+                  )
+                }
+                className={styles.select}
+              >
+                {availableAccessories.map((a) => (
+                  <option key={a} value={a}>
+                    {a.replace('_', ' ').toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className={styles.selectGroup}>
-            <label className={styles.label}>Accessory</label>
+            <label className={styles.label}>Facial Hair</label>
             <select
-              value={editAccessory}
-              onChange={(e) =>
-                setEditAccessory(
-                  e.target.value as AvatarConfig['accessory']
-                )
-              }
+              value={editFacialHair}
+              onChange={(e) => setEditFacialHair(e.target.value as FacialHair)}
               className={styles.select}
             >
-              {availableAccessories.map((a) => (
-                <option key={a} value={a}>
-                  {a.toUpperCase()}
+              {availableFacialHair.map((f) => (
+                <option key={f} value={f}>
+                  {f.toUpperCase()}
                 </option>
               ))}
             </select>

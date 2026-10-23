@@ -135,3 +135,50 @@
   font-size: 0.9rem;
   font-weight: 600;
 }
+
+.myHandleBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  gap: 8px;
+}
+
+.myHandleLabel {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.myHandleCode {
+  font-family: monospace;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--neo-purple, #7c3aed);
+  background: rgba(124, 58, 237, 0.08);
+  padding: 2px 6px;
+  border-radius: var(--neo-radius-sm);
+}
+
+.copyHandleBtn {
+  background: var(--neo-yellow, #fab936);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 1px 1px 0px var(--card-border);
+  transition: transform 0.1s ease;
+}
+
+.copyHandleBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+

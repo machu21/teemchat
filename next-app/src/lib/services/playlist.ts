@@ -44,7 +44,7 @@ export class PlaylistService {
           isDefaultPreset: false,
         }));
       }
-    } catch (_) {}
+    } catch {}
 
     const presets = defaultPlaylistPresets(spaceId);
     this.playlist = [...presets, ...cloudTracks];

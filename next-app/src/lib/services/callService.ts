@@ -1,6 +1,6 @@
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { IncomingCallModel, CallParticipantModel, CallType } from '../models/call';
+import { CallParticipantModel, CallType } from '../models/call';
 import { AvatarConfig } from '../models/avatar';
 
 export interface CallSignalingEvent {
