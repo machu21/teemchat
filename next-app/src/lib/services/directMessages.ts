@@ -1,4 +1,4 @@
-import { supabase, cleanupExistingChannel } from '../supabase';
+import { supabase, cleanupExistingChannel, removeRealtimeChannel } from '../supabase';
 import { DirectConversationModel, SocialMessageModel, FriendModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -176,6 +176,23 @@ export class DirectMessageService {
       console.warn('Direct message sent locally (DB sync notice):', e);
     }
 
+    // Always broadcast message across realtime topic for instant peer delivery
+    const dmTopic = `direct_messages:${conversationId}`;
+    const dmChan = supabase.channel(dmTopic);
+    dmChan.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        dmChan
+          .send({
+            type: 'broadcast',
+            event: 'dm_message',
+            payload: localMsg,
+          })
+          .then(() => {
+            removeRealtimeChannel(dmChan);
+          });
+      }
+    });
+
     return localMsg;
   }
 
@@ -188,6 +205,17 @@ export class DirectMessageService {
 
     const channel = supabase
       .channel(topic)
+      .on('broadcast', { event: 'dm_message' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as SocialMessageModel;
+          if (data && data.conversationId === conversationId) {
+            onMessage(data);
+          }
+        } catch (err) {
+          console.warn('Error handling broadcast dm_message:', err);
+        }
+      })
       .on(
         'postgres_changes',
         {

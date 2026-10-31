@@ -18,9 +18,16 @@
   transition: transform 0.1s ease;
 }
 
-.bellBtn:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .bellBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
+}
+
+.bellBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .badge {

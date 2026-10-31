@@ -14,6 +14,7 @@ export interface FriendModel {
   };
   isOnline: boolean;
   lastSeenAt?: string;
+  isTemporary?: boolean;
 }
 
 export interface FriendRequestModel {

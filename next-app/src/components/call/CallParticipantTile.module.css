@@ -12,6 +12,7 @@
   min-height: 140px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
+  max-width: 100%;
 }
 
 .speakingGlow {
@@ -108,8 +109,32 @@
   transition: opacity 0.15s ease;
 }
 
-.tileCard:hover .pinBtn {
+.tileCard:hover .pinBtn,
+.tileCard:focus-within .pinBtn,
+.pinBtn:focus-visible {
   opacity: 1;
+}
+
+.pinBtn:focus-visible {
+  outline: 3px solid #FFE57F;
+  outline-offset: 1px;
+}
+
+/* Touch devices have no hover: keep the pin control visible and tappable */
+@media (hover: none) {
+  .pinBtn {
+    opacity: 1;
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speakingPulse {
+    animation: none;
+    transform: scale(1.2);
+    opacity: 0.6;
+  }
 }
 
 .screenShareBadge {

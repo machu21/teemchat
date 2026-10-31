@@ -37,6 +37,9 @@ export const NeoModal: React.FC<NeoModalProps> = ({
     <div className={styles.overlay} onClick={onClose}>
       <div
         className={styles.modalContainer}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
       >

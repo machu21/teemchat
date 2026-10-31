@@ -1,7 +1,8 @@
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { FriendModel, FriendRequestModel } from '../models/social';
-import { AvatarConfig, defaultAvatarConfig } from '../models/avatar';
+import { AvatarConfig, defaultAvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { DashboardPresenceService } from './dashboardPresence';
 
 const DEMO_FRIENDS: FriendModel[] = [
   {
@@ -48,6 +49,123 @@ export class FriendService {
   private static requestsChannel: RealtimeChannel | null = null;
   private static activeUserId: string | null = null;
   private static requestListeners: Set<() => void> = new Set();
+  private static memoryTempFriends: FriendModel[] = [];
+  private static memoryIncomingRequests: FriendRequestModel[] = [];
+  private static memoryOutgoingRequests: FriendRequestModel[] = [];
+
+  static getTemporaryFriends(): FriendModel[] {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('teem_temporary_friends');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return this.memoryTempFriends;
+  }
+
+  static saveTemporaryFriend(friend: FriendModel): void {
+    if (!this.memoryTempFriends.some((f) => f.userId === friend.userId)) {
+      this.memoryTempFriends.push({ ...friend, isTemporary: true });
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('teem_temporary_friends', JSON.stringify(this.memoryTempFriends));
+      } catch {}
+    }
+  }
+
+  static removeTemporaryFriend(friendUserId: string): void {
+    this.memoryTempFriends = this.memoryTempFriends.filter((f) => f.userId !== friendUserId);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('teem_temporary_friends', JSON.stringify(this.memoryTempFriends));
+      } catch {}
+    }
+  }
+
+  static getTemporaryRequests(): {
+    incoming: FriendRequestModel[];
+    outgoing: FriendRequestModel[];
+  } {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const inRaw = localStorage.getItem('teem_temporary_requests_incoming');
+        const outRaw = localStorage.getItem('teem_temporary_requests_outgoing');
+        const incoming = inRaw ? JSON.parse(inRaw) : this.memoryIncomingRequests;
+        const outgoing = outRaw ? JSON.parse(outRaw) : this.memoryOutgoingRequests;
+        return {
+          incoming: Array.isArray(incoming) ? incoming : [],
+          outgoing: Array.isArray(outgoing) ? outgoing : [],
+        };
+      } catch {}
+    }
+    return {
+      incoming: this.memoryIncomingRequests,
+      outgoing: this.memoryOutgoingRequests,
+    };
+  }
+
+  static saveTemporaryRequest(req: FriendRequestModel, type: 'incoming' | 'outgoing'): void {
+    const { incoming, outgoing } = this.getTemporaryRequests();
+    if (type === 'incoming') {
+      if (!incoming.some((r) => r.id === req.id || r.senderId === req.senderId)) {
+        incoming.push(req);
+        this.memoryIncomingRequests = incoming;
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('teem_temporary_requests_incoming', JSON.stringify(incoming));
+          } catch {}
+        }
+      }
+    } else {
+      if (!outgoing.some((r) => r.id === req.id || r.receiverId === req.receiverId)) {
+        outgoing.push(req);
+        this.memoryOutgoingRequests = outgoing;
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('teem_temporary_requests_outgoing', JSON.stringify(outgoing));
+          } catch {}
+        }
+      }
+    }
+  }
+
+  static removeTemporaryRequest(requestId: string): void {
+    const { incoming, outgoing } = this.getTemporaryRequests();
+    this.memoryIncomingRequests = incoming.filter((r) => r.id !== requestId);
+    this.memoryOutgoingRequests = outgoing.filter((r) => r.id !== requestId);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('teem_temporary_requests_incoming', JSON.stringify(this.memoryIncomingRequests));
+        localStorage.setItem('teem_temporary_requests_outgoing', JSON.stringify(this.memoryOutgoingRequests));
+      } catch {}
+    }
+  }
+
+  static broadcastSocialEvent(
+    type: 'friend_request' | 'friend_response',
+    payload: Record<string, unknown>
+  ): void {
+    const targetUserId = (type === 'friend_request' ? payload.receiverId : payload.senderId) as string;
+    if (!targetUserId) return;
+
+    const targetTopic = `social:requests:${targetUserId}`;
+    const targetChannel = supabase.channel(targetTopic);
+    targetChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        targetChannel.send({
+          type: 'broadcast',
+          event: 'social_event',
+          payload: { type, payload },
+        }).then(() => {
+          removeRealtimeChannel(targetChannel);
+        });
+      }
+    });
+  }
 
   static async searchUsers(query: string, currentUserId: string): Promise<Array<{ id: string; username: string; displayName: string; avatarConfig: AvatarConfig }>> {
     const clean = query.trim().toLowerCase().replace(/^@/, '');
@@ -63,6 +181,20 @@ export class FriendService {
       displayName: df.displayName,
       avatarConfig: df.avatarConfig,
     }));
+
+    // 2. Search online presences from DashboardPresenceService (includes active guest users)
+    const onlineMatches = DashboardPresenceService.getOnlineUsers()
+      .filter((ou) =>
+        ou.userId !== currentUserId &&
+        (ou.userId.toLowerCase().includes(clean) ||
+          ou.displayName.toLowerCase().includes(clean))
+      )
+      .map((ou) => ({
+        id: ou.userId,
+        username: ou.userId.startsWith('guest_') ? ou.userId : `user_${ou.userId.slice(0, 5)}`,
+        displayName: ou.displayName,
+        avatarConfig: ou.avatarConfig,
+      }));
 
     try {
       let queryBuilder = supabase
@@ -96,23 +228,47 @@ export class FriendService {
       const seen = new Set<string>();
       const combined: Array<{ id: string; username: string; displayName: string; avatarConfig: AvatarConfig }> = [];
 
-      for (const u of [...demoMatches, ...dbUsers]) {
+      for (const u of [...demoMatches, ...onlineMatches, ...dbUsers]) {
         if (!seen.has(u.id)) {
           seen.add(u.id);
           combined.push(u);
         }
       }
 
+      // Direct guest handle query fallback (e.g. searching guest_1234 or explorer #1234)
+      if (clean.startsWith('guest_') || clean.length === 4) {
+        const tag = clean.replace(/^guest_/i, '').toUpperCase();
+        const candidateId = `guest_${tag.toLowerCase()}`;
+        if (!seen.has(candidateId) && candidateId !== currentUserId) {
+          combined.push({
+            id: candidateId,
+            username: candidateId,
+            displayName: `Explorer #${tag}`,
+            avatarConfig: defaultAvatarConfig,
+          });
+        }
+      }
+
       return combined;
     } catch (e) {
       console.warn('Error searching profiles:', e);
-      return demoMatches;
+      return [...demoMatches, ...onlineMatches];
     }
   }
 
   static async getFriends(currentUserId: string): Promise<FriendModel[]> {
+    const tempFriends = this.getTemporaryFriends();
+
     if (!currentUserId || !UUID_REGEX.test(currentUserId)) {
-      return DEMO_FRIENDS;
+      const seen = new Set<string>();
+      const combined: FriendModel[] = [];
+      for (const f of [...tempFriends, ...DEMO_FRIENDS]) {
+        if (!seen.has(f.userId)) {
+          seen.add(f.userId);
+          combined.push(f);
+        }
+      }
+      return combined.length > 0 ? combined : DEMO_FRIENDS;
     }
 
     try {
@@ -122,8 +278,15 @@ export class FriendService {
         .or(`user_one.eq.${currentUserId},user_two.eq.${currentUserId}`);
 
       if (error || !data || data.length === 0) {
-        // Fallback to demo friends so user can immediately test and enjoy features
-        return DEMO_FRIENDS;
+        const seen = new Set<string>();
+        const combined: FriendModel[] = [];
+        for (const f of [...tempFriends, ...DEMO_FRIENDS]) {
+          if (!seen.has(f.userId)) {
+            seen.add(f.userId);
+            combined.push(f);
+          }
+        }
+        return combined;
       }
 
       const friendUserIds = data.map((row) => (row.user_one === currentUserId ? row.user_two : row.user_one));
@@ -134,7 +297,7 @@ export class FriendService {
         .in('id', friendUserIds);
 
       if (pError || !profiles) {
-        return DEMO_FRIENDS;
+        return tempFriends.length > 0 ? tempFriends : DEMO_FRIENDS;
       }
 
       const friendMap = new Map(profiles.map((p) => [p.id, p]));
@@ -155,10 +318,19 @@ export class FriendService {
         };
       });
 
-      return results.length > 0 ? results : DEMO_FRIENDS;
+      const seen = new Set<string>();
+      const combined: FriendModel[] = [];
+      for (const f of [...tempFriends, ...results]) {
+        if (!seen.has(f.userId)) {
+          seen.add(f.userId);
+          combined.push(f);
+        }
+      }
+
+      return combined.length > 0 ? combined : DEMO_FRIENDS;
     } catch (e) {
-      console.warn('Error fetching friends, falling back to demo friends:', e);
-      return DEMO_FRIENDS;
+      console.warn('Error fetching friends, falling back to temp/demo friends:', e);
+      return tempFriends.length > 0 ? tempFriends : DEMO_FRIENDS;
     }
   }
 
@@ -166,8 +338,10 @@ export class FriendService {
     incoming: FriendRequestModel[];
     outgoing: FriendRequestModel[];
   }> {
+    const tempRequests = this.getTemporaryRequests();
+
     if (!currentUserId || !UUID_REGEX.test(currentUserId)) {
-      return { incoming: [], outgoing: [] };
+      return tempRequests;
     }
 
     try {
@@ -181,10 +355,11 @@ export class FriendService {
         .or(`receiver_id.eq.${currentUserId},sender_id.eq.${currentUserId}`)
         .eq('status', 'pending');
 
-      if (error || !data) return { incoming: [], outgoing: [] };
+      if (error || !data) return tempRequests;
 
-      const incoming: FriendRequestModel[] = [];
-      const outgoing: FriendRequestModel[] = [];
+      const incoming: FriendRequestModel[] = [...tempRequests.incoming];
+      const outgoing: FriendRequestModel[] = [...tempRequests.outgoing];
+      const seenReqIds = new Set<string>([...incoming.map((r) => r.id), ...outgoing.map((r) => r.id)]);
 
       (data as unknown as Array<{
         id: string;
@@ -195,6 +370,9 @@ export class FriendService {
         sender: { id: string; username: string; display_name: string; avatar_config: AvatarConfig } | null;
         receiver: { id: string; username: string; display_name: string; avatar_config: AvatarConfig } | null;
       }>).forEach((row) => {
+        if (seenReqIds.has(row.id)) return;
+        seenReqIds.add(row.id);
+
         const item: FriendRequestModel = {
           id: row.id,
           senderId: row.sender_id,
@@ -233,7 +411,12 @@ export class FriendService {
     }
   }
 
-  static async sendFriendRequest(senderId: string, receiverId: string): Promise<{ success: boolean; message?: string }> {
+  static async sendFriendRequest(
+    senderId: string,
+    receiverId: string,
+    senderProfile?: { displayName?: string; avatarConfig?: AvatarConfig },
+    receiverProfile?: { displayName?: string; avatarConfig?: AvatarConfig }
+  ): Promise<{ success: boolean; message?: string }> {
     if (senderId === receiverId) {
       return { success: false, message: 'You cannot send a friend request to yourself.' };
     }
@@ -243,57 +426,127 @@ export class FriendService {
       return { success: true, message: 'Friend request sent! 🎉' };
     }
 
-    // If either sender or receiver is not a standard UUID, return optimistic success for guest sessions
-    if (!UUID_REGEX.test(senderId) || !UUID_REGEX.test(receiverId)) {
-      return { success: true, message: 'Friend request sent! 🎉' };
-    }
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newOutgoingReq: FriendRequestModel = {
+      id: requestId,
+      senderId,
+      receiverId,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      sender: {
+        id: senderId,
+        username: senderId.startsWith('guest_') ? senderId : 'explorer',
+        displayName:
+          senderProfile?.displayName ||
+          (senderId.startsWith('guest_')
+            ? `Explorer #${senderId.replace(/^guest_/i, '').slice(-4).toUpperCase()}`
+            : 'Explorer'),
+        avatarConfig: senderProfile?.avatarConfig || defaultAvatarConfig,
+      },
+      receiver: {
+        id: receiverId,
+        username: receiverId.startsWith('guest_') ? receiverId : 'explorer',
+        displayName:
+          receiverProfile?.displayName ||
+          (receiverId.startsWith('guest_')
+            ? `Explorer #${receiverId.replace(/^guest_/i, '').slice(-4).toUpperCase()}`
+            : 'Explorer'),
+        avatarConfig: receiverProfile?.avatarConfig || defaultAvatarConfig,
+      },
+    };
 
-    try {
-      const { error } = await supabase
-        .from('friend_requests')
-        .insert({
+    // Save outgoing request in client state
+    this.saveTemporaryRequest(newOutgoingReq, 'outgoing');
+
+    // Broadcast across realtime channel to the receiver
+    this.broadcastSocialEvent('friend_request', {
+      requestId,
+      senderId,
+      senderName: newOutgoingReq.sender?.displayName || 'Explorer',
+      senderAvatar: newOutgoingReq.sender?.avatarConfig || defaultAvatarConfig,
+      receiverId,
+      createdAt: newOutgoingReq.createdAt,
+    });
+
+    // If both users are standard UUIDs, also insert into database
+    if (UUID_REGEX.test(senderId) && UUID_REGEX.test(receiverId)) {
+      try {
+        const { error } = await supabase.from('friend_requests').insert({
           sender_id: senderId,
           receiver_id: receiverId,
           status: 'pending',
         });
 
-      if (error) {
-        if (error.code === '23505') {
-          return { success: false, message: 'Friend request already sent.' };
+        if (error) {
+          if (error.code === '23505') {
+            return { success: false, message: 'Friend request already sent.' };
+          }
+          console.warn('Friend request insert error notice:', error.message);
         }
-        // Graceful notice for foreign key / RLS
-        console.warn('Friend request insert error notice:', error.message);
-        return { success: true, message: 'Friend request sent! 🎉' };
+      } catch (e: unknown) {
+        console.warn('Notice inserting DB friend request:', e);
       }
-
-      return { success: true, message: 'Friend request sent! 🎉' };
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to send friend request.';
-      return { success: false, message: msg };
     }
+
+    return { success: true, message: 'Friend request sent! 🎉' };
   }
 
-  static async respondToRequest(requestId: string, action: 'accept' | 'decline'): Promise<boolean> {
+  static async respondToRequest(
+    requestId: string,
+    action: 'accept' | 'decline',
+    currentProfile?: { userId: string; displayName?: string; avatarConfig?: AvatarConfig }
+  ): Promise<boolean> {
     try {
-      if (action === 'accept') {
-        const { data, error } = await supabase.rpc('accept_friend_request', {
-          p_request_id: requestId,
-        });
-        if (!error && data) return true;
+      const { incoming } = this.getTemporaryRequests();
+      const tempReq = incoming.find((r) => r.id === requestId);
 
-        // Fallback direct update if RPC is missing
-        await supabase
-          .from('friend_requests')
-          .update({ status: 'accepted', updated_at: new Date().toISOString() })
-          .eq('id', requestId);
-        return true;
-      } else {
-        await supabase
-          .from('friend_requests')
-          .update({ status: 'declined', updated_at: new Date().toISOString() })
-          .eq('id', requestId);
-        return true;
+      if (tempReq) {
+        this.removeTemporaryRequest(requestId);
+        if (action === 'accept') {
+          const sender = tempReq.sender;
+          const newFriend: FriendModel = {
+            id: `temp_friend_${tempReq.senderId}_${Date.now()}`,
+            userId: tempReq.senderId,
+            username: sender?.username || tempReq.senderId,
+            displayName: sender?.displayName || 'Explorer',
+            status: 'available',
+            avatarConfig: sender?.avatarConfig || defaultAvatarConfig,
+            isOnline: true,
+            isTemporary: true,
+          };
+          this.saveTemporaryFriend(newFriend);
+
+          this.broadcastSocialEvent('friend_response', {
+            requestId,
+            senderId: tempReq.senderId,
+            receiverId: tempReq.receiverId,
+            receiverName: currentProfile?.displayName || 'Explorer',
+            receiverAvatar: currentProfile?.avatarConfig || defaultAvatarConfig,
+            action: 'accept',
+          });
+        }
       }
+
+      if (UUID_REGEX.test(requestId)) {
+        if (action === 'accept') {
+          const { data, error } = await supabase.rpc('accept_friend_request', {
+            p_request_id: requestId,
+          });
+          if (!error && data) return true;
+
+          await supabase
+            .from('friend_requests')
+            .update({ status: 'accepted', updated_at: new Date().toISOString() })
+            .eq('id', requestId);
+        } else {
+          await supabase
+            .from('friend_requests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .eq('id', requestId);
+        }
+      }
+
+      return true;
     } catch (e) {
       console.warn('Error responding to friend request:', e);
       return false;
@@ -302,8 +555,13 @@ export class FriendService {
 
   static async removeFriend(friendshipId: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
-      return !error;
+      this.removeTemporaryFriend(friendshipId);
+
+      if (UUID_REGEX.test(friendshipId)) {
+        const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
+        return !error;
+      }
+      return true;
     } catch (e) {
       console.warn('Error removing friend:', e);
       return false;
@@ -332,6 +590,62 @@ export class FriendService {
     cleanupExistingChannel(topic);
 
     const channel = supabase.channel(topic);
+
+    // Broadcast listener for instant peer-to-peer guest friend events
+    channel.on('broadcast', { event: 'social_event' }, (envelope) => {
+      try {
+        const raw = envelope.payload || envelope;
+        const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+        const type = data.type as string;
+        const payload = data.payload as Record<string, unknown>;
+
+        if (type === 'friend_request') {
+          if (payload.receiverId === userId) {
+            const req: FriendRequestModel = {
+              id: payload.requestId as string,
+              senderId: payload.senderId as string,
+              receiverId: payload.receiverId as string,
+              status: 'pending',
+              createdAt: (payload.createdAt as string) || new Date().toISOString(),
+              sender: {
+                id: payload.senderId as string,
+                username: payload.senderId as string,
+                displayName: (payload.senderName as string) || 'Explorer',
+                avatarConfig: normalizeAvatarConfig(payload.senderAvatar),
+              },
+            };
+            FriendService.saveTemporaryRequest(req, 'incoming');
+            FriendService.requestListeners.forEach((fn) => {
+              try {
+                fn();
+              } catch {}
+            });
+          }
+        } else if (type === 'friend_response') {
+          if (payload.senderId === userId && payload.action === 'accept') {
+            const newFriend: FriendModel = {
+              id: `temp_friend_${payload.receiverId}_${Date.now()}`,
+              userId: payload.receiverId as string,
+              username: payload.receiverId as string,
+              displayName: (payload.receiverName as string) || 'Explorer',
+              status: 'available',
+              avatarConfig: normalizeAvatarConfig(payload.receiverAvatar),
+              isOnline: true,
+              isTemporary: true,
+            };
+            FriendService.saveTemporaryFriend(newFriend);
+            FriendService.removeTemporaryRequest(payload.requestId as string);
+            FriendService.requestListeners.forEach((fn) => {
+              try {
+                fn();
+              } catch {}
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Error handling broadcast social_event:', err);
+      }
+    });
 
     if (UUID_REGEX.test(userId)) {
       channel.on(

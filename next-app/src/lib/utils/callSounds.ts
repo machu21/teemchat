@@ -86,6 +86,16 @@ export function playUnmuteSound(): void {
 }
 
 /**
+ * Subtle two-tone retro chat message notification pop
+ */
+export function playChatNotificationSound(): void {
+  playTone(660, 0.07, 'triangle', 0.12);
+  setTimeout(() => {
+    playTone(880, 0.09, 'triangle', 0.12);
+  }, 65);
+}
+
+/**
  * Futuristic ascending sweep when screen sharing starts
  */
 export function playScreenShareSound(): void {

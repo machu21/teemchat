@@ -2,7 +2,7 @@ import { supabase } from '../supabase';
 import { SpaceModel, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
 import { UserSession } from '../models/user';
 import { InviteLinkService } from './invite';
-import { MAP_REGISTRY, MapThemeId } from '@/game/map/mapRegistry';
+import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -221,32 +221,65 @@ export const SpaceService = {
   },
 
   async updateSpace(
-    id: string,
-    updates: {
+    spaceId: string,
+    updates: Partial<{
       name: string;
-      description?: string;
-      category?: string;
-      mapTheme?: string;
-    }
-  ): Promise<void> {
-    if (guestTemporaryMap && guestTemporaryMap.id === id) {
+      description: string;
+      mapTheme: string;
+      category: string;
+      visibility: 'public' | 'unlisted' | 'private';
+      maxCapacity: number;
+    }>
+  ): Promise<boolean> {
+    // 1. If it's a guest temporary map
+    if (guestTemporaryMap && guestTemporaryMap.id === spaceId) {
       guestTemporaryMap = {
         ...guestTemporaryMap,
         ...updates,
       };
-      return;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('teem_guest_temp_map', JSON.stringify(guestTemporaryMap));
+        } catch {}
+      }
     }
 
-    await supabase
-      .from('spaces')
-      .update({
-        name: updates.name,
-        description: updates.description,
-        category: updates.category,
-        map_theme: updates.mapTheme,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+    // 2. Also update in localStorage if stored
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('teem_guest_temp_map');
+        if (stored) {
+          const parsed = JSON.parse(stored) as SpaceModel;
+          if (parsed.id === spaceId) {
+            Object.assign(parsed, updates);
+            localStorage.setItem('teem_guest_temp_map', JSON.stringify(parsed));
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Supabase update if spaceId is UUID
+    if (UUID_REGEX.test(spaceId)) {
+      try {
+        const dbUpdates: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (updates.name !== undefined) dbUpdates.name = updates.name;
+        if (updates.description !== undefined) dbUpdates.description = updates.description;
+        if (updates.mapTheme !== undefined) dbUpdates.map_theme = updates.mapTheme;
+        if (updates.category !== undefined) dbUpdates.category = updates.category;
+        if (updates.visibility !== undefined) dbUpdates.visibility = updates.visibility;
+        if (updates.maxCapacity !== undefined) dbUpdates.max_capacity = updates.maxCapacity;
+
+        const { error } = await supabase.from('spaces').update(dbUpdates).eq('id', spaceId);
+        return !error;
+      } catch (err) {
+        console.warn('Failed to update space in Supabase:', err);
+        return false;
+      }
+    }
+
+    return true;
   },
 
   async deleteSpace(id: string): Promise<boolean> {
@@ -262,12 +295,18 @@ export const SpaceService = {
     return !error;
   },
 
-  async getSpaceByCodeOrSlug(query: string): Promise<SpaceModel | null> {
+  async getSpaceByCodeOrSlug(
+    query: string,
+    options?: { theme?: string; name?: string }
+  ): Promise<SpaceModel | null> {
     const raw = query.trim();
     if (!raw) return null;
 
-    // 1. Extract code if user passed a URL, deep link, or formatted code
-    const q = InviteLinkService.extractCode(raw) || raw;
+    // 1. Extract metadata if URL / query params were supplied
+    const metadata = InviteLinkService.extractInviteMetadata(raw);
+    const q = metadata.code || InviteLinkService.extractCode(raw) || raw;
+    const requestedTheme = (options?.theme || metadata.theme || '').toLowerCase();
+    const requestedName = options?.name || metadata.name || undefined;
 
     // 2. Check in-memory or stored guest temporary map
     let guestMap = guestTemporaryMap;
@@ -289,6 +328,12 @@ export const SpaceService = {
       ) {
         if (guestMap.id && guestMap.id.startsWith('guest-temp-')) {
           guestMap.id = `room-${guestMap.slug.toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
+        }
+        if (requestedTheme && requestedTheme in MAP_REGISTRY) {
+          guestMap.mapTheme = requestedTheme;
+        }
+        if (requestedName) {
+          guestMap.name = requestedName;
         }
         return guestMap;
       }
@@ -446,28 +491,32 @@ export const SpaceService = {
       } catch {}
     }
 
-    // 9. Dynamic map theme detection from invite string (e.g. "school-hangout" -> school map, "nightclub-party" -> nightclub map)
+    // 9. Map theme detection from query metadata or invite string (e.g. ?theme=arcade or "school-hangout")
     const lowerQ = q.toLowerCase();
-    const matchedThemeKey = (Object.keys(MAP_REGISTRY) as MapThemeId[]).find((t) => lowerQ.includes(t));
-    if (matchedThemeKey) {
-      const cfg = MAP_REGISTRY[matchedThemeKey];
+    const effectiveThemeKey =
+      (requestedTheme && requestedTheme in MAP_REGISTRY ? requestedTheme : null) ||
+      (Object.keys(MAP_REGISTRY) as MapThemeId[]).find((t) => lowerQ.includes(t)) ||
+      'village';
+
+    if (effectiveThemeKey in MAP_REGISTRY) {
+      const cfg = MAP_REGISTRY[effectiveThemeKey as MapThemeId];
       return {
-        id: `space-theme-${matchedThemeKey}-${lowerQ.replace(/[^a-z0-9]/g, '')}`,
-        name: `${cfg.name} (${q})`,
+        id: `space-theme-${effectiveThemeKey}-${lowerQ.replace(/[^a-z0-9_-]/g, '')}`,
+        name: requestedName || `${cfg.name} (${q})`,
         slug: q,
         description: `Shared Hangout on ${cfg.name}`,
         category: cfg.category,
         visibility: 'public',
         tier: 'free',
-        mapTheme: matchedThemeKey,
+        mapTheme: effectiveThemeKey,
         joinCode: q,
         ownerId: null,
         maxCapacity: 50,
         memberCount: 1,
         paletteIndex: 0,
         isActive: true,
-        isTemporary: false,
-        createdAt: null,
+        isTemporary: true,
+        createdAt: new Date().toISOString(),
       };
     }
 

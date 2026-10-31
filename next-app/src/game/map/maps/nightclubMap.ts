@@ -306,23 +306,28 @@ export function renderNightclubMap(ctx: CanvasRenderingContext2D, iw: number, ih
     r(rX + 8, fy, 4, 4, '#FEF08A');
   }
 
-  // ── 6. LABELS ─────────────────────────────────
-  const label = (text: string, x: number, y: number, bgCol: string) => {
+  // ── 6. NEON ACRYLIC CLUB SIGNS ──────────────────────────
+  const neonSign = (text: string, x: number, y: number, color: string) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
     const bw = Math.ceil(textWidth) + 8;
-    const bh = 10;
+    const bh = 11;
 
-    r(x - 1, y - 1, bw + 2, bh + 2, '#000000');
-    r(x, y, bw, bh, bgCol);
-    r(x, y, bw, 1, 'rgba(255,255,255,0.4)');
+    // Deep neon glow shadow
+    r(x, y + 1, bw, bh, 'rgba(0, 0, 0, 0.55)');
+    // Dark acrylic casing
+    r(x, y, bw, bh, '#090514');
+    r(x + 1, y + 1, bw - 2, bh - 2, color);
+    r(x + 1, y + 1, bw - 2, 1, '#F472B6');
+    r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.35)');
+
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 7);
+    ctx.fillText(text, x + 4, y + 8);
   };
 
-  label('DJ STAGE & BOOTH', djX + 10, djY + 12, '#7C3AED');
-  label('PULSING DANCE FLOOR', dfX + 8, dfY + 8, '#E11D48');
-  label('VIP VELVET LOUNGE', vipX + 10, vipY + 12, '#9F1239');
-  label('NEON COCKTAIL BAR', barX + 18, barY + 40, '#0891B2');
-  label('SKYLINE BALCONY', rX + 8, rY + 12, '#2563EB');
+  neonSign('🎧 DJ STAGE & BOOTH', djX + 10, djY + 12, '#6B21A8');
+  neonSign('🪩 PULSING DANCE FLOOR', dfX + 8, dfY + 8, '#BE123C');
+  neonSign('🍾 VIP VELVET LOUNGE', vipX + 10, vipY + 12, '#881337');
+  neonSign('🍸 NEON COCKTAIL BAR', barX + 18, barY + 40, '#0E7490');
+  neonSign('🌌 SKYLINE BALCONY', rX + 8, rY + 12, '#1D4ED8');
 }

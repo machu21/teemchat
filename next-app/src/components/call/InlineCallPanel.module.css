@@ -12,12 +12,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .liveDot {
@@ -27,6 +29,7 @@
   background: #00f59b;
   box-shadow: 0 0 6px #00f59b;
   animation: pulseDot 1.5s infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulseDot {
@@ -44,6 +47,9 @@
   font-size: 0.85rem;
   font-weight: 800;
   color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .durationBadge {
@@ -66,10 +72,46 @@
   color: #000;
   cursor: pointer;
   box-shadow: 1.5px 1.5px 0px #000;
+  flex-shrink: 0;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.expandBtn:hover {
-  transform: translate(-1px, -1px);
+/* Press-down feedback, consistent with NeoButton */
+@media (hover: hover) and (pointer: fine) {
+  .expandBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 0.5px 0.5px 0px #000;
+  }
+}
+
+.expandBtn:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
+}
+
+.expandBtn:focus-visible {
+  outline: 3px solid #FFE57F;
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .expandBtn {
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot {
+    animation: none;
+  }
+
+  .expandBtn {
+    transition: none;
+  }
 }
 
 .participantStrip {

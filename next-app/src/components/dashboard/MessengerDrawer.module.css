@@ -24,6 +24,7 @@
   width: 420px;
   max-width: 95vw;
   height: 100vh;
+  height: 100dvh;
   background-color: var(--card-bg);
   border-left: var(--neo-border-width) solid var(--card-border);
   box-shadow: -4px 0px 0px var(--card-border);
@@ -67,6 +68,7 @@
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius-sm);
   box-shadow: 2px 2px 0px var(--card-border);
+  color: var(--text-main);
   font-size: 1rem;
   font-weight: 900;
   width: 32px;
@@ -78,9 +80,16 @@
   transition: transform 0.1s;
 }
 
-.closeButton:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .closeButton:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
+}
+
+.closeButton:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 /* Tabs */
@@ -171,9 +180,17 @@
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.convItem:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .convItem:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+    background-color: var(--card-inner);
+  }
+}
+
+.convItem:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
   background-color: var(--card-inner);
 }
 
@@ -279,15 +296,23 @@
   box-shadow: 2px 2px 0px var(--card-border);
   padding: 4px 10px;
   border-radius: var(--neo-radius-sm);
+  color: var(--text-main);
   font-weight: 800;
   font-size: 0.82rem;
   cursor: pointer;
   transition: transform 0.1s;
 }
 
-.backBtn:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .backBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
+}
+
+.backBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .chatHeaderInfo {
@@ -304,6 +329,10 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #059669;
+}
+
+[data-theme='dark'] .chatHeaderStatus {
+  color: #34D399;
 }
 
 .chatHeaderActions {
@@ -327,9 +356,16 @@
   transition: transform 0.1s ease;
 }
 
-.callHeaderBtn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px var(--card-border, #000);
+@media (hover: hover) and (pointer: fine) {
+  .callHeaderBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border, #000);
+  }
+}
+
+.callHeaderBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .inCallHeaderBtn {
@@ -430,6 +466,31 @@
   box-shadow: 2px 2px 0px #6D28D9;
 }
 
+/* Own bubble is light lavender in light mode; keep its text dark so it stays readable */
+.messageRow.myMessage .messageContent {
+  color: #18181B;
+}
+
+.messageRow.myMessage .messageSender,
+.messageRow.myMessage .messageTime {
+  color: #52525B;
+}
+
+[data-theme='dark'] .messageRow.myMessage .messageBubble {
+  background-color: rgba(139, 92, 246, 0.28);
+  border-color: var(--primary-hover);
+  box-shadow: 2px 2px 0px #000000;
+}
+
+[data-theme='dark'] .messageRow.myMessage .messageContent {
+  color: var(--text-main);
+}
+
+[data-theme='dark'] .messageRow.myMessage .messageSender,
+[data-theme='dark'] .messageRow.myMessage .messageTime {
+  color: var(--text-muted);
+}
+
 .messageSender {
   font-size: 0.72rem;
   font-weight: 800;
@@ -470,8 +531,14 @@
   transition: transform 0.1s;
 }
 
-.reactionBtn:hover {
-  transform: scale(1.15);
+@media (hover: hover) and (pointer: fine) {
+  .reactionBtn:hover {
+    transform: scale(1.15);
+  }
+}
+
+.reactionBtn:active {
+  transform: scale(0.95);
 }
 
 /* Chat Input Bar */
@@ -499,6 +566,10 @@
   border-color: var(--primary);
 }
 
+.chatInputField:focus-visible {
+  box-shadow: 2px 2px 0px var(--primary);
+}
+
 .sendBtn {
   padding: 0 16px;
 }
@@ -514,6 +585,34 @@
 
   .drawerHeader {
     padding: 12px 14px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  }
+
+  .closeButton,
+  .callHeaderBtn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .backBtn,
+  .inCallHeaderBtn {
+    min-height: 40px;
+  }
+
+  .tabBtn {
+    min-height: 40px;
+  }
+
+  .quickReactions {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .reactionBtn {
+    flex-shrink: 0;
+    min-width: 40px;
+    min-height: 40px;
   }
 
   .chatInputForm {

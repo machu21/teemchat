@@ -47,10 +47,18 @@ export function FriendRequestModal() {
     return () => clearTimeout(timer);
   }, [searchQuery, session]);
 
-  const handleSendRequest = async (targetUserId: string) => {
+  const handleSendRequest = async (
+    targetUserId: string,
+    targetProfile?: { displayName: string; avatarConfig: AvatarConfig }
+  ) => {
     if (!session) return;
     setStatusMessage('Sending request...');
-    const res = await FriendService.sendFriendRequest(session.id, targetUserId);
+    const res = await FriendService.sendFriendRequest(
+      session.id,
+      targetUserId,
+      { displayName: session.displayName, avatarConfig: session.avatarConfig },
+      targetProfile ? { displayName: targetProfile.displayName, avatarConfig: targetProfile.avatarConfig } : undefined
+    );
     if (res.success) {
       setStatusMessage('Friend request sent! 🎉');
       await refreshRequests(session.id);
@@ -62,7 +70,11 @@ export function FriendRequestModal() {
   const handleRespond = async (requestId: string, action: 'accept' | 'decline') => {
     if (!session) return;
     setStatusMessage(action === 'accept' ? 'Accepting...' : 'Declining...');
-    const ok = await FriendService.respondToRequest(requestId, action);
+    const ok = await FriendService.respondToRequest(requestId, action, {
+      userId: session.id,
+      displayName: session.displayName,
+      avatarConfig: session.avatarConfig,
+    });
     if (ok) {
       await Promise.all([
         refreshRequests(session.id),
@@ -159,7 +171,12 @@ export function FriendRequestModal() {
                     <NeoButton
                       size="sm"
                       variant="primary"
-                      onClick={() => handleSendRequest(user.id)}
+                      onClick={() =>
+                        handleSendRequest(user.id, {
+                          displayName: user.displayName,
+                          avatarConfig: user.avatarConfig,
+                        })
+                      }
                     >
                       ➕ Add Friend
                     </NeoButton>

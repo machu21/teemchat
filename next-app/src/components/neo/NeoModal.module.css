@@ -18,6 +18,7 @@
 
 .modalCard {
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
 }
@@ -53,7 +54,7 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -61,6 +62,11 @@
     transform: translate(1px, 1px);
     box-shadow: 1px 1px 0px var(--card-border);
   }
+}
+
+.closeBtn:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .closeBtn:active {
@@ -73,6 +79,21 @@
   padding-right: 4px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+@media (pointer: coarse) {
+  .closeBtn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modalContainer {
+    animation: none;
+  }
 }
 
 @keyframes fadeIn {
@@ -94,6 +115,7 @@
   .modalCard {
     padding: 14px;
     max-height: 94vh;
+    max-height: 94dvh;
   }
 
   .header {
@@ -115,6 +137,7 @@
   .modalCard {
     padding: 10px;
     max-height: 96vh;
+    max-height: 96dvh;
   }
 
   .title {

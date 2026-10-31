@@ -60,6 +60,11 @@
   outline: none;
 }
 
+.searchInput:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 2.5px 2.5px 0px var(--primary);
+}
+
 .resultsList {
   display: flex;
   flex-direction: column;
@@ -165,8 +170,14 @@
   border-radius: var(--neo-radius-sm);
 }
 
+[data-theme='dark'] .myHandleCode {
+  color: var(--primary-hover);
+  background: rgba(139, 92, 246, 0.2);
+}
+
 .copyHandleBtn {
   background: var(--neo-yellow, #fab936);
+  color: var(--cta-text);
   border: 1.5px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
   padding: 3px 8px;
@@ -182,3 +193,14 @@
   box-shadow: none;
 }
 
+/* Mobile tap targets (<= 640px) */
+@media (max-width: 640px) {
+  .modalTabBtn {
+    min-height: 40px;
+  }
+
+  .copyHandleBtn {
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+}

@@ -7,6 +7,7 @@ import styles from './world.module.css';
 import { useSessionStore } from '@/stores/session';
 import { SpaceService } from '@/lib/services/spaces';
 import { SpaceModel, defaultHQ } from '@/lib/models/space';
+import { InviteLinkService } from '@/lib/services/invite';
 import { getMapConfig, getZonesForMap, ZoneDefinition, MAP_REGISTRY } from '@/game/map/mapRegistry';
 import { WorldSyncService } from '@/lib/services/worldSync';
 import { LiveKitService, VideoFeedModel, attachTrackToElement } from '@/lib/services/livekit';
@@ -23,11 +24,12 @@ import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
+import { MapSelector } from '@/components/neo/MapSelector';
 import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig, AvatarConfig } from '@/lib/models/avatar';
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { FriendService } from '@/lib/services/friends';
 import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
-import { playMuteSound, playUnmuteSound, playScreenShareSound } from '@/lib/utils/callSounds';
+import { playMuteSound, playUnmuteSound, playScreenShareSound, playChatNotificationSound } from '@/lib/utils/callSounds';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   MicIcon,
@@ -48,6 +50,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTargetZone = searchParams?.get('zone') || null;
+  const urlTheme = searchParams?.get('theme') || undefined;
+  const urlName = searchParams?.get('name') || undefined;
   const resolvedParams = use(params);
   const spaceCode = resolvedParams.code;
 
@@ -103,14 +107,127 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [isAiThinking, setIsAiThinking] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Unread Room Chat Notification & Banner state
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [chatBanner, setChatBanner] = useState<{ senderName: string; content: string } | null>(null);
+  const chatBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const isViewingRoomChatRef = useRef(false);
+
+  const clearRoomChatNotifications = useCallback(() => {
+    setUnreadChatCount(0);
+    setChatBanner(null);
+    if (chatBannerTimerRef.current) {
+      clearTimeout(chatBannerTimerRef.current);
+      chatBannerTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    isViewingRoomChatRef.current = chatOpen && activeChannel === 'room';
+  }, [chatOpen, activeChannel]);
+
   // Modals & Panels
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [buildModeOpen, setBuildModeOpen] = useState(false);
   const [selectedFurniture, setSelectedFurniture] = useState<FurnitureType | null>(null);
 
+  // Sound Tripping & MP3 Upload State
+  const [playlistState, setPlaylistState] = useState({
+    currentTrack: PlaylistService.currentTrack,
+    isPlaying: PlaylistService.isPlaying,
+    volume: PlaylistService.volume,
+    isMuted: PlaylistService.isMuted,
+    isLooping: PlaylistService.isLooping,
+    currentTime: PlaylistService.currentTime,
+    duration: PlaylistService.duration,
+    playlist: PlaylistService.playlist,
+  });
+
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadArtist, setUploadArtist] = useState('');
+  const [isUploadingTrack, setIsUploadingTrack] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const updateState = () => {
+      setPlaylistState({
+        currentTrack: PlaylistService.currentTrack,
+        isPlaying: PlaylistService.isPlaying,
+        volume: PlaylistService.volume,
+        isMuted: PlaylistService.isMuted,
+        isLooping: PlaylistService.isLooping,
+        currentTime: PlaylistService.currentTime,
+        duration: PlaylistService.duration,
+        playlist: [...PlaylistService.playlist],
+      });
+    };
+
+    PlaylistService.onStateChanged = updateState;
+    PlaylistService.onTimeUpdate = (curr, dur) => {
+      setPlaylistState((prev) => ({
+        ...prev,
+        currentTime: curr,
+        duration: dur,
+      }));
+    };
+
+    updateState();
+
+    return () => {
+      PlaylistService.onStateChanged = undefined;
+      PlaylistService.onTimeUpdate = undefined;
+    };
+  }, []);
+
+  const isMapOwner = useMemo(() => {
+    if (!space) return false;
+    if (!session) return false;
+    if (space.ownerId && space.ownerId === session.id) return true;
+    if (space.isTemporary && (space.ownerId === session.id || space.ownerId === 'guest')) return true;
+    if (!space.ownerId || space.id === defaultHQ().id) return true;
+    return false;
+  }, [space, session]);
+
+  const handleUploadTrack = async () => {
+    if (!uploadFile || !space) return;
+    setIsUploadingTrack(true);
+    setUploadError(null);
+    try {
+      const uploaded = await PlaylistService.uploadTrack(
+        uploadFile,
+        space.id,
+        session,
+        uploadTitle,
+        uploadArtist
+      );
+      showMediaStatus('🎵', `Uploaded & Playing: "${uploaded.title}"!`, '#10B981');
+      setUploadFile(null);
+      setUploadTitle('');
+      setUploadArtist('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to upload MP3 file.';
+      setUploadError(msg);
+      showMediaStatus('⚠️', msg, '#EF4444');
+    } finally {
+      setIsUploadingTrack(false);
+    }
+  };
+
+  const formatAudioTime = (seconds: number) => {
+    if (isNaN(seconds) || seconds < 0) return '00:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   // World Map Fast Travel / Teleport Modal State
   const [mapTeleportModalOpen, setMapTeleportModalOpen] = useState(false);
+  const [mapThemeModalOpen, setMapThemeModalOpen] = useState(false);
   const [targetTeleport, setTargetTeleport] = useState<{
     x: number;
     y: number;
@@ -120,6 +237,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   const mapConfig = useMemo(() => getMapConfig(space?.mapTheme), [space?.mapTheme]);
   const activeZones = useMemo(() => getZonesForMap(space?.mapTheme), [space?.mapTheme]);
+
+  const handleSelectMapTheme = useCallback(async (newThemeId: string) => {
+    if (!space) return;
+    try {
+      const cfg = MAP_REGISTRY[newThemeId as keyof typeof MAP_REGISTRY] || MAP_REGISTRY.village;
+      await SpaceService.updateSpace(space.id, { mapTheme: newThemeId });
+      syncService?.broadcastMapTheme(newThemeId);
+      setSpace((prev) => (prev ? { ...prev, mapTheme: newThemeId } : null));
+      setMapThemeModalOpen(false);
+      showMediaStatus('🗺️', `Realm theme changed to ${cfg.name}!`, '#10B981');
+    } catch (e) {
+      console.warn('Failed to switch map theme:', e);
+      showMediaStatus('⚠️', 'Failed to change map theme', '#EF4444');
+    }
+  }, [space, syncService, showMediaStatus]);
 
   const handleTeleportToZone = useCallback((zone: ZoneDefinition) => {
     setTargetTeleport((prev) => ({
@@ -147,6 +279,12 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [friendReqSending, setFriendReqSending] = useState(false);
   const [friendReqSent, setFriendReqSent] = useState(false);
   const [friendReqStatus, setFriendReqStatus] = useState<string | null>(null);
+  const [incomingInGameReq, setIncomingInGameReq] = useState<{
+    requestId: string;
+    senderId: string;
+    senderName: string;
+    senderAvatar: AvatarConfig;
+  } | null>(null);
 
   // 1. Initial Space & Session resolution
   useEffect(() => {
@@ -172,7 +310,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       });
     });
 
-    SpaceService.getSpaceByCodeOrSlug(spaceCode)
+    SpaceService.getSpaceByCodeOrSlug(spaceCode, { theme: urlTheme, name: urlName })
       .then((s) => {
         const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         if (s) {
@@ -186,20 +324,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           if (cleaned === 'main-hq' || cleaned === 'b6941fa2-8305-4e00-833c-ca3cd5f08c9b') {
             setSpace(defaultHQ());
           } else {
-            const matchedTheme = (Object.keys(MAP_REGISTRY) as (keyof typeof MAP_REGISTRY)[]).find((t) =>
-              cleaned.includes(t)
-            );
-            const theme = matchedTheme || 'village';
-            const cfg = MAP_REGISTRY[theme];
+            const matchedTheme = urlTheme && urlTheme in MAP_REGISTRY
+              ? urlTheme
+              : ((Object.keys(MAP_REGISTRY) as (keyof typeof MAP_REGISTRY)[]).find((t) =>
+                  cleaned.includes(t)
+                ) || 'village');
+            const cfg = MAP_REGISTRY[matchedTheme as keyof typeof MAP_REGISTRY] || MAP_REGISTRY.village;
             setSpace({
               id: `room-${cleaned.replace(/[^a-z0-9_-]/g, '')}`,
-              name: `${cfg.name} (${raw})`,
+              name: urlName || `${cfg.name} (${raw})`,
               slug: raw,
               description: `Shared Hangout in ${cfg.name}`,
               category: cfg.category,
               visibility: 'public',
               tier: 'free',
-              mapTheme: theme,
+              mapTheme: matchedTheme,
               joinCode: raw,
               ownerId: null,
               maxCapacity: 50,
@@ -216,7 +355,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         console.warn('Failed to load space, falling back to default HQ:', err);
         setSpace(defaultHQ());
       });
-  }, [spaceCode, initSession]);
+  }, [spaceCode, initSession, urlName, urlTheme]);
 
   const handleJoinAsGuest = async () => {
     setIsJoiningGuest(true);
@@ -242,8 +381,62 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       avatarConfig: session.avatarConfig,
     });
 
+    const handleIncomingRoomMessage = (msg: ChatMessageModel) => {
+      const isAlreadySeen = seenMessageIdsRef.current.has(msg.id);
+      seenMessageIdsRef.current.add(msg.id);
+
+      setRoomMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+
+      if (
+        !isAlreadySeen &&
+        msg.senderId !== session.id &&
+        !isViewingRoomChatRef.current
+      ) {
+        setUnreadChatCount((c) => c + 1);
+        setChatBanner({
+          senderName: msg.senderName || 'Explorer',
+          content: msg.content,
+        });
+        playChatNotificationSound();
+
+        if (chatBannerTimerRef.current) {
+          clearTimeout(chatBannerTimerRef.current);
+        }
+        chatBannerTimerRef.current = setTimeout(() => {
+          setChatBanner(null);
+        }, 4500);
+      }
+    };
+
     sync.onChatMessage = (msg) => {
-      setRoomMessages((prev) => [...prev, msg]);
+      handleIncomingRoomMessage(msg);
+    };
+
+    sync.onFriendRequestReceived = (req) => {
+      showMediaStatus('🤝', `${req.senderName} sent you a friend request!`, '#3B82F6');
+      setIncomingInGameReq(req);
+    };
+
+    sync.onFriendResponseReceived = (res) => {
+      if (res.action === 'accept') {
+        showMediaStatus('🎉', `${res.receiverName} accepted your friend request!`, '#22C55E');
+        setFriendReqSent(true);
+        setFriendReqStatus(`✓ You and ${res.receiverName} are now friends!`);
+      }
+    };
+
+    sync.onMapThemeChanged = (newTheme) => {
+      if (newTheme && newTheme in MAP_REGISTRY) {
+        setSpace((prev) => {
+          if (!prev || prev.mapTheme === newTheme) return prev;
+          const cfg = MAP_REGISTRY[newTheme as keyof typeof MAP_REGISTRY];
+          showMediaStatus('🗺️', `Realm transformed to ${cfg.name}!`, '#3B82F6');
+          return {
+            ...prev,
+            mapTheme: newTheme,
+          };
+        });
+      }
     };
 
     sync.connect();
@@ -294,19 +487,22 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     // Load initial 30s room chat
     ChatService.fetchMessages('general')
-      .then(setRoomMessages)
+      .then((msgs) => {
+        msgs.forEach((m) => seenMessageIdsRef.current.add(m.id));
+        setRoomMessages(msgs);
+      })
       .catch((err) => {
         console.warn('Chat messages fetch notice:', err);
       });
 
     const roomSub = ChatService.listenToRoomMessages(
       'general',
-      (msg) => setRoomMessages((prev) => [...prev, msg]),
+      (msg) => handleIncomingRoomMessage(msg),
       (delId) => setRoomMessages((prev) => prev.filter((m) => m.id !== delId))
     );
 
     // Initial playlist load
-    PlaylistService.loadPlaylist(syncRoomId).catch((err) => {
+    PlaylistService.loadPlaylist(space.id).catch((err) => {
       console.warn('Playlist load notice:', err);
     });
 
@@ -317,7 +513,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         removeRealtimeChannel(roomSub);
       }
     };
-  }, [session, space, spaceCode, getLiveKit]);
+  }, [session, space, spaceCode, getLiveKit, showMediaStatus]);
 
   // 3. 30-Second TTL chat auto-pruner
   useEffect(() => {
@@ -330,11 +526,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     return () => clearInterval(timer);
   }, []);
 
-  // Cleanup media status toast timer on unmount
+  // Cleanup media status toast & chat banner timers on unmount
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
+      }
+      if (chatBannerTimerRef.current) {
+        clearTimeout(chatBannerTimerRef.current);
       }
     };
   }, []);
@@ -361,7 +560,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       });
 
       if (msg) {
-        setRoomMessages((prev) => [...prev, msg]);
+        seenMessageIdsRef.current.add(msg.id);
+        setRoomMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
         syncService?.broadcastChatMessage(msg);
         syncService?.broadcastSpeech(text);
       }
@@ -522,6 +722,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </div>
 
         <div className={styles.hudRight}>
+          {isMapOwner && (
+            <NeoButton
+              size="sm"
+              variant="secondary"
+              onClick={() => setMapThemeModalOpen(true)}
+              title="Change realm map theme (Map Owner)"
+            >
+              🗺️ Map Theme
+            </NeoButton>
+          )}
           <NeoButton
             size="sm"
             variant="primary"
@@ -625,14 +835,45 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
         <div className={styles.dockDivider} />
 
-        <button
-          className={`${styles.dockBtn} ${chatOpen ? styles.dockBtnActive : ''}`}
-          onClick={() => setChatOpen(!chatOpen)}
-          title="Toggle Chat"
-          aria-label="Toggle Chat"
-        >
-          <ChatBubbleIcon size={20} />
-        </button>
+        <div className={styles.chatDockSection}>
+          {chatBanner && !chatOpen && (
+            <button
+              type="button"
+              className={styles.chatNotifyBanner}
+              onClick={() => {
+                setActiveChannel('room');
+                setChatOpen(true);
+                clearRoomChatNotifications();
+              }}
+              aria-label={`New chat from ${chatBanner.senderName}: ${chatBanner.content}`}
+            >
+              <span className={styles.chatNotifyPulseDot} />
+              <span className={styles.chatNotifySender}>{chatBanner.senderName}:</span>
+              <span className={styles.chatNotifyPreview}>{chatBanner.content}</span>
+            </button>
+          )}
+          <button
+            className={`${styles.dockBtn} ${chatOpen ? styles.dockBtnActive : ''} ${
+              unreadChatCount > 0 && !chatOpen ? styles.dockBtnAlertChat : ''
+            }`}
+            onClick={() => {
+              if (!chatOpen) {
+                setActiveChannel('room');
+                clearRoomChatNotifications();
+              }
+              setChatOpen(!chatOpen);
+            }}
+            title={unreadChatCount > 0 ? `Toggle Chat (${unreadChatCount} new)` : 'Toggle Chat'}
+            aria-label={unreadChatCount > 0 ? `Toggle Chat (${unreadChatCount} new)` : 'Toggle Chat'}
+          >
+            <ChatBubbleIcon size={20} />
+            {unreadChatCount > 0 && (
+              <span className={styles.dockUnreadBadge}>
+                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+              </span>
+            )}
+          </button>
+        </div>
 
         <button
           className={`${styles.dockBtn} ${buildModeOpen ? styles.dockBtnActive : ''}`}
@@ -644,12 +885,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </button>
 
         <button
-          className={styles.dockBtn}
+          className={`${styles.dockBtn} ${playlistState.isPlaying ? styles.dockBtnActive : ''}`}
           onClick={() => setPlaylistModalOpen(true)}
-          title="Sound Tripping"
+          title={
+            playlistState.currentTrack
+              ? `Music: ${playlistState.currentTrack.title} (${
+                  playlistState.isPlaying ? 'Playing' : 'Paused'
+                })`
+              : 'Sound Tripping'
+          }
           aria-label="Sound Tripping"
         >
           <MusicIcon size={20} />
+          {playlistState.isPlaying && (
+            <span className={`${styles.dockIndicatorDot} ${styles.dockDotPurple}`} />
+          )}
         </button>
 
         <button
@@ -682,9 +932,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               <div className={styles.channelTabs}>
                 <button
                   className={`${styles.tabBtn} ${activeChannel === 'room' ? styles.tabBtnActive : ''}`}
-                  onClick={() => setActiveChannel('room')}
+                  onClick={() => {
+                    setActiveChannel('room');
+                    clearRoomChatNotifications();
+                  }}
                 >
                   Room
+                  {unreadChatCount > 0 && activeChannel !== 'room' && (
+                    <span className={styles.tabUnreadDot}>{unreadChatCount > 9 ? '9+' : unreadChatCount}</span>
+                  )}
                 </button>
                 <button
                   className={`${styles.tabBtn} ${activeChannel === 'companion' ? styles.tabBtnActive : ''}`}
@@ -693,7 +949,12 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   AI Companion
                 </button>
               </div>
-              <button className={styles.closeChatBtn} onClick={() => setChatOpen(false)}>
+              <button
+                type="button"
+                className={styles.closeChatBtn}
+                onClick={() => setChatOpen(false)}
+                aria-label="Close chat"
+              >
                 ✕
               </button>
             </div>
@@ -730,6 +991,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <form onSubmit={handleSendMessage} className={styles.chatInputRow}>
               <input
                 className={styles.chatInput}
+                aria-label={activeChannel === 'room' ? 'Room chat message' : 'Message to companion'}
                 placeholder={activeChannel === 'room' ? 'Chat with the room...' : 'Ask companion...'}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -789,15 +1051,26 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       >
         <div className={styles.inviteContent}>
           <p>Share this link or code with your friends so they can join right into this world:</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <NeoBadge color="#3B82F6">Map: {mapConfig.name}</NeoBadge>
+            {space?.isTemporary && <NeoBadge color="#F59E0B">Temporary Space</NeoBadge>}
+          </div>
           <NeoInput
             readOnly
-            value={typeof window !== 'undefined' ? `${window.location.origin}/space/${space.slug}` : space.slug}
+            value={InviteLinkService.generateInviteUrl(space?.slug || spaceCode, {
+              theme: space?.mapTheme,
+              name: space?.name,
+            })}
           />
           <NeoButton
             variant="primary"
             onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/space/${space.slug}`);
-              alert('Copied invite link to clipboard!');
+              const url = InviteLinkService.generateInviteUrl(space?.slug || spaceCode, {
+                theme: space?.mapTheme,
+                name: space?.name,
+              });
+              navigator.clipboard.writeText(url);
+              showMediaStatus('📋', 'Copied invite link to clipboard!', '#3B82F6');
             }}
           >
             📋 Copy Invite Link
@@ -805,41 +1078,346 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </div>
       </NeoModal>
 
-      {/* Sound Tripping (Playlist) Modal */}
+      {/* Sound Tripping (Playlist & MP3 Studio) Modal */}
       <NeoModal
         isOpen={playlistModalOpen}
         onClose={() => setPlaylistModalOpen(false)}
-        title="🎵 Sound Tripping Playlist"
+        title="🎵 Space Soundtrack & Music Studio"
       >
-        <div className={styles.playlistContent}>
-          <div className={styles.playlistControls}>
-            <NeoButton variant="secondary" onClick={() => PlaylistService.previousTrack()}>
-              ⏮️
-            </NeoButton>
-            <NeoButton variant="primary" onClick={() => PlaylistService.togglePlayPause()}>
-              {PlaylistService.isPlaying ? '⏸️ Pause' : '▶️ Play'}
-            </NeoButton>
-            <NeoButton variant="secondary" onClick={() => PlaylistService.nextTrack()}>
-              ⏭️
-            </NeoButton>
+        <div className={styles.playlistModalWrapper}>
+          {/* 1. Hero Deck: Now Playing */}
+          <div className={styles.nowPlayingCard}>
+            <div className={styles.nowPlayingTop}>
+              <div
+                className={`${styles.vinylDisc} ${
+                  playlistState.isPlaying ? styles.vinylDiscSpinning : ''
+                }`}
+              >
+                🎵
+              </div>
+              <div className={styles.nowPlayingInfo}>
+                <div className={styles.nowPlayingBadgeRow}>
+                  <NeoBadge color={playlistState.isPlaying ? '#10B981' : '#64748B'}>
+                    {playlistState.isPlaying ? '▶ NOW PLAYING' : '⏸ PAUSED'}
+                  </NeoBadge>
+                  {playlistState.currentTrack?.isDefaultPreset ? (
+                    <NeoBadge color="#3B82F6">PRESET</NeoBadge>
+                  ) : (
+                    <NeoBadge color="#8B5CF6">CUSTOM UPLOAD</NeoBadge>
+                  )}
+                </div>
+                <div className={styles.nowPlayingTitle}>
+                  {playlistState.currentTrack?.title || 'No Track Selected'}
+                </div>
+                <div className={styles.nowPlayingArtist}>
+                  {playlistState.currentTrack?.artist || 'Select a track below'}
+                </div>
+              </div>
+
+              {/* Animated Equalizer Wave */}
+              <div className={styles.equalizerWave}>
+                <div
+                  className={`${styles.eqBar} ${
+                    playlistState.isPlaying ? styles.eqBarPlaying : ''
+                  }`}
+                />
+                <div
+                  className={`${styles.eqBar} ${
+                    playlistState.isPlaying ? styles.eqBarPlaying : ''
+                  }`}
+                />
+                <div
+                  className={`${styles.eqBar} ${
+                    playlistState.isPlaying ? styles.eqBarPlaying : ''
+                  }`}
+                />
+                <div
+                  className={`${styles.eqBar} ${
+                    playlistState.isPlaying ? styles.eqBarPlaying : ''
+                  }`}
+                />
+                <div
+                  className={`${styles.eqBar} ${
+                    playlistState.isPlaying ? styles.eqBarPlaying : ''
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Progress Scrubber */}
+            <div className={styles.progressContainer}>
+              <input
+                type="range"
+                className={styles.progressSlider}
+                min={0}
+                max={playlistState.duration || 100}
+                value={playlistState.currentTime || 0}
+                disabled={!isMapOwner}
+                onChange={(e) => isMapOwner && PlaylistService.seek(Number(e.target.value))}
+                aria-label="Track progress"
+              />
+              <div className={styles.timeRow}>
+                <span>{formatAudioTime(playlistState.currentTime)}</span>
+                <span>{formatAudioTime(playlistState.duration)}</span>
+              </div>
+            </div>
+
+            {/* Main Playback Controls */}
+            <div className={styles.controlsRow}>
+              <button
+                className={styles.secondaryControlBtn}
+                disabled={!isMapOwner}
+                onClick={() => isMapOwner && PlaylistService.previousTrack()}
+                title="Previous Track"
+                aria-label="Previous Track"
+              >
+                ⏮️
+              </button>
+              <NeoButton
+                variant="primary"
+                className={styles.playBtnLarge}
+                disabled={!isMapOwner}
+                title={isMapOwner ? undefined : 'Only the map owner can control music'}
+                onClick={() => isMapOwner && PlaylistService.togglePlayPause()}
+              >
+                {playlistState.isPlaying ? '⏸️ Pause' : '▶️ Play'}
+              </NeoButton>
+              <button
+                className={styles.secondaryControlBtn}
+                disabled={!isMapOwner}
+                onClick={() => isMapOwner && PlaylistService.nextTrack()}
+                title="Next Track"
+                aria-label="Next Track"
+              >
+                ⏭️
+              </button>
+              <button
+                className={`${styles.secondaryControlBtn} ${
+                  playlistState.isLooping ? styles.secondaryControlActive : ''
+                }`}
+                disabled={!isMapOwner}
+                onClick={() => isMapOwner && PlaylistService.toggleLoop()}
+                title={playlistState.isLooping ? 'Loop: ON' : 'Loop: OFF'}
+                aria-label="Toggle Loop"
+              >
+                🔁
+              </button>
+            </div>
+
+            {/* Volume Bar */}
+            <div className={styles.volumeRow}>
+              <button
+                className={styles.secondaryControlBtn}
+                style={{ width: '28px', height: '28px', fontSize: '0.8rem' }}
+                onClick={() => PlaylistService.toggleMute()}
+                title={playlistState.isMuted ? 'Unmute' : 'Mute'}
+                aria-label="Toggle Mute"
+              >
+                {playlistState.isMuted || playlistState.volume === 0 ? '🔇' : '🔊'}
+              </button>
+              <input
+                type="range"
+                className={styles.volumeSlider}
+                min={0}
+                max={1}
+                step={0.01}
+                value={playlistState.isMuted ? 0 : playlistState.volume}
+                onChange={(e) => PlaylistService.setVolume(Number(e.target.value))}
+                aria-label="Volume slider"
+              />
+              <span>{Math.round((playlistState.isMuted ? 0 : playlistState.volume) * 100)}%</span>
+            </div>
           </div>
 
-          <div className={styles.trackList}>
-            {PlaylistService.playlist.map((track) => (
-              <div
-                key={track.id}
-                className={`${styles.trackItem} ${
-                  PlaylistService.currentTrack?.id === track.id ? styles.trackItemActive : ''
-                }`}
-                onClick={() => PlaylistService.playTrack(track)}
-              >
-                <div>
-                  <strong>{track.title}</strong>
-                  <div className={styles.trackArtist}>{track.artist}</div>
-                </div>
-                <span>▶️</span>
+          {/* 2. Map Owner MP3 Upload Studio */}
+          {isMapOwner ? (
+            <div className={styles.uploadStudioCard}>
+              <div className={styles.uploadHeaderRow}>
+                <span className={styles.uploadTitle}>
+                  👑 Map Owner Studio: Upload MP3 Soundtrack
+                </span>
+                <NeoBadge color="#F59E0B">MP3 AUDIO ONLY</NeoBadge>
               </div>
-            ))}
+
+              {/* Drag & Drop File Area */}
+              <div
+                className={`${styles.dropZone} ${uploadFile ? styles.dropZoneActive : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const f = e.dataTransfer.files[0];
+                    if (f.name.toLowerCase().endsWith('.mp3') || f.type.includes('audio')) {
+                      setUploadFile(f);
+                      setUploadTitle(f.name.replace(/\.(mp3|mpeg)$/i, '').replace(/[_-]/g, ' '));
+                      setUploadError(null);
+                    } else {
+                      setUploadError('Please select a valid MP3 file (.mp3).');
+                    }
+                  }
+                }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".mp3,audio/mpeg"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const f = e.target.files[0];
+                      setUploadFile(f);
+                      setUploadTitle(f.name.replace(/\.(mp3|mpeg)$/i, '').replace(/[_-]/g, ' '));
+                      setUploadError(null);
+                    }
+                  }}
+                />
+                <span className={styles.dropZoneIcon}>{uploadFile ? '🎵' : '📁'}</span>
+                <span className={styles.dropZoneText}>
+                  {uploadFile ? uploadFile.name : 'Click or drop an MP3 audio file here'}
+                </span>
+                <span className={styles.dropZoneSubtext}>
+                  {uploadFile
+                    ? `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB • Ready to upload`
+                    : 'Supported: MP3 audio up to 25MB • Saves to your realm'}
+                </span>
+              </div>
+
+              {uploadFile && (
+                <div className={styles.uploadInputsGrid}>
+                  <input
+                    className={styles.uploadInput}
+                    aria-label="Track title"
+                    placeholder="Track Title (e.g. Village Tavern Theme)"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                  />
+                  <input
+                    className={styles.uploadInput}
+                    aria-label="Artist or composer"
+                    placeholder="Artist / Composer"
+                    value={uploadArtist}
+                    onChange={(e) => setUploadArtist(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {uploadError && <div className={styles.uploadErrorMsg}>{uploadError}</div>}
+
+              {uploadFile && (
+                <div className={styles.uploadActionRow}>
+                  <NeoButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setUploadFile(null);
+                      setUploadTitle('');
+                      setUploadArtist('');
+                      setUploadError(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                  >
+                    Cancel
+                  </NeoButton>
+                  <NeoButton
+                    variant="primary"
+                    size="sm"
+                    disabled={isUploadingTrack}
+                    onClick={handleUploadTrack}
+                  >
+                    {isUploadingTrack ? '⏳ Uploading...' : '🚀 Save & Play Track'}
+                  </NeoButton>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={styles.visitorNoticeCard}>
+              <span>🎧</span>
+              <span>
+                Realm Soundtrack is curated by the Map Owner. Sit back and enjoy the ambient tunes!
+              </span>
+            </div>
+          )}
+
+          {/* 3. Space Tracklist */}
+          <div className={styles.trackSection}>
+            <div className={styles.trackSectionHeader}>
+              <span>Tracks ({playlistState.playlist.length})</span>
+              <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                Click any track to listen
+              </span>
+            </div>
+
+            <div className={styles.trackList}>
+              {playlistState.playlist.map((track) => {
+                const isActive = playlistState.currentTrack?.id === track.id;
+                return (
+                  <div
+                    key={track.id}
+                    className={`${styles.trackItem} ${isActive ? styles.trackItemActive : ''}`}
+                    onClick={() => isMapOwner && PlaylistService.playTrack(track)}
+                    style={isMapOwner ? undefined : { cursor: 'not-allowed' }}
+                  >
+                    <div className={styles.trackItemLeft}>
+                      <span className={styles.trackIcon}>
+                        {isActive && playlistState.isPlaying ? '🔊' : '▶️'}
+                      </span>
+                      <div className={styles.trackMeta}>
+                        <div className={styles.trackTitleText}>
+                          {track.title}
+                          {track.isDefaultPreset ? (
+                            <span
+                              style={{
+                                marginLeft: '6px',
+                                fontSize: '0.7rem',
+                                color: '#059669',
+                                fontWeight: 900,
+                              }}
+                            >
+                              [PRESET]
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                marginLeft: '6px',
+                                fontSize: '0.7rem',
+                                color: '#7C3AED',
+                                fontWeight: 900,
+                              }}
+                            >
+                              [CUSTOM]
+                            </span>
+                          )}
+                        </div>
+                        <div className={styles.trackArtistText}>{track.artist}</div>
+                      </div>
+                    </div>
+
+                    <div className={styles.trackItemRight}>
+                      <span className={styles.trackDuration}>
+                        {formatAudioTime(track.durationSeconds)}
+                      </span>
+                      {isMapOwner && !track.isDefaultPreset && (
+                        <button
+                          className={styles.trackDeleteBtn}
+                          title="Delete Custom Track"
+                          aria-label="Delete Custom Track"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Remove "${track.title}" from space soundtrack?`)) {
+                              PlaylistService.deleteTrack(track.id, space?.id || '', session);
+                              showMediaStatus('🗑️', `Deleted "${track.title}"`, '#EF4444');
+                            }
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </NeoModal>
@@ -943,6 +1521,23 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </div>
       </NeoModal>
 
+      {/* Map Owner Live Theme Switcher Modal */}
+      <NeoModal
+        isOpen={mapThemeModalOpen}
+        onClose={() => setMapThemeModalOpen(false)}
+        title="👑 Map Owner Studio: Select Realm Theme"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '4px 0' }}>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748B', fontWeight: 600, lineHeight: 1.5 }}>
+            Transform the virtual realm layout live for everyone in this space. All players will seamlessly sync to the selected theme in real-time.
+          </p>
+          <MapSelector
+            selectedTheme={space?.mapTheme || 'village'}
+            onSelectTheme={(themeId) => handleSelectMapTheme(themeId)}
+          />
+        </div>
+      </NeoModal>
+
       {/* Player Profile & Add Friend Modal */}
       <NeoModal
         isOpen={Boolean(selectedPlayer)}
@@ -971,7 +1566,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 onClick={async () => {
                   if (!session) return;
                   setFriendReqSending(true);
-                  const res = await FriendService.sendFriendRequest(session.id, selectedPlayer.userId);
+                  const res = await FriendService.sendFriendRequest(
+                    session.id,
+                    selectedPlayer.userId,
+                    { displayName: session.displayName, avatarConfig: session.avatarConfig },
+                    { displayName: selectedPlayer.displayName, avatarConfig: selectedPlayer.avatarConfig }
+                  );
+                  if (syncService) {
+                    syncService.broadcastFriendRequest(selectedPlayer.userId);
+                  }
                   setFriendReqSending(false);
                   if (res.success) {
                     setFriendReqSent(true);
@@ -991,6 +1594,64 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   {friendReqStatus}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+      </NeoModal>
+
+      {/* In-Game Incoming Friend Request Modal */}
+      <NeoModal
+        isOpen={Boolean(incomingInGameReq)}
+        onClose={() => setIncomingInGameReq(null)}
+        title="Friend Request Received"
+      >
+        {incomingInGameReq && (
+          <div className={styles.characterSetupContent}>
+            <div className={styles.avatarStage}>
+              <PixelAvatar config={incomingInGameReq.senderAvatar} size={72} />
+              <div style={{ marginTop: '8px', fontWeight: 900, fontSize: '1.2rem' }}>
+                {incomingInGameReq.senderName}
+              </div>
+              <NeoBadge color="#3B82F6">Wants to be friends</NeoBadge>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              <NeoButton
+                variant="primary"
+                size="md"
+                onClick={async () => {
+                  if (!session) return;
+                  await FriendService.respondToRequest(
+                    incomingInGameReq.requestId,
+                    'accept',
+                    {
+                      userId: session.id,
+                      displayName: session.displayName,
+                      avatarConfig: session.avatarConfig,
+                    }
+                  );
+                  if (syncService) {
+                    syncService.broadcastFriendResponse(
+                      incomingInGameReq.requestId,
+                      incomingInGameReq.senderId,
+                      'accept'
+                    );
+                  }
+                  showMediaStatus('🤝', `Now friends with ${incomingInGameReq.senderName}!`, '#22C55E');
+                  setIncomingInGameReq(null);
+                }}
+              >
+                ✓ Accept
+              </NeoButton>
+              <NeoButton
+                variant="secondary"
+                size="md"
+                onClick={async () => {
+                  await FriendService.respondToRequest(incomingInGameReq.requestId, 'decline');
+                  setIncomingInGameReq(null);
+                }}
+              >
+                ✕ Decline
+              </NeoButton>
             </div>
           </div>
         )}

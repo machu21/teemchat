@@ -8,6 +8,8 @@
   border: 2px solid var(--border, #000);
   border-radius: 12px;
   box-shadow: 3px 3px 0px #000;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .dockBtn {
@@ -23,8 +25,11 @@
   font-size: 1.25rem;
   cursor: pointer;
   box-shadow: 2px 2px 0px #000;
-  transition: transform 0.1s ease, background 0.15s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
   user-select: none;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dockBtn svg {
@@ -32,14 +37,22 @@
   pointer-events: none;
 }
 
-.dockBtn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px #000;
+/* Press-down feedback, consistent with NeoButton */
+@media (hover: hover) and (pointer: fine) {
+  .dockBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px #000;
+  }
 }
 
 .dockBtn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px #000;
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.dockBtn:focus-visible {
+  outline: 3px solid #FFE57F;
+  outline-offset: 2px;
 }
 
 .activeBtn {
@@ -62,8 +75,10 @@
   color: #fff;
 }
 
-.dangerBtn:hover {
-  background: #eb2f06;
+@media (hover: hover) and (pointer: fine) {
+  .dangerBtn:hover {
+    background: #eb2f06;
+  }
 }
 
 .divider {
@@ -71,4 +86,27 @@
   height: 28px;
   background: #3f3f5a;
   margin: 0 4px;
+}
+
+/* Narrow phones (320px+): keep all controls on one row without overflow */
+@media (max-width: 400px) {
+  .controlsDock {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .dockBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .divider {
+    margin: 0 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockBtn {
+    transition: background 0.15s ease;
+  }
 }

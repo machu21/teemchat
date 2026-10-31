@@ -9,10 +9,32 @@
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
-  transition: transform 0.1s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.toggle:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .toggle:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1.5px 1.5px 0px var(--card-border);
+  }
+}
+
+.toggle:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.toggle:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    transition: none;
+  }
 }

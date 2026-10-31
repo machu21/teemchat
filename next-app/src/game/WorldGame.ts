@@ -37,15 +37,23 @@ export class WorldGame {
   private onKeyDownBound: ((e: KeyboardEvent) => void) | null = null;
   private onKeyUpBound: ((e: KeyboardEvent) => void) | null = null;
   private onCanvasClickBound: ((e: MouseEvent) => void) | null = null;
+  private onWheelBound: ((e: WheelEvent) => void) | null = null;
+  private onTouchStartBound: ((e: TouchEvent) => void) | null = null;
+  private onTouchMoveBound: ((e: TouchEvent) => void) | null = null;
+  private onTouchEndBound: ((e: TouchEvent) => void) | null = null;
+  private initialPinchDistance: number | null = null;
+  private initialPinchZoom: number = 1.25;
 
   // Build mode
   buildModeEnabled: boolean = false;
   selectedFurniture: FurnitureType | null = null;
 
   private currentZoneName: string = '';
+  private lastProximityCheckTime: number = 0;
 
   onCompanionTap?: () => void;
   onZoneChanged?: (zoneName: string) => void;
+  onZoomChanged?: (zoom: number) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
   onRemotePlayerTap?: (player: {
     userId: string;
@@ -323,8 +331,12 @@ export class WorldGame {
             state.y
           );
           avatar.mapTheme = this.space.mapTheme || 'village';
+          avatar.userId = state.userId || id;
           this.remoteAvatars.set(id, avatar);
         } else {
+          avatar.userId = state.userId || avatar.userId || id;
+          avatar.displayName = state.displayName;
+          avatar.avatarConfig = state.avatarConfig;
           avatar.updateState({
             x: state.x,
             y: state.y,
@@ -346,7 +358,9 @@ export class WorldGame {
         }
       }
 
-      if (this.onProximityChanged) {
+      const now = performance.now();
+      if (this.onProximityChanged && now - this.lastProximityCheckTime >= 150) {
+        this.lastProximityCheckTime = now;
         this.onProximityChanged(peerDistances);
       }
     }
@@ -446,8 +460,61 @@ export class WorldGame {
     }
   }
 
+  setZoom(newZoom: number): number {
+    const updated = this.camera.setZoom(newZoom);
+    this.camera.follow(this.player.x, this.player.y, this.canvas.width, this.canvas.height);
+    if (this.onZoomChanged) this.onZoomChanged(updated);
+    return updated;
+  }
+
+  zoomIn(step?: number): number {
+    const updated = this.camera.zoomIn(step);
+    this.camera.follow(this.player.x, this.player.y, this.canvas.width, this.canvas.height);
+    if (this.onZoomChanged) this.onZoomChanged(updated);
+    return updated;
+  }
+
+  zoomOut(step?: number): number {
+    const updated = this.camera.zoomOut(step);
+    this.camera.follow(this.player.x, this.player.y, this.canvas.width, this.canvas.height);
+    if (this.onZoomChanged) this.onZoomChanged(updated);
+    return updated;
+  }
+
+  resetZoom(): number {
+    const updated = this.camera.resetZoom();
+    this.camera.follow(this.player.x, this.player.y, this.canvas.width, this.canvas.height);
+    if (this.onZoomChanged) this.onZoomChanged(updated);
+    return updated;
+  }
+
   private setupInputs() {
     this.onKeyDownBound = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInputFocused =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+
+      if (!isInputFocused) {
+        if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+          e.preventDefault();
+          this.zoomIn();
+          return;
+        }
+        if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+          e.preventDefault();
+          this.zoomOut();
+          return;
+        }
+        if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          this.resetZoom();
+          return;
+        }
+      }
+
       this.keysDown.add(e.code);
       this.player.clearTargetDestination();
     };
@@ -456,7 +523,41 @@ export class WorldGame {
       this.keysDown.delete(e.code);
     };
 
+    this.onWheelBound = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.12 : -0.12;
+      this.setZoom(this.camera.zoom + delta);
+    };
+
+    this.onTouchStartBound = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        this.initialPinchDistance = Math.hypot(dx, dy);
+        this.initialPinchZoom = this.camera.zoom;
+        this.player.clearTargetDestination();
+      }
+    };
+
+    this.onTouchMoveBound = (e: TouchEvent) => {
+      if (e.touches.length === 2 && this.initialPinchDistance !== null && this.initialPinchDistance > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDist = Math.hypot(dx, dy);
+        const scale = currentDist / this.initialPinchDistance;
+        this.setZoom(this.initialPinchZoom * scale);
+      }
+    };
+
+    this.onTouchEndBound = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        this.initialPinchDistance = null;
+      }
+    };
+
     this.onCanvasClickBound = (e: MouseEvent | PointerEvent) => {
+      if (this.initialPinchDistance !== null) return;
       const rect = this.canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
@@ -480,7 +581,7 @@ export class WorldGame {
         if (Math.hypot(dx, dy) < 28) {
           if (this.onRemotePlayerTap) {
             this.onRemotePlayerTap({
-              userId: id,
+              userId: avatar.userId || id,
               displayName: avatar.displayName,
               avatarConfig: avatar.avatarConfig,
               x: avatar.x,
@@ -506,6 +607,11 @@ export class WorldGame {
     window.addEventListener('keydown', this.onKeyDownBound);
     window.addEventListener('keyup', this.onKeyUpBound);
     this.canvas.addEventListener('pointerdown', this.onCanvasClickBound);
+    this.canvas.addEventListener('wheel', this.onWheelBound, { passive: false });
+    this.canvas.addEventListener('touchstart', this.onTouchStartBound, { passive: true });
+    this.canvas.addEventListener('touchmove', this.onTouchMoveBound, { passive: false });
+    this.canvas.addEventListener('touchend', this.onTouchEndBound);
+    this.canvas.addEventListener('touchcancel', this.onTouchEndBound);
   }
 
   dispose() {
@@ -526,6 +632,23 @@ export class WorldGame {
     if (this.onCanvasClickBound) {
       this.canvas.removeEventListener('pointerdown', this.onCanvasClickBound);
       this.onCanvasClickBound = null;
+    }
+    if (this.onWheelBound) {
+      this.canvas.removeEventListener('wheel', this.onWheelBound);
+      this.onWheelBound = null;
+    }
+    if (this.onTouchStartBound) {
+      this.canvas.removeEventListener('touchstart', this.onTouchStartBound);
+      this.onTouchStartBound = null;
+    }
+    if (this.onTouchMoveBound) {
+      this.canvas.removeEventListener('touchmove', this.onTouchMoveBound);
+      this.onTouchMoveBound = null;
+    }
+    if (this.onTouchEndBound) {
+      this.canvas.removeEventListener('touchend', this.onTouchEndBound);
+      this.canvas.removeEventListener('touchcancel', this.onTouchEndBound);
+      this.onTouchEndBound = null;
     }
   }
 }

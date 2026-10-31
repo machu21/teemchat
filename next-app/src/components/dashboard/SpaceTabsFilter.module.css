@@ -34,9 +34,16 @@
   transition: transform 0.1s ease, background-color 0.1s ease;
 }
 
-.filterPill:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .filterPill:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
+}
+
+.filterPill:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .filterPill.activePill {
@@ -108,7 +115,7 @@
     flex-shrink: 0;
     padding: 7px 11px;
     font-size: 0.78rem;
-    min-height: 38px;
+    min-height: 40px;
     white-space: nowrap;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -122,6 +129,15 @@
   .searchInput {
     min-height: 42px;
     font-size: 0.85rem;
-    padding: 8px 34px 8px 12px;
+    padding: 8px 42px 8px 12px;
+  }
+
+  .clearSearch {
+    right: 1px;
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

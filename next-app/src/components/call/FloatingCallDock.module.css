@@ -1,7 +1,7 @@
 .floatingDock {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(24px + env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -30,6 +30,7 @@
   display: flex;
   flex-direction: column;
   cursor: pointer;
+  min-width: 0;
 }
 
 .callTitle {
@@ -39,6 +40,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.callTitle > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .greenDot {
@@ -47,6 +55,7 @@
   border-radius: 50%;
   background: #00f59b;
   box-shadow: 0 0 6px #00f59b;
+  flex-shrink: 0;
 }
 
 .callSubtext {
@@ -68,7 +77,10 @@
   font-size: 1rem;
   cursor: pointer;
   box-shadow: 2px 2px 0px #000;
-  transition: transform 0.1s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .actionBtn svg {
@@ -76,8 +88,22 @@
   pointer-events: none;
 }
 
-.actionBtn:hover {
-  transform: translate(-1px, -1px);
+/* Press-down feedback, consistent with NeoButton */
+@media (hover: hover) and (pointer: fine) {
+  .actionBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px #000;
+  }
+}
+
+.actionBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.actionBtn:focus-visible {
+  outline: 3px solid #FFE57F;
+  outline-offset: 2px;
 }
 
 .activeBtn {
@@ -102,9 +128,26 @@
 
 @media (max-width: 600px) {
   .floatingDock {
-    bottom: 80px;
-    right: 12px;
-    left: 12px;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
     justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .actionBtn {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floatingDock {
+    animation: none;
+  }
+
+  .actionBtn {
+    transition: none;
   }
 }

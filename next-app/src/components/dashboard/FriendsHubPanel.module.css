@@ -30,6 +30,7 @@
 }
 
 .onlineBadge {
+  white-space: nowrap;
   background-color: #D1FAE5;
   color: #065F46;
   border: 1.5px solid #10B981;
@@ -76,9 +77,11 @@
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.friendCard:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .friendCard:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
 }
 
 .friendInfo {
@@ -132,6 +135,10 @@
 .spaceBadge {
   color: #6D28D9;
   font-weight: 700;
+}
+
+[data-theme='dark'] .spaceBadge {
+  color: var(--primary-hover);
 }
 
 .cardActions {

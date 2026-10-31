@@ -66,10 +66,41 @@ export class InviteLinkService {
     return null;
   }
 
-  static generateInviteUrl(spaceCode: string): string {
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/space/${spaceCode}`;
+  static generateInviteUrl(spaceCode: string, options?: { theme?: string; name?: string }): string {
+    const params = new URLSearchParams();
+    if (options?.theme && options.theme !== 'village') {
+      params.set('theme', options.theme);
     }
-    return `https://teemchat.vercel.app/space/${spaceCode}`;
+    if (options?.name && options.name.trim() && options.name !== spaceCode) {
+      params.set('name', options.name.trim());
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/space/${spaceCode}${query}`;
+    }
+    return `https://teemchat.vercel.app/space/${spaceCode}${query}`;
+  }
+
+  /**
+   * Extracts both space code and any optional map metadata (theme, custom space name)
+   * from invite links or query parameters.
+   */
+  static extractInviteMetadata(raw: string): {
+    code: string | null;
+    theme: string | null;
+    name: string | null;
+  } {
+    const text = raw.trim();
+    if (!text) return { code: null, theme: null, name: null };
+
+    const code = this.extractCode(text);
+    try {
+      const url = new URL(text.startsWith('http') ? text : `https://${text.replace(/^\/+/, '')}`);
+      const theme = url.searchParams.get('theme') || null;
+      const name = url.searchParams.get('name') || null;
+      return { code, theme, name };
+    } catch {
+      return { code, theme: null, name: null };
+    }
   }
 }

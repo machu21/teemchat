@@ -514,26 +514,31 @@ export function renderOfficeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   r(pX + 52, terY + 97, 12, 12, '#EF4444');
 
   // ════════════════════════════════════════════════════════════════
-  // 7. ARCHITECTURAL LABELS
+  // 7. ARCHITECTURAL CAMPUS DIRECTORY PLAQUES
   // ════════════════════════════════════════════════════════════════
-  const label = (text: string, lx: number, ly: number, bgCol: string) => {
+  const officePlaque = (text: string, lx: number, ly: number, color: string) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
     const bw = Math.ceil(textWidth) + 8;
-    const bh = 10;
+    const bh = 11;
 
-    r(lx - 1, ly - 1, bw + 2, bh + 2, '#000000');
-    r(lx, ly, bw, bh, bgCol);
-    r(lx, ly, bw, 1, 'rgba(255,255,255,0.4)');
+    // Plaque cast shadow
+    r(lx, ly + 1, bw, bh, 'rgba(0, 0, 0, 0.35)');
+    // Slate brushed bevel border
+    r(lx, ly, bw, bh, '#1E293B');
+    r(lx + 1, ly + 1, bw - 2, bh - 2, color);
+    r(lx + 1, ly + 1, bw - 2, 1, 'rgba(255, 255, 255, 0.35)');
+    r(lx + 1, ly + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
+
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, lx + 4, ly + 7);
+    ctx.fillText(text, lx + 4, ly + 8);
   };
 
-  label('ENGINEERING HUB', dX + 10, dY + 34, '#2563EB');
-  label('EXECUTIVE BOARDROOM', bX + 10, bY + 34, '#4F46E5');
-  label('RECEPTION & LOBBY', 180, cCorY + 12, '#0F172A');
-  label('BREAKROOM CAFE', kX + 10, kY + 34, '#059669');
-  label('ALL-HANDS LOUNGE', lX + 10, lY + 34, '#D97706');
-  label('PHONE BOOTHS', pX + 8, pY + 8, '#7C3AED');
-  label('SKYLINE TERRACE', pX + 8, terY + 8, '#0284C7');
+  officePlaque('💻 ENGINEERING HUB', dX + 10, dY + 34, '#1E40AF');
+  officePlaque('📊 EXECUTIVE BOARDROOM', bX + 10, bY + 34, '#3730A3');
+  officePlaque('🏢 RECEPTION & LOBBY', 180, cCorY + 12, '#0F172A');
+  officePlaque('☕ BREAKROOM CAFE', kX + 10, kY + 34, '#065F46');
+  officePlaque('🏓 ALL-HANDS LOUNGE', lX + 10, lY + 34, '#92400E');
+  officePlaque('📱 PHONE BOOTHS', pX + 8, pY + 8, '#5B21B6');
+  officePlaque('🏙️ SKYLINE TERRACE', pX + 8, terY + 8, '#0369A1');
 }

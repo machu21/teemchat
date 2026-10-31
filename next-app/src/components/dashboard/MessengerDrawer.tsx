@@ -98,14 +98,14 @@ export function MessengerDrawer() {
         if (isMounted) setMessages(list);
       });
       sub = DirectMessageService.subscribeToConversation(activeChat.id, (newMsg) => {
-        if (isMounted) setMessages((prev) => [...prev, newMsg]);
+        if (isMounted) setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
       });
     } else {
       GroupChatService.fetchMessages(activeChat.id).then((list) => {
         if (isMounted) setMessages(list);
       });
       sub = GroupChatService.subscribeToGroup(activeChat.id, (newMsg) => {
-        if (isMounted) setMessages((prev) => [...prev, newMsg]);
+        if (isMounted) setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
       });
     }
 
@@ -140,7 +140,7 @@ export function MessengerDrawer() {
           senderName: session.displayName,
           content: text,
         });
-        setMessages((prev) => [...prev, sent]);
+        setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       } else {
         const sent = await GroupChatService.sendMessage({
           conversationId: activeChat.id,
@@ -148,7 +148,7 @@ export function MessengerDrawer() {
           senderName: session.displayName,
           content: text,
         });
-        setMessages((prev) => [...prev, sent]);
+        setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       }
     } catch (e) {
       console.warn('Error sending message:', e);

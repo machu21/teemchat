@@ -122,9 +122,10 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
       get().refreshGroups(userId),
     ]);
 
-    // 4. Realtime subscription for requests
+    // 4. Realtime subscription for requests & social events
     FriendService.subscribeToRequests(userId, () => {
       get().refreshRequests(userId);
+      get().refreshFriends(userId);
     });
   },
 

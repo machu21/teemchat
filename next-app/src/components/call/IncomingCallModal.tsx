@@ -24,7 +24,12 @@ export function IncomingCallModal() {
 
   return (
     <div className={styles.backdrop}>
-      <div className={styles.modalCard}>
+      <div
+        className={styles.modalCard}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={`Incoming call from ${incomingCall.callerName}`}
+      >
         <div className={styles.avatarRing}>
           <div className={styles.pulseEffect} />
           <PixelAvatar

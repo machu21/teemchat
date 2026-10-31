@@ -35,3 +35,38 @@ describe('InviteLinkService.extractCode', () => {
     expect(InviteLinkService.extractCode('   ')).toBeNull();
   });
 });
+
+describe('InviteLinkService.generateInviteUrl & extractInviteMetadata', () => {
+  it('generates simple url for default theme', () => {
+    const url = InviteLinkService.generateInviteUrl('main-hq');
+    expect(url).toContain('/space/main-hq');
+    expect(url).not.toContain('?theme=');
+  });
+
+  it('embeds theme and name when specified', () => {
+    const url = InviteLinkService.generateInviteUrl('retro-arcade', {
+      theme: 'arcade',
+      name: 'Retro Arcade Zone',
+    });
+    expect(url).toContain('/space/retro-arcade');
+    expect(url).toContain('theme=arcade');
+    expect(url).toContain('name=Retro+Arcade+Zone');
+  });
+
+  it('extracts invite metadata accurately', () => {
+    const meta = InviteLinkService.extractInviteMetadata(
+      'https://teemchat.vercel.app/space/squad-chill?theme=nightclub&name=Nightclub+Party'
+    );
+    expect(meta.code).toBe('squad-chill');
+    expect(meta.theme).toBe('nightclub');
+    expect(meta.name).toBe('Nightclub Party');
+  });
+
+  it('handles query param invite URLs with metadata', () => {
+    const meta = InviteLinkService.extractInviteMetadata(
+      'http://localhost:3000/?space=office-work&theme=office'
+    );
+    expect(meta.code).toBe('office-work');
+    expect(meta.theme).toBe('office');
+  });
+});

@@ -66,11 +66,16 @@ export function CallStageModal() {
 
   return (
     <div className={styles.modalBackdrop}>
-      <div className={styles.stageContainer}>
+      <div
+        className={styles.stageContainer}
+        role="dialog"
+        aria-modal="true"
+        aria-label={currentCall.title}
+      >
         {/* Header */}
         <header className={styles.stageHeader}>
           <div className={styles.headerLeft}>
-            <span className={styles.headerIcon}>{currentCall.icon || '📞'}</span>
+            <span className={styles.headerIcon} aria-hidden="true">{currentCall.icon || '📞'}</span>
             <div>
               <div className={styles.headerTitle}>{currentCall.title}</div>
               <div className={styles.headerBadges}>
@@ -100,6 +105,7 @@ export function CallStageModal() {
               className={styles.minimizeBtn}
               onClick={() => setStageMaximized(false)}
               title="Close Stage"
+              aria-label="Close Stage"
             >
               ✕
             </button>

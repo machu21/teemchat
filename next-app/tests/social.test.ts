@@ -77,4 +77,59 @@ describe('Social Hub Unit Tests', () => {
     FriendService.unsubscribeRequests(cb1);
     FriendService.unsubscribeRequests(cb2);
   });
+
+  it('supports temporary guest friendships with localStorage persistence', () => {
+    const guestFriend = {
+      id: 'temp-friend-1',
+      userId: 'guest_9999',
+      username: 'guest_9999',
+      displayName: 'Explorer #9999',
+      status: 'available' as const,
+      avatarConfig: {
+        skinColor: '#FCD5B5',
+        shirtColor: '#3B82F6',
+        hairColor: '#37271E',
+        hairStyle: 'short' as const,
+        accessory: 'none' as const,
+      },
+      isOnline: true,
+      isTemporary: true,
+    };
+
+    FriendService.saveTemporaryFriend(guestFriend);
+    const tempFriends = FriendService.getTemporaryFriends();
+    expect(tempFriends.some((f) => f.userId === 'guest_9999')).toBe(true);
+
+    FriendService.removeTemporaryFriend('guest_9999');
+    const updated = FriendService.getTemporaryFriends();
+    expect(updated.some((f) => f.userId === 'guest_9999')).toBe(false);
+  });
+
+  it('allows guests to send and accept temporary friend requests', async () => {
+    const sender = 'guest_1001';
+    const receiver = 'guest_1002';
+
+    const sendRes = await FriendService.sendFriendRequest(sender, receiver, {
+      displayName: 'Explorer #1001',
+    });
+    expect(sendRes.success).toBe(true);
+
+    const pending = FriendService.getTemporaryRequests();
+    expect(pending.outgoing.some((r) => r.senderId === sender)).toBe(true);
+
+    // Simulate receiver getting and accepting request
+    const req = pending.outgoing.find((r) => r.senderId === sender);
+    if (req) {
+      FriendService.saveTemporaryRequest(req, 'incoming');
+      const acceptRes = await FriendService.respondToRequest(req.id, 'accept', {
+        userId: receiver,
+        displayName: 'Explorer #1002',
+      });
+      expect(acceptRes).toBe(true);
+      const friends = FriendService.getTemporaryFriends();
+      expect(friends.some((f) => f.userId === sender)).toBe(true);
+      // Clean up
+      FriendService.removeTemporaryFriend(sender);
+    }
+  });
 });

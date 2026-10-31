@@ -9,6 +9,7 @@ import { UserSession } from '@/lib/models/user';
 import { FurnitureType } from '@/game/entities/furniture';
 import { CompanionModel } from '@/lib/models/chat';
 import { getMapConfig } from '@/game/map/mapRegistry';
+import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM } from '@/game/camera';
 
 import { AvatarConfig } from '@/lib/models/avatar';
 
@@ -63,6 +64,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
   const touchIdRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Camera zoom level state
+  const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
+  const lastZoomRef = useRef<number>(DEFAULT_ZOOM);
 
   // 1. One-time Game Lifecycle Initialization (keyed ONLY by space.id and session.id)
   useEffect(() => {
@@ -136,6 +141,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     if (onZoneChanged) {
       game.onZoneChanged = onZoneChanged;
+    }
+
+    game.onZoomChanged = (newZoom) => {
+      lastZoomRef.current = newZoom;
+      setZoom(newZoom);
+    };
+
+    if (lastZoomRef.current !== DEFAULT_ZOOM) {
+      game.setZoom(lastZoomRef.current);
     }
 
     if (companion) {
@@ -324,12 +338,65 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   };
 
+  const handleZoomIn = () => {
+    if (gameRef.current) {
+      gameRef.current.zoomIn();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (gameRef.current) {
+      gameRef.current.zoomOut();
+    }
+  };
+
+  const handleResetZoom = () => {
+    if (gameRef.current) {
+      gameRef.current.resetZoom();
+    }
+  };
+
+  const zoomPercent = Math.round((zoom / DEFAULT_ZOOM) * 100);
+
   return (
     <div ref={containerRef} className={styles.canvasContainer}>
       <canvas
         ref={canvasRef}
         className={styles.gameCanvas}
       />
+
+      {/* Zoom Controls HUD */}
+      <div className={styles.zoomControls} role="group" aria-label="Camera Zoom Controls">
+        <button
+          type="button"
+          className={styles.zoomBtn}
+          onClick={handleZoomIn}
+          disabled={zoom >= MAX_ZOOM}
+          title="Zoom In (+ or Scroll Up)"
+          aria-label="Zoom In"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className={styles.zoomLevelBtn}
+          onClick={handleResetZoom}
+          title="Reset Zoom to 100% (Ctrl+0)"
+          aria-label={`Current zoom ${zoomPercent}%, click to reset`}
+        >
+          {zoomPercent}%
+        </button>
+        <button
+          type="button"
+          className={styles.zoomBtn}
+          onClick={handleZoomOut}
+          disabled={zoom <= MIN_ZOOM}
+          title="Zoom Out (- or Scroll Down)"
+          aria-label="Zoom Out"
+        >
+          −
+        </button>
+      </div>
 
       {/* Retro Game Boy On-Screen Controls (visibility managed responsively by CSS) */}
       <div

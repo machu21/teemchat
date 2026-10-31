@@ -361,23 +361,28 @@ export function renderCafeMap(ctx: CanvasRenderingContext2D, iw: number, ih: num
     r(patX + 8, ply - 4, 8, 8, ply % 80 === 0 ? '#A855F7' : '#EF4444'); // Lavender or Roses
   }
 
-  // ── 6. LABELS ─────────────────────────────────
-  const label = (text: string, x: number, y: number, bgCol: string) => {
+  // ── 6. ARTISAN CAFE WALNUT & GOLD SIGNS ─────────────────
+  const cafeSign = (text: string, x: number, y: number, color: string) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
     const bw = Math.ceil(textWidth) + 8;
-    const bh = 10;
+    const bh = 11;
 
-    r(x - 1, y - 1, bw + 2, bh + 2, '#000000');
-    r(x, y, bw, bh, bgCol);
-    r(x, y, bw, 1, 'rgba(255,255,255,0.4)');
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 7);
+    // Wood shadow
+    r(x, y + 1, bw, bh, 'rgba(0, 0, 0, 0.35)');
+    // Carved walnut frame
+    r(x, y, bw, bh, '#451A03');
+    r(x + 1, y + 1, bw - 2, bh - 2, color);
+    r(x + 1, y + 1, bw - 2, 1, 'rgba(255, 255, 255, 0.3)');
+    r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
+
+    ctx.fillStyle = '#FEF08A';
+    ctx.fillText(text, x + 4, y + 8);
   };
 
-  label('BARISTA ESPRESSO BAR', barX + 10, barY + 12, '#B45309');
-  label('FIREPLACE HEARTH', fX + 10, fY + 12, '#C2410C');
-  label('BOOKSTORE STACKS', bstkX + 10, bstkY + 12, '#6D28D9');
-  label('ACOUSTIC LIVE STAGE', acX + 10, acY + 12, '#047857');
-  label('GARDEN PATIO', patX + 8, patY + 8, '#0369A1');
+  cafeSign('☕ BARISTA ESPRESSO BAR', barX + 10, barY + 12, '#78350F');
+  cafeSign('🔥 FIREPLACE HEARTH', fX + 10, fY + 12, '#9A3412');
+  cafeSign('📚 BOOKSTORE STACKS', bstkX + 10, bstkY + 12, '#4C1D95');
+  cafeSign('🎸 ACOUSTIC LIVE STAGE', acX + 10, acY + 12, '#064E3B');
+  cafeSign('🌿 GARDEN PATIO', patX + 8, patY + 8, '#0C4A6E');
 }

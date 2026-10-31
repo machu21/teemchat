@@ -5,6 +5,7 @@ import { ChatMessageModel } from '../models/chat';
 
 export interface RemotePlayerState {
   userId: string;
+  clientId?: string;
   displayName: string;
   avatarConfig: AvatarConfig;
   x: number;
@@ -22,11 +23,18 @@ export class WorldSyncService {
   private isDisposed: boolean = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts: number = 0;
+  private presenceTrackTimer: NodeJS.Timeout | null = null;
+  /** Remote ids whose position came from a live broadcast (more fresh than presence). */
+  private broadcastPositioned: Set<string> = new Set();
 
   private lastBroadcastTime: number = 0;
   private lastPresenceTrackTime: number = 0;
   private lastKnownX: number = 420;
   private lastKnownY: number = 300;
+  private lastBroadcastX: number = 420;
+  private lastBroadcastY: number = 300;
+  private lastBroadcastDir: 'up' | 'down' | 'left' | 'right' = 'down';
+  private lastBroadcastMoving: boolean = false;
 
   readonly clientInstanceId: string;
   readonly spaceId: string;
@@ -36,6 +44,21 @@ export class WorldSyncService {
 
   onRemotePlayersChanged?: (players: Map<string, RemotePlayerState>) => void;
   onChatMessage?: (message: ChatMessageModel) => void;
+  onFriendRequestReceived?: (request: {
+    requestId: string;
+    senderId: string;
+    senderName: string;
+    senderAvatar: AvatarConfig;
+  }) => void;
+  onFriendResponseReceived?: (response: {
+    requestId: string;
+    senderId: string;
+    receiverId: string;
+    receiverName: string;
+    receiverAvatar: AvatarConfig;
+    action: 'accept' | 'decline';
+  }) => void;
+  onMapThemeChanged?: (theme: string) => void;
 
   private remotePlayers: Map<string, RemotePlayerState> = new Map();
 
@@ -102,8 +125,11 @@ export class WorldSyncService {
           const name = String(data.display_name || raw.display_name || 'Explorer');
           const cfg = normalizeAvatarConfig(data.avatar_config || raw.avatar_config);
 
+          const actualUserId = senderUserId || effectiveId;
           const existing = this.remotePlayers.get(effectiveId);
           if (existing) {
+            existing.userId = actualUserId;
+            existing.clientId = senderClientId;
             existing.x = x;
             existing.y = y;
             existing.direction = direction;
@@ -113,7 +139,8 @@ export class WorldSyncService {
             existing.lastSeen = Date.now();
           } else {
             this.remotePlayers.set(effectiveId, {
-              userId: effectiveId,
+              userId: actualUserId,
+              clientId: senderClientId,
               displayName: name,
               avatarConfig: cfg,
               x,
@@ -124,6 +151,7 @@ export class WorldSyncService {
             });
           }
 
+          this.broadcastPositioned.add(effectiveId);
           this.notifyPlayersChanged();
         } catch (e) {
           console.warn('[WorldSync] Movement broadcast parse error:', e);
@@ -186,11 +214,72 @@ export class WorldSyncService {
         }
       });
 
-      // 4. Presence Sync / Join / Leave
+      // 4. In-Space Peer Friend Requests & Responses
+      this.channel.on('broadcast', { event: 'friend_request' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const targetUserId = (data.target_user_id as string) || (data.receiver_id as string);
+
+          if (targetUserId && targetUserId !== this.currentUserId) return;
+          if (data.sender_id === this.currentUserId) return;
+
+          if (this.onFriendRequestReceived) {
+            this.onFriendRequestReceived({
+              requestId: (data.request_id as string) || `req-${Date.now()}`,
+              senderId: (data.sender_id as string) || 'explorer',
+              senderName: (data.sender_name as string) || 'Explorer',
+              senderAvatar: normalizeAvatarConfig(data.sender_avatar),
+            });
+          }
+        } catch (e) {
+          console.warn('[WorldSync] Friend request broadcast error:', e);
+        }
+      });
+
+      this.channel.on('broadcast', { event: 'friend_response' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const targetUserId = data.target_user_id as string;
+
+          if (targetUserId && targetUserId !== this.currentUserId) return;
+
+          if (this.onFriendResponseReceived) {
+            this.onFriendResponseReceived({
+              requestId: data.request_id as string,
+              senderId: data.sender_id as string,
+              receiverId: data.receiver_id as string,
+              receiverName: (data.receiver_name as string) || 'Explorer',
+              receiverAvatar: normalizeAvatarConfig(data.receiver_avatar),
+              action: (data.action as 'accept' | 'decline') || 'accept',
+            });
+          }
+        } catch (e) {
+          console.warn('[WorldSync] Friend response broadcast error:', e);
+        }
+      });
+
+      // 5. In-Space Map Theme Changes
+      this.channel.on('broadcast', { event: 'map_theme' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const theme = (data.theme as string) || '';
+          if (theme && this.onMapThemeChanged) {
+            this.onMapThemeChanged(theme);
+          }
+        } catch (e) {
+          console.warn('[WorldSync] Map theme broadcast error:', e);
+        }
+      });
+
+      // 6. Presence Sync / Join / Leave
       this.channel.on('presence', { event: 'sync' }, () => this.handlePresenceUpdate());
       this.channel.on('presence', { event: 'join' }, () => {
         this.handlePresenceUpdate();
-        this.broadcastMovement(this.lastKnownX, this.lastKnownY, 'down', false, true);
+        // Tell the newcomer where we really are right now.
+        this.broadcastMovement(this.lastKnownX, this.lastKnownY, this.lastBroadcastDir, false, true);
       });
       this.channel.on('presence', { event: 'leave' }, () => this.handlePresenceUpdate());
 
@@ -265,24 +354,31 @@ export class WorldSyncService {
           const name = (p.display_name as string) || 'Explorer';
           const x = Number(p.x ?? 420);
           const y = Number(p.y ?? 300);
+          const presenceDir = (p.direction as 'up' | 'down' | 'left' | 'right') || 'down';
           const cfg = normalizeAvatarConfig(p.avatar_config);
 
+          const actualUserId = userId || effectiveId;
           const existing = this.remotePlayers.get(effectiveId);
           if (!existing) {
             this.remotePlayers.set(effectiveId, {
-              userId: effectiveId,
+              userId: actualUserId,
+              clientId,
               displayName: name,
               avatarConfig: cfg,
               x,
               y,
-              direction: 'down',
+              direction: presenceDir,
               isMoving: false,
               lastSeen: Date.now(),
             });
           } else {
+            existing.userId = actualUserId;
+            existing.clientId = clientId;
             existing.displayName = name;
             existing.avatarConfig = cfg;
-            if (!existing.isMoving) {
+            // Live broadcasts are fresher than presence; never let a stale
+            // presence snapshot snap a player back to an old spot.
+            if (!existing.isMoving && !this.broadcastPositioned.has(effectiveId)) {
               existing.x = x;
               existing.y = y;
             }
@@ -298,6 +394,7 @@ export class WorldSyncService {
         const recent = now - player.lastSeen < 15000;
         if (!inPresence && !recent) {
           this.remotePlayers.delete(id);
+          this.broadcastPositioned.delete(id);
         }
       }
 
@@ -319,24 +416,33 @@ export class WorldSyncService {
 
     if (!this.channel || !this.isSubscribed) return;
 
-    if (!isMoving && !force) return;
+    if (!isMoving && !force && !this.lastBroadcastMoving) return;
 
     const now = Date.now();
     // 100ms rate limit for movement broadcasts
     if (!force && now - this.lastBroadcastTime < 100) return;
-    this.lastBroadcastTime = now;
 
-    // Slow presence re-track (every 20s)
-    if (!isMoving && now - this.lastPresenceTrackTime >= 20000) {
-      this.lastPresenceTrackTime = now;
-      this.channel.track({
-        user_id: this.currentUserId,
-        client_id: this.clientInstanceId,
-        display_name: this.displayName,
-        avatar_config: this.avatarConfig,
-        x,
-        y,
-      }).then();
+    // Movement delta gating: skip if moved < 2px, same direction, and same moving status
+    const deltaDist = Math.hypot(x - this.lastBroadcastX, y - this.lastBroadcastY);
+    if (
+      !force &&
+      deltaDist < 2 &&
+      direction === this.lastBroadcastDir &&
+      isMoving === this.lastBroadcastMoving
+    ) {
+      return;
+    }
+
+    this.lastBroadcastTime = now;
+    this.lastBroadcastX = x;
+    this.lastBroadcastY = y;
+    this.lastBroadcastDir = direction;
+    this.lastBroadcastMoving = isMoving;
+
+    // Keep presence state in sync with our resting position so late joiners
+    // immediately see where we actually are (not the spawn point).
+    if (!isMoving) {
+      this.schedulePresenceTrack();
     }
 
     this.channel.send({
@@ -351,6 +457,66 @@ export class WorldSyncService {
         y,
         direction,
         is_moving: isMoving,
+      },
+    });
+  }
+
+  /** Throttled presence re-track (max 1/sec, trailing call guaranteed). */
+  private schedulePresenceTrack(): void {
+    if (this.presenceTrackTimer) return;
+    const wait = Math.max(0, 1000 - (Date.now() - this.lastPresenceTrackTime));
+    this.presenceTrackTimer = setTimeout(() => {
+      this.presenceTrackTimer = null;
+      if (!this.channel || !this.isSubscribed || this.isDisposed) return;
+      this.lastPresenceTrackTime = Date.now();
+      this.channel
+        .track({
+          user_id: this.currentUserId,
+          client_id: this.clientInstanceId,
+          display_name: this.displayName,
+          avatar_config: this.avatarConfig,
+          x: this.lastKnownX,
+          y: this.lastKnownY,
+          direction: this.lastBroadcastDir,
+        })
+        .catch(() => {});
+    }, wait);
+  }
+
+  broadcastFriendRequest(targetUserId: string): void {
+    if (!this.channel || !this.isSubscribed) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'friend_request',
+      payload: {
+        request_id: `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        sender_id: this.currentUserId,
+        sender_name: this.displayName,
+        sender_avatar: this.avatarConfig,
+        target_user_id: targetUserId,
+        created_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  broadcastFriendResponse(
+    requestId: string,
+    targetUserId: string,
+    action: 'accept' | 'decline'
+  ): void {
+    if (!this.channel || !this.isSubscribed) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'friend_response',
+      payload: {
+        request_id: requestId,
+        sender_id: targetUserId,
+        receiver_id: this.currentUserId,
+        receiver_name: this.displayName,
+        receiver_avatar: this.avatarConfig,
+        target_user_id: targetUserId,
+        action,
+        created_at: new Date().toISOString(),
       },
     });
   }
@@ -389,6 +555,19 @@ export class WorldSyncService {
     });
   }
 
+  broadcastMapTheme(theme: string): void {
+    if (!this.channel || !this.isSubscribed || !theme) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'map_theme',
+      payload: {
+        theme,
+        user_id: this.currentUserId,
+        created_at: new Date().toISOString(),
+      },
+    });
+  }
+
   getRemotePlayers(): Map<string, RemotePlayerState> {
     return this.remotePlayers;
   }
@@ -405,6 +584,10 @@ export class WorldSyncService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.presenceTrackTimer) {
+      clearTimeout(this.presenceTrackTimer);
+      this.presenceTrackTimer = null;
+    }
     this.isSubscribed = false;
 
     if (this.channel) {
@@ -412,6 +595,7 @@ export class WorldSyncService {
       this.channel = null;
     }
     this.remotePlayers.clear();
+    this.broadcastPositioned.clear();
     this.notifyPlayersChanged();
   }
 }

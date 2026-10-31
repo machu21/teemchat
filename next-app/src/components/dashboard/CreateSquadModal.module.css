@@ -37,8 +37,16 @@
   transition: transform 0.1s;
 }
 
-.iconBtn:hover {
-  transform: translate(1px, 1px);
+@media (hover: hover) and (pointer: fine) {
+  .iconBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
+}
+
+.iconBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .iconBtn.selectedIcon {

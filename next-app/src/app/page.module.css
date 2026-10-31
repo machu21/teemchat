@@ -510,6 +510,11 @@
   border-color: #FFFFFF;
 }
 
+.pillInput:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 2px 2px 0px var(--primary);
+}
+
 .categoryPills {
   display: flex;
   gap: 6px;
@@ -558,6 +563,7 @@
 }
 
 .swatchCircle {
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -566,6 +572,14 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.swatchCircle::after {
+  /* Expand tap target to >= 44px without changing the visual size */
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
 }
 
 .swatchCircleActive {
@@ -596,8 +610,10 @@
   transition: transform 0.1s ease;
 }
 
-.previewCard:hover {
-  transform: translate(1px, 1px);
+@media (hover: hover) and (pointer: fine) {
+  .previewCard:hover {
+    transform: translate(1px, 1px);
+  }
 }
 
 [data-theme='dark'] .previewCard {
@@ -1481,7 +1497,12 @@
 
 .footerLink:hover {
   color: var(--primary);
-  transform: translateX(3px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .footerLink:hover {
+    transform: translateX(3px);
+  }
 }
 
 .footerLinkHighlight {
@@ -1505,18 +1526,30 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.footerLinkHighlight:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .footerLinkHighlight:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+  }
 }
 
 .footerLinkHighlight:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--card-border);
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--card-border);
 }
 
 [data-theme='dark'] .footerLinkHighlight {
   box-shadow: 2px 2px 0px #000000;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme='dark'] .footerLinkHighlight:hover {
+    box-shadow: 1px 1px 0px #000000;
+  }
+}
+
+[data-theme='dark'] .footerLinkHighlight:active {
+  box-shadow: 0px 0px 0px #000000;
 }
 
 .footerStaticItem {
@@ -1568,7 +1601,7 @@
   align-items: center;
   gap: 6px;
   padding: 7px 16px;
-  min-height: 38px;
+  min-height: 40px;
   border-radius: 999px;
   border: 2px solid var(--card-border);
   background: var(--card-inner);
@@ -1583,19 +1616,31 @@
   transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
 }
 
-.backToTopBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 2px 4px 0px var(--card-border);
-  background: var(--card-bg);
+@media (hover: hover) and (pointer: fine) {
+  .backToTopBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
+    background: var(--card-bg);
+  }
 }
 
 .backToTopBtn:active {
-  transform: translateY(0px);
-  box-shadow: 1px 1px 0px var(--card-border);
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--card-border);
 }
 
 [data-theme='dark'] .backToTopBtn {
   box-shadow: 2px 2px 0px #000000;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme='dark'] .backToTopBtn:hover {
+    box-shadow: 1px 1px 0px #000000;
+  }
+}
+
+[data-theme='dark'] .backToTopBtn:active {
+  box-shadow: 0px 0px 0px #000000;
 }
 
 /* ── Auth Modal Form ── */
@@ -2083,6 +2128,13 @@
   .backToTopBtn {
     width: 100%;
     justify-content: center;
+  }
+  .catPill {
+    min-height: 40px;
+  }
+  .footerLink,
+  .footerLinkHighlight {
+    min-height: 40px;
   }
 }
 

@@ -307,19 +307,19 @@ export default function LandingPage() {
 
         {/* Center Nav Links */}
         <nav className={styles.navLinks}>
-          <a className={`${styles.navLink} ${styles.navLinkBold}`} onClick={() => scrollTo('try-it')}>
+          <a className={`${styles.navLink} ${styles.navLinkBold}`} role="button" tabIndex={0} onClick={() => scrollTo('try-it')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollTo('try-it'); } }}>
             Try it
           </a>
-          <a className={styles.navLink} onClick={() => scrollTo('how-it-works')}>
+          <a className={styles.navLink} role="button" tabIndex={0} onClick={() => scrollTo('how-it-works')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollTo('how-it-works'); } }}>
             How it works
           </a>
-          <a className={styles.navLink} onClick={() => scrollTo('features')}>
+          <a className={styles.navLink} role="button" tabIndex={0} onClick={() => scrollTo('features')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollTo('features'); } }}>
             Features
           </a>
-          <a className={styles.navLink} onClick={() => scrollTo('pricing')}>
+          <a className={styles.navLink} role="button" tabIndex={0} onClick={() => scrollTo('pricing')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollTo('pricing'); } }}>
             Pricing
           </a>
-          <a className={styles.navLink} onClick={() => scrollTo('download')}>
+          <a className={styles.navLink} role="button" tabIndex={0} onClick={() => scrollTo('download')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollTo('download'); } }}>
             Download
           </a>
         </nav>
@@ -572,6 +572,7 @@ export default function LandingPage() {
                             }}
                             onClick={() => setSelectedColorIndex(idx)}
                             aria-label={item.name}
+                            aria-pressed={selectedColorIndex === idx}
                           />
                         ))}
                       </div>

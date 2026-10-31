@@ -187,18 +187,25 @@ export default function DashboardPage() {
 
     setIsSubmitting(true);
     const rawInput = joinCodeInput.trim();
-    const extracted = InviteLinkService.extractCode(rawInput) || rawInput;
-    const space = await SpaceService.getSpaceByCodeOrSlug(extracted);
+    const meta = InviteLinkService.extractInviteMetadata(rawInput);
+    const extracted = meta.code || InviteLinkService.extractCode(rawInput) || rawInput;
+    const space = await SpaceService.getSpaceByCodeOrSlug(extracted, {
+      theme: meta.theme || undefined,
+      name: meta.name || undefined,
+    });
     setIsSubmitting(false);
 
     if (space) {
       setJoinModalOpen(false);
-      router.push(`/space/${space.slug || space.joinCode || space.id}`);
+      const targetSlug = space.slug || space.joinCode || space.id;
+      const themeParam = space.mapTheme && space.mapTheme !== 'village' ? `?theme=${space.mapTheme}` : '';
+      router.push(`/space/${targetSlug}${themeParam}`);
     } else {
       const cleanSlug = extracted.toLowerCase().replace(/[^a-z0-9-]/g, '-');
       if (cleanSlug) {
         setJoinModalOpen(false);
-        router.push(`/space/${cleanSlug}`);
+        const themeParam = meta.theme ? `?theme=${meta.theme}` : '';
+        router.push(`/space/${cleanSlug}${themeParam}`);
       } else {
         setFormError('Could not find space with that invite code or slug.');
       }
@@ -293,6 +300,15 @@ export default function DashboardPage() {
               className={styles.avatarPill}
               onClick={openAvatarEditor}
               title="Customize Avatar"
+              role="button"
+              tabIndex={0}
+              aria-label="Customize Avatar"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openAvatarEditor();
+                }
+              }}
             >
               <PixelAvatar config={session.avatarConfig} size={32} />
               <div className={styles.userInfo}>

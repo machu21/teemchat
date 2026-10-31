@@ -58,9 +58,17 @@ export class RemotePlayerEntity {
   mapTheme: string = 'village';
 
   update(dt: number) {
-    // Smooth lerp interpolation toward network position
-    this.x += (this.targetX - this.x) * Math.min(1, dt * 14);
-    this.y += (this.targetY - this.y) * Math.min(1, dt * 14);
+    const dist = Math.hypot(this.targetX - this.x, this.targetY - this.y);
+    if (dist > 160) {
+      // Teleported or fast-traveled: snap directly without rubber-banding
+      this.x = this.targetX;
+      this.y = this.targetY;
+    } else {
+      // Smooth lerp interpolation toward network position
+      const lerpFactor = Math.min(1, dt * 16);
+      this.x += (this.targetX - this.x) * lerpFactor;
+      this.y += (this.targetY - this.y) * lerpFactor;
+    }
 
     if (this.isMoving) {
       this.animTimer += dt * 8;

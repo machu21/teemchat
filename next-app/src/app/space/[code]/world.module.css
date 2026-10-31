@@ -2,6 +2,7 @@
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -15,6 +16,7 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
+  height: 100dvh;
   font-size: 1.4rem;
   font-weight: 800;
   background-color: var(--bg);
@@ -23,9 +25,9 @@
 /* Top HUD */
 .topHud {
   position: absolute;
-  top: 16px;
-  left: 20px;
-  right: 20px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: max(20px, env(safe-area-inset-left, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -40,6 +42,14 @@
   pointer-events: auto;
 }
 
+.hudLeft {
+  min-width: 0;
+}
+
+.hudRight {
+  flex-shrink: 0;
+}
+
 .spaceTitleBadge {
   background: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
@@ -51,12 +61,24 @@
   gap: 8px;
   font-weight: 800;
   font-size: 0.95rem;
+  min-width: 0;
+}
+
+.spaceIcon {
+  flex-shrink: 0;
+}
+
+.spaceName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Video PiP Overlay */
 .pipGrid {
   position: absolute;
-  top: 76px;
+  top: calc(76px + env(safe-area-inset-top, 0px));
   right: 20px;
   display: flex;
   flex-direction: column;
@@ -120,9 +142,10 @@
 /* Status Feedback Pill / Toast */
 .mediaStatusPill {
   position: absolute;
-  top: 72px;
+  top: calc(72px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -153,7 +176,7 @@
 /* Bottom Dock */
 .bottomDock {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -180,7 +203,9 @@
   align-items: center;
   justify-content: center;
   box-shadow: 1.5px 1.5px 0px var(--card-border);
-  transition: transform 0.1s ease, background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
 }
 
 .dockBtn svg {
@@ -188,9 +213,16 @@
   pointer-events: none;
 }
 
-.dockBtn:hover {
-  transform: translate(1px, 1px);
-  box-shadow: 0.5px 0.5px 0px var(--card-border);
+@media (hover: hover) and (pointer: fine) {
+  .dockBtn:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 0.5px 0.5px 0px var(--card-border);
+  }
+}
+
+.dockBtn:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
 }
 
 .dockBtnActive {
@@ -238,10 +270,148 @@
   background-color: var(--text-subtle);
 }
 
+/* Chat Dock Section & Unread Notification Banner */
+.chatDockSection {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dockBtnAlertChat {
+  border-color: #EF4444;
+  box-shadow: 2px 2px 0px #B91C1C;
+}
+
+.dockUnreadBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border: 2px solid var(--card-border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 1px 1px 0px var(--card-border);
+  pointer-events: none;
+  animation: badgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.chatNotifyBanner {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border: 2px solid var(--card-border);
+  border-radius: 999px;
+  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  white-space: nowrap;
+  cursor: pointer;
+  z-index: 65;
+  font-family: inherit;
+  animation: bannerPopUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.1s ease;
+}
+
+.chatNotifyBanner:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.chatNotifyBanner:hover {
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.chatNotifyBanner::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0 6px;
+  border-style: solid;
+  border-color: var(--card-border) transparent transparent transparent;
+}
+
+@keyframes bannerPopUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.chatNotifyPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #FEF08A;
+  border: 1px solid #000000;
+  flex-shrink: 0;
+}
+
+.chatNotifySender {
+  font-size: 0.76rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.chatNotifyPreview {
+  font-size: 0.76rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabUnreadDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border: 1.5px solid var(--card-border);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 /* Roblox-Style Chat Box Overlay */
 .chatBox {
   position: absolute;
-  bottom: 96px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   left: 24px;
   width: 340px;
   height: 380px;
@@ -283,6 +453,7 @@
 
 .tabBtnActive {
   background: var(--cta-btn);
+  color: var(--cta-text);
 }
 
 .closeChatBtn {
@@ -290,6 +461,17 @@
   border: none;
   font-weight: 800;
   font-size: 1rem;
+  color: var(--text-main);
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: var(--neo-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeChatBtn:hover {
+  background: var(--card-inner);
 }
 
 .messageStream {
@@ -364,6 +546,12 @@
   border-radius: var(--neo-radius-sm);
   outline: none;
   color: var(--text-main);
+  min-width: 0;
+}
+
+.chatInput:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 2px 2px 0px var(--card-border);
 }
 
 .sendBtn {
@@ -375,6 +563,13 @@
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
   box-shadow: 1.5px 1.5px 0px var(--card-border);
+  flex-shrink: 0;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.sendBtn:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
 }
 
 /* Build Palette Panel */
@@ -407,11 +602,28 @@
   font-weight: 700;
   border: 2px solid var(--card-border);
   background: var(--card-inner);
+  color: var(--text-main);
   border-radius: var(--neo-radius-sm);
 }
 
 .furnBtnActive {
   background: var(--cta-btn);
+  color: var(--cta-text);
+}
+
+/* Shared keyboard focus ring (matches NeoButton) */
+.dockBtn:focus-visible,
+.tabBtn:focus-visible,
+.closeChatBtn:focus-visible,
+.sendBtn:focus-visible,
+.furnBtn:focus-visible,
+.genderBtn:focus-visible,
+.secondaryControlBtn:focus-visible,
+.trackDeleteBtn:focus-visible,
+.progressSlider:focus-visible,
+.volumeSlider:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Modals */
@@ -503,6 +715,11 @@
   box-shadow: 3px 3px 0px var(--card-border);
 }
 
+.genderBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
 .genderBtnMaleActive {
   background-color: #38BDF8 !important;
   color: #032A46 !important;
@@ -591,14 +808,31 @@
 /* Tablet & Mobile Screens (<= 640px) */
 @media (max-width: 640px) {
   .topHud {
-    top: 10px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
     left: 10px;
     right: 10px;
-    gap: 8px;
+    gap: 6px 8px;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .hudLeft, .hudRight {
     gap: 6px;
+    max-width: 100%;
+  }
+
+  .hudRight {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+  }
+
+  .pipGrid {
+    top: calc(108px + env(safe-area-inset-top, 0px));
+    right: 10px;
+  }
+
+  .mediaStatusPill {
+    top: calc(108px + env(safe-area-inset-top, 0px));
   }
 
   .spaceTitleBadge {
@@ -614,18 +848,24 @@
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     padding: 6px 10px;
     gap: 6px;
+    width: max-content;
     max-width: calc(100vw - 16px);
-    overflow-x: auto;
-    scrollbar-width: none;
   }
 
-  .bottomDock::-webkit-scrollbar {
-    display: none;
+  .chatNotifyBanner {
+    max-width: 190px;
+    padding: 4px 10px;
+    bottom: calc(100% + 12px);
+  }
+
+  .chatNotifySender,
+  .chatNotifyPreview {
+    font-size: 0.72rem;
   }
 
   .dockBtn {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
   }
 
@@ -639,12 +879,22 @@
     right: 8px;
     width: auto;
     max-width: calc(100vw - 16px);
-    bottom: 74px;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     height: 300px;
   }
 
+  /* 16px avoids iOS auto-zoom when the input is focused */
+  .chatInput,
+  .uploadInput {
+    font-size: 16px;
+  }
+
+  .uploadInputsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .buildPalette {
-    top: 60px;
+    top: calc(108px + env(safe-area-inset-top, 0px));
     left: 8px;
     right: 8px;
     width: auto;
@@ -669,16 +919,578 @@
   }
 }
 
+/* Narrow phones (<= 420px): dock buttons share the row so the dock never overflows */
+@media (max-width: 420px) {
+  .bottomDock {
+    gap: 3px;
+    padding: 5px 6px;
+  }
+
+  .dockDivider {
+    display: none;
+  }
+
+  .dockBtn {
+    flex: 0 1 40px;
+    width: auto;
+    height: auto;
+    min-width: 30px;
+    aspect-ratio: 1 / 1;
+  }
+}
+
 /* Very Small Mobile Screens (<= 380px) */
 @media (max-width: 380px) {
   .spaceTitleBadge {
     max-width: 120px;
     font-size: 0.75rem;
   }
+}
 
-  .dockBtn {
-    width: 35px;
-    height: 35px;
+/* ==========================================================
+   NEO-BRUTALIST SOUND TRIPPING & MP3 UPLOADER STYLES
+   ========================================================== */
+
+.playlistModalWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 540px;
+  width: 100%;
+}
+
+/* Now Playing Hero Deck */
+.nowPlayingCard {
+  background: var(--card-bg, #ffffff);
+  border: 2.5px solid var(--card-border, #000000);
+  border-radius: var(--neo-radius, 8px);
+  box-shadow: 3.5px 3.5px 0px var(--card-border, #000000);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nowPlayingTop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vinylDisc {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f59e0b 22%, #1e1e1e 23%, #1e1e1e 40%, #000000 100%);
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+.vinylDiscSpinning {
+  animation: spinDisc 4s linear infinite;
+}
+
+@keyframes spinDisc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.nowPlayingInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.nowPlayingBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.nowPlayingTitle {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.02em;
+}
+
+.nowPlayingArtist {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Retro Equalizer Animation */
+.equalizerWave {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.eqBar {
+  width: 4px;
+  height: 6px;
+  background-color: #10b981;
+  border: 1px solid #000000;
+  border-radius: 1px;
+}
+
+.eqBarPlaying:nth-child(1) { animation: eqBounce 0.7s ease-in-out infinite alternate; }
+.eqBarPlaying:nth-child(2) { animation: eqBounce 0.5s ease-in-out infinite alternate 0.15s; }
+.eqBarPlaying:nth-child(3) { animation: eqBounce 0.8s ease-in-out infinite alternate 0.3s; }
+.eqBarPlaying:nth-child(4) { animation: eqBounce 0.6s ease-in-out infinite alternate 0.2s; }
+.eqBarPlaying:nth-child(5) { animation: eqBounce 0.75s ease-in-out infinite alternate 0.4s; }
+
+@keyframes eqBounce {
+  0% { height: 4px; background-color: #10b981; }
+  50% { height: 18px; background-color: #3b82f6; }
+  100% { height: 22px; background-color: #8b5cf6; }
+}
+
+/* Scrubber / Progress Bar */
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progressSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  border: 1.5px solid #000000;
+  outline: none;
+  cursor: pointer;
+}
+
+.progressSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 2px solid #000000;
+  box-shadow: 1px 1px 0px #000000;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.progressSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.timeRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+/* Primary Playback Controls */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.playBtnLarge {
+  padding: 8px 24px;
+  font-weight: 900;
+  font-size: 1rem;
+}
+
+.secondaryControlBtn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 1rem;
+  touch-action: manipulation;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .secondaryControlBtn:hover:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--card-border);
   }
 }
 
+.secondaryControlBtn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.secondaryControlBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryControlActive {
+  background: #fef08a;
+  color: #18181B;
+}
+
+/* Volume Slider Bar */
+.volumeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1.5px dashed var(--text-subtle);
+}
+
+.volumeSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  border: 1px solid #000000;
+  outline: none;
+  cursor: pointer;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 1.5px solid #000000;
+  box-shadow: 1px 1px 0px #000000;
+  cursor: pointer;
+}
+
+/* Map Owner MP3 Upload Studio Card */
+.uploadStudioCard {
+  border: 2px solid #000000;
+  border-radius: var(--neo-radius, 8px);
+  box-shadow: 3px 3px 0px #000000;
+  background: #fefce8;
+  color: #18181B;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.uploadHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.uploadTitle {
+  font-weight: 900;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dropZone {
+  border: 2px dashed #000000;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.dropZone:hover {
+  background: #fef9c3;
+  transform: translate(-1px, -1px);
+}
+
+.dropZoneActive {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.dropZoneIcon {
+  font-size: 1.6rem;
+}
+
+.dropZoneText {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.dropZoneSubtext {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.uploadInputsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.uploadInput {
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  background: #ffffff;
+  outline: none;
+}
+
+.uploadInput:focus {
+  box-shadow: 2px 2px 0px #000000;
+}
+
+.uploadActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.uploadErrorMsg {
+  background: #fee2e2;
+  border: 1.5px solid #ef4444;
+  color: #dc2626;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+/* Visitor Notice Callout */
+.visitorNoticeCard {
+  border: 2px solid #000000;
+  border-radius: var(--neo-radius, 8px);
+  background: #eff6ff;
+  box-shadow: 2px 2px 0px #000000;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+/* Playlist Tracks Section */
+.trackSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trackSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.trackList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.trackList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.trackList::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+.trackItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 2px 2px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  user-select: none;
+}
+
+.trackItem:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--card-border);
+}
+
+.trackItemActive {
+  background: var(--card-inner);
+  border-color: #10b981;
+  box-shadow: 2.5px 2.5px 0px #059669;
+}
+
+.trackItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.trackIcon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.trackMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.trackTitleText {
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackArtistText {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackItemRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.trackDuration {
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+.trackDeleteBtn {
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid #000000;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.1s ease;
+}
+
+.trackDeleteBtn:hover {
+  background: #fca5a5;
+  transform: scale(1.1);
+}
+
+@media (pointer: coarse) {
+  .trackDeleteBtn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Bottom Dock Music Pulse Indicator */
+.dockDotPurple {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 6px #8b5cf6;
+  animation: dockMusicPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dockMusicPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .mediaStatusPill,
+  .dockUnreadBadge,
+  .chatNotifyBanner,
+  .vinylDiscSpinning,
+  .eqBarPlaying,
+  .dockDotPurple {
+    animation: none !important;
+  }
+
+  .eqBarPlaying {
+    height: 14px;
+  }
+
+  .dockBtn,
+  .pipCard,
+  .chatNotifyBanner,
+  .sendBtn,
+  .genderBtn,
+  .zoneCard,
+  .secondaryControlBtn,
+  .dropZone,
+  .trackItem,
+  .trackDeleteBtn,
+  .progressSlider::-webkit-slider-thumb {
+    transition: none;
+  }
+}

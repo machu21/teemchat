@@ -1,12 +1,13 @@
 // ============================================================
 // HIGH-FIDELITY RETRO 16-BIT PIXEL-ART WORLD MAP: VERDANT VILLAGE
 // Habblaud Top-Down 3/4 Architectural & Landscape System:
-// - Paved asphalt boulevard with aggregate grain & dashed road markings
-// - Habblaud running-bond paver sidewalks with curb lines & stone joints
+// - Paved village thoroughfare with curved bridge approach & granite curbs
+// - Scenic Riverfront Esplanade with stone balustrade, lanterns & benches
+// - Natural woodland cascade stream & timber river crossing bridge
+// - Connected trail system linking Bridge to Adventure Camp & Crystal Bay Pier
 // - Walk-in Cozy Cottage with warm wood floor, glowing fireplace & apothecary
 // - Walk-in Town Hall with checkered marble floor & council table
-// - Multi-tier lush foliage with ambient drop shadows
-// - River crossing bridge, Whispering Woods, Adventure Camp & Crystal Bay
+// - Multi-tier lush foliage with ambient drop shadows & meadow wildflowers
 // ============================================================
 
 export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: number): void {
@@ -207,181 +208,298 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
     }
   };
 
-  // ── 4. RIVER CROSSING STREAM ──────────────────────────────────────
+  // ── 4. NATURAL WOODLAND SPRING & RIVER STREAM ──────────────────────
   const drawRiver = () => {
-    const rLi = T * 46;
-    const rYi = T * 26;
-    const rWi = T * 4;
+    const rLi = T * 46; // 368px
+    const rYi = T * 26; // 208px
+    const rWi = T * 4;  // 32px
 
-    r(rLi - 3, rYi, rWi + 6, ih - rYi, '#7C5228');
-    r(rLi - 1, rYi, 1, ih - rYi, '#A07038');
-    r(rLi + rWi, rYi, 1, ih - rYi, '#A07038');
+    // 1. Natural Forest Spring Source (Headwaters emerging from Whispering Woods)
+    // Rocky culvert & waterfall pool at y = 196..212
+    r(rLi - 8, rYi - 14, rWi + 16, 16, '#2E4C24'); // Forest clearing pool base
+    r(rLi - 6, rYi - 12, rWi + 12, 14, '#1E3A18');
+    // Mossy granite boulders framing the spring
+    r(rLi - 10, rYi - 12, 10, 12, '#475569');
+    r(rLi - 8, rYi - 10, 6, 8, '#64748B');
+    r(rLi - 6, rYi - 12, 4, 3, '#15803D'); // Moss cap
+    r(rLi + rWi, rYi - 12, 10, 12, '#475569');
+    r(rLi + rWi + 2, rYi - 10, 6, 8, '#64748B');
+    r(rLi + rWi + 2, rYi - 12, 4, 3, '#15803D'); // Moss cap
+    // Bubbling waterfall foam & spray at spring mouth
+    r(rLi - 2, rYi - 8, rWi + 4, 8, '#38BDF8');
+    r(rLi, rYi - 6, rWi, 6, '#7DD3FC');
+    r(rLi + 2, rYi - 4, rWi - 4, 4, '#FFFFFF');
+    r(rLi + 4, rYi - 2, rWi - 8, 2, '#E0F2FE');
 
-    r(rLi, rYi, rWi, ih - rYi, '#3AA8DC');
-    r(rLi + Math.floor(rWi / 4), rYi, Math.floor(rWi / 2), ih - rYi, '#2288C4');
+    // 2. Riverbed Excavation & Sandy/Rocky Embankment
+    r(rLi - 4, rYi, rWi + 8, ih - rYi, '#6A4420'); // Dark earthy bed
+    r(rLi - 2, rYi, rWi + 4, ih - rYi, '#8C6032'); // Sandy wet bank
+    r(rLi - 1, rYi, 1, ih - rYi, '#A67C52');       // West waterline highlight
+    r(rLi + rWi, rYi, 1, ih - rYi, '#A67C52');     // East waterline highlight
 
-    for (let ty = rYi + 8; ty < ih; ty += 18) {
-      r(rLi + 2, ty, 8, 1, '#A0E8FF');
-      r(rLi + rWi - 10, ty + 8, 8, 1, '#A0E8FF');
+    // 3. Flowing Water Channel (Multi-shade depth)
+    r(rLi, rYi, rWi, ih - rYi, '#38BDF8'); // Outer clear water
+    r(rLi + 4, rYi, rWi - 8, ih - rYi, '#0284C7'); // Deep central current
+    r(rLi + 8, rYi, rWi - 16, ih - rYi, '#0369A1'); // Deepest trench
+
+    // 4. Dynamic Water Currents & Foaming Ripples
+    for (let ty = rYi + 4; ty < ih; ty += 14) {
+      const shift = ((ty * 7) % 9) - 4;
+      r(rLi + 3 + shift, ty, 8, 1, '#E0F2FE');
+      r(rLi + rWi - 11 - shift, ty + 7, 7, 1, '#BAE6FD');
     }
 
+    // 5. Riverbank Pebbles & River Rocks
+    const riverPebble = (px: number, py: number, col: string) => {
+      r(px, py, 3, 2, '#334155');
+      r(px + 1, py, 2, 1, col);
+    };
+    riverPebble(rLi - 3, rYi + 18, '#94A3B8');
+    riverPebble(rLi + rWi + 1, rYi + 32, '#CBD5E1');
+    riverPebble(rLi - 2, rYi + 75, '#94A3B8');
+    riverPebble(rLi + rWi + 1, rYi + 110, '#CBD5E1');
+    riverPebble(rLi - 3, rYi + 160, '#94A3B8');
+    riverPebble(rLi + rWi + 2, rYi + 220, '#CBD5E1');
+
+    // 6. Blooming Water Lilies
     const lily = (lx: number, ly: number) => {
-      r(lx, ly, 8, 7, '#2E8024');
-      r(lx + 2, ly + 2, 4, 4, '#1C5C16');
-      r(lx + 3, ly + 1, 2, 2, '#F43F5E');
+      r(lx, ly, 7, 6, '#15803D');
+      r(lx + 2, ly + 1, 3, 3, '#166534');
+      r(lx + 3, ly + 2, 2, 2, '#F43F5E'); // Pink blossom
+      r(lx + 3, ly + 2, 1, 1, '#FEF08A'); // Core
     };
-    lily(rLi + 4, T * 29);
-    lily(rLi + 16, T * 36);
-    lily(rLi + 6, T * 51);
+    lily(rLi + 3, T * 29);
+    lily(rLi + 18, T * 36);
+    lily(rLi + 5, T * 51);
+    lily(rLi + 16, T * 58);
   };
 
-  // ── 5. TIMBER RIVER BRIDGE ─────────────────────────────────────────
+  // ── 5. TIMBER & STONE RIVER CROSSING BRIDGE ──────────────────────
+  // Coordinates: bx: 354, by: 330, bw: 62, bh: 42 (scales 2x to world x: 708..832, y: 660..744)
   const drawBridge = () => {
-    const bx = T * 45;
-    const by = T * 42;
-    const bw = T * 6;
-    const bh = T * 4;
+    const bx = 354;
+    const by = 330;
+    const bw = 62;
+    const bh = 42;
 
-    r(bx + 2, by + bh, bw, 6, 'rgba(0, 0, 0, 0.35)');
-    for (let tx = bx; tx < bx + bw; tx += 6) {
-      r(tx, by, 5, bh, '#B47832');
-      r(tx + 1, by, 3, 2, '#D8A056');
-      r(tx + 4, by, 1, bh, '#7A4814');
-    }
-    r(bx - 2, by, bw + 4, 3, '#6A3810');
-    r(bx - 2, by + bh - 3, bw + 4, 3, '#6A3810');
+    // 1. Soft bridge drop shadow cast onto the river water
+    r(bx + 4, by + bh, bw - 8, 8, 'rgba(0, 0, 0, 0.4)');
 
-    for (let tx = bx; tx <= bx + bw; tx += Math.floor(bw / 2)) {
-      r(tx - 1, by - 4, 4, bh + 8, '#4E2408');
-      r(tx, by - 4, 2, bh + 8, '#7A4814');
-    }
-  };
+    // 2. Heavy Stone Abutments on West & East banks
+    // West Stone Abutment Pier (x: 350..362)
+    r(bx - 4, by - 2, 12, bh + 4, '#1E293B');
+    r(bx - 2, by, 8, bh, '#475569');
+    r(bx - 2, by, 2, bh, '#94A3B8'); // Stone highlight
+    r(bx + 4, by, 2, bh, '#334155'); // Mortar shadow
+    // East Stone Abutment Pier (x: 404..416)
+    r(bx + bw - 8, by - 2, 12, bh + 4, '#1E293B');
+    r(bx + bw - 6, by, 8, bh, '#475569');
+    r(bx + bw - 6, by, 2, bh, '#94A3B8');
+    r(bx + bw, by, 2, bh, '#334155');
 
-  // ── 6. REALISTIC ASPHALT BOULEVARD & HABBLAUD PAVER SIDEWALKS ──────
-  // Draws authentic Habblaud 16x8 paver slab sidewalk in a rectangular patch
-  const drawPaverSidewalk = (sx: number, sy: number, sw: number, sh: number, orientation: 'h' | 'v' = 'h') => {
-    const tones = ['#D3CDC2', '#CFC8BC', '#D8D2C8'];
-    const joint = '#B8B1A5';
-    const highlight = '#E5DFD5';
+    // 3. Heavy Timber Longitudinal Stringer Beams (Underneath decking)
+    r(bx + 4, by + 2, bw - 8, 4, '#451A03');
+    r(bx + 4, by + bh - 6, bw - 8, 4, '#451A03');
+    r(bx + 4, by + Math.floor(bh / 2) - 2, bw - 8, 4, '#3E1802');
 
-    // Base fill
-    r(sx, sy, sw, sh, tones[0]);
-
-    if (orientation === 'h') {
-      const slabH = 8;
-      const slabW = 16;
-      for (let y = sy; y < sy + sh; y += slabH) {
-        const row = Math.floor((y - sy) / slabH);
-        const off = (row % 2) * 8;
-        const curH = Math.min(slabH, sy + sh - y);
-        r(sx, y + curH - 1, sw, 1, joint);
-
-        for (let x = sx - 8 + off; x < sx + sw; x += slabW) {
-          if (x >= sx && x < sx + sw) {
-            r(x, y, 1, curH, joint);
-            if (curH > 1) r(x + 1, y, Math.min(slabW - 2, sx + sw - (x + 1)), 1, highlight);
-          }
-          // Slight stone tone speckle
-          const toneIdx = (row + Math.floor(x / 16)) % tones.length;
-          if (toneIdx > 0 && x + 3 >= sx && x + 10 <= sx + sw && curH > 3) {
-            r(x + 3, y + 2, 6, curH - 3, tones[toneIdx]);
-          }
-        }
-      }
-    } else {
-      const slabW = 8;
-      const slabH = 16;
-      for (let x = sx; x < sx + sw; x += slabW) {
-        const col = Math.floor((x - sx) / slabW);
-        const off = (col % 2) * 8;
-        const curW = Math.min(slabW, sx + sw - x);
-        r(x + curW - 1, sy, 1, sh, joint);
-
-        for (let y = sy - 8 + off; y < sy + sh; y += slabH) {
-          if (y >= sy && y < sy + sh) {
-            r(x, y, curW, 1, joint);
-            if (curW > 1) r(x, y + 1, 1, Math.min(slabH - 2, sy + sh - (y + 1)), highlight);
-          }
-        }
-      }
-    }
-  };
-
-  const drawRoadsAndSidewalks = () => {
-    // ── MAIN VILLAGE BOULEVARD (ASPHALT ROAD) ──────────────────────
-    // Runs East-West from West perimeter (x: 20) across to East (x: 370), curving down to River Bridge
-    const roadY = 252;
-    const roadH = 38;
-    const roadX = 20;
-    const roadW = 346;
-
-    // Asphalt gravel / road bed foundation
-    r(roadX - 2, roadY - 2, roadW + 4, roadH + 4, '#383B42');
-    r(roadX, roadY, roadW, roadH, '#4B4F58');
-
-    // Aggregate asphalt texture noise
-    for (let y = roadY + 2; y < roadY + roadH - 2; y += 4) {
-      for (let x = roadX + 4; x < roadX + roadW - 4; x += 6) {
-        const hash = (x * 13 + y * 29) % 7;
-        if (hash === 0) r(x, y, 2, 2, '#5A5F6B');
-        else if (hash === 1) r(x, y, 1, 1, '#3E4149');
-        else if (hash === 2) r(x, y, 2, 1, '#535762');
-      }
+    // 4. Horizontal Weathered Oak Timber Decking Planks
+    const plankW = 7;
+    for (let tx = bx + 4; tx < bx + bw - 4; tx += plankW) {
+      const curW = Math.min(plankW - 1, bx + bw - 4 - tx);
+      // Main plank face
+      r(tx, by + 3, curW, bh - 6, '#B47832');
+      // Plank top highlight
+      r(tx + 1, by + 3, curW - 1, 2, '#D8A056');
+      // Plank right seam shadow
+      r(tx + curW - 1, by + 3, 1, bh - 6, '#7A4814');
+      // Iron nail spikes on plank ends
+      r(tx + 1, by + 5, 1, 1, '#271708');
+      r(tx + curW - 2, by + 5, 1, 1, '#271708');
+      r(tx + 1, by + bh - 7, 1, 1, '#271708');
+      r(tx + curW - 2, by + bh - 7, 1, 1, '#271708');
     }
 
-    // Concrete Stone Curbs (North & South)
-    r(roadX, roadY - 3, roadW, 3, '#94A3B8');
-    r(roadX, roadY - 1, roadW, 1, '#64748B');
-    r(roadX, roadY + roadH, roadW, 3, '#64748B');
-    r(roadX, roadY + roadH, roadW, 1, '#94A3B8');
+    // 5. Heavy Timber Guardrails (North & South Rails)
+    // North Rail
+    r(bx - 4, by - 3, bw + 8, 5, '#5C2E0A');
+    r(bx - 4, by - 3, bw + 8, 1, '#8C4B18'); // Specular wood grain
+    r(bx - 4, by + 1, bw + 8, 1, '#3B1C05');
+    // South Rail
+    r(bx - 4, by + bh - 2, bw + 8, 5, '#5C2E0A');
+    r(bx - 4, by + bh - 2, bw + 8, 1, '#8C4B18');
+    r(bx - 4, by + bh + 2, bw + 8, 1, '#3B1C05');
 
-    // Center Dashed White Road Line
-    const centerLineY = roadY + Math.floor(roadH / 2) - 1;
-    for (let x = roadX + 8; x < roadX + roadW - 12; x += 22) {
-      // Don't draw line through zebra crosswalks
-      if ((x >= 142 && x <= 178) || (x >= 324 && x <= 352)) continue;
-      r(x, centerLineY, 14, 2, '#F8FAFC');
-      r(x, centerLineY + 2, 14, 1, 'rgba(0, 0, 0, 0.25)'); // Road paint shadow
+    // Vertical Baluster Spindles along Guardrails
+    for (let tx = bx; tx <= bx + bw; tx += 12) {
+      r(tx - 1, by - 4, 3, 7, '#3B1C05');
+      r(tx, by - 4, 1, 7, '#7A4814');
+      r(tx - 1, by + bh - 3, 3, 7, '#3B1C05');
+      r(tx, by + bh - 3, 1, 7, '#7A4814');
     }
 
-    // Pedestrian Zebra Crosswalks
-    const drawCrosswalk = (cx: number) => {
-      for (let y = roadY + 3; y < roadY + roadH - 3; y += 6) {
-        r(cx, y, 22, 3, '#F8FAFC');
-        r(cx, y + 3, 22, 1, 'rgba(0,0,0,0.2)');
-      }
+    // 6. Carved Corner Lantern Posts with Warm Glowing Amber Lanterns
+    const bridgeLantern = (lx: number, ly: number) => {
+      // Wood/stone post
+      r(lx - 2, ly - 6, 5, 10, '#1E293B');
+      r(lx - 1, ly - 5, 3, 8, '#64748B');
+      r(lx, ly - 5, 1, 8, '#94A3B8');
+      // Brass lantern hood
+      r(lx - 2, ly - 10, 5, 2, '#78350F');
+      r(lx - 1, ly - 12, 3, 2, '#B45309');
+      // Glowing amber core
+      r(lx - 2, ly - 8, 5, 3, '#F59E0B');
+      r(lx - 1, ly - 7, 3, 1, '#FEF08A');
     };
-    drawCrosswalk(150); // Plaza South crosswalk
-    drawCrosswalk(328); // Bridge approach crosswalk
+    bridgeLantern(bx - 2, by);
+    bridgeLantern(bx - 2, by + bh);
+    bridgeLantern(bx + bw + 1, by);
+    bridgeLantern(bx + bw + 1, by + bh);
+  };
 
-    // ── HABBLAUD RUNNING-BOND PAVER SIDEWALKS ──────────────────────
-    // 1. South sidewalk along the boulevard
-    drawPaverSidewalk(roadX, roadY + roadH + 3, roadW, 16, 'h');
+  // ── 6. MULTI-PASS LAYERED VILLAGE STREET & PROMENADE NETWORK ──────
+  const drawRoadsAndSidewalks = () => {
+    const swW = 12; // Sidewalk width
 
-    // 2. North sidewalk along the boulevard
-    drawPaverSidewalk(roadX, roadY - 19, roadW, 16, 'h');
+    // Street Lantern helper
+    const streetLantern = (lx: number, ly: number) => {
+      r(lx - 1, ly - 14, 3, 14, '#1E293B');
+      r(lx, ly - 14, 1, 14, '#475569');
+      r(lx - 3, ly - 18, 7, 4, '#0F172A');
+      r(lx - 2, ly - 16, 5, 3, '#F59E0B');
+      r(lx - 1, ly - 15, 3, 1, '#FEF08A');
+    };
 
-    // 3. Central Promenade linking Boulevard to Village Plaza & Houses
-    drawPaverSidewalk(146, 210, 28, roadY - 210 - 19, 'v');
+    // ── A. WEST BANK MULTI-PASS LAYERED ROAD NETWORK ───────────────
+    // Three orthogonal segments forming a continuous S-avenue from West border to River Bridge:
+    // - seg1: Plaza Boulevard (x: 16..296, y: 252..292)
+    // - seg2: River Approach Avenue (x: 256..296, y: 252..370) — stays 30px east of Right Tent (x: 210)
+    // - seg3: Bridge Entrance Avenue (x: 256..354, y: 330..370) — joins Bridge deck at x: 354
+    const roadSegments = [
+      { x: 16, y: 252, w: 280, h: 40 },
+      { x: 256, y: 252, w: 40, h: 118 },
+      { x: 256, y: 330, w: 98, h: 40 },
+    ];
 
-    // 4. North Pedestrian Alley between Cottage & Town Hall leading to both doors
-    drawPaverSidewalk(124, 78, 42, 60, 'v');
-    drawPaverSidewalk(76, 92, 60, 16, 'h'); // Entrance path to Cottage door
-    drawPaverSidewalk(186, 90, 48, 16, 'h'); // Entrance path to Town Hall door
+    // PASS 1: Outer Sidewalk Stone & Expansion Joints (drawn for all segments first)
+    for (const seg of roadSegments) {
+      const sx = Math.max(16, seg.x - swW - 2);
+      const sy = seg.y - swW - 2;
+      const sxEnd = Math.min(354, seg.x + seg.w + swW + 2);
+      const sw = sxEnd - sx;
+      const sh = seg.h + (swW + 2) * 2;
+      r(sx - 1, sy - 1, sw + 2, sh + 2, '#64748B');
+    }
+    for (const seg of roadSegments) {
+      const sx = Math.max(16, seg.x - swW - 2);
+      const sy = seg.y - swW - 2;
+      const sxEnd = Math.min(354, seg.x + seg.w + swW + 2);
+      const sw = sxEnd - sx;
+      const sh = seg.h + (swW + 2) * 2;
+      r(sx, sy, sw, sh, '#D8D2C8');
 
-    // ── PLAZA RUNNING-BOND COBBLESTONE PAVING ─────────────────────
+      // Subtle sidewalk paver grid lines every 16px
+      for (let gx = Math.ceil(sx / 16) * 16; gx < sx + sw; gx += 16) {
+        r(gx, sy, 1, sh, '#B8B1A5');
+      }
+      for (let gy = Math.ceil(sy / 16) * 16; gy < sy + sh; gy += 16) {
+        r(sx, gy, sw, 1, '#B8B1A5');
+      }
+    }
+
+    // PASS 2: Granite Curb Border (drawn around all road segments)
+    for (const seg of roadSegments) {
+      const cx = Math.max(16, seg.x - 2);
+      const cy = seg.y - 2;
+      const cxEnd = Math.min(354, seg.x + seg.w + 2);
+      const cw = cxEnd - cx;
+      const ch = seg.h + 4;
+      r(cx, cy, cw, ch, '#64748B');
+      r(cx, cy, cw, 1, '#CBD5E1');
+      r(cx, cy, 1, ch, '#CBD5E1');
+    }
+
+    // PASS 3: Continuous Roadbed Fill (carves out all intersections seamlessly with zero internal bars!)
+    for (const seg of roadSegments) {
+      r(seg.x, seg.y, seg.w, seg.h, '#334155');
+      // Subtle aggregate texture inside roadbed
+      for (let py = seg.y + 2; py < seg.y + seg.h - 2; py += 4) {
+        for (let px = seg.x + 2; px < seg.x + seg.w - 2; px += 4) {
+          const hash = ((px * 37 + py * 59) ^ (px * 19)) % 11;
+          if (hash === 0) r(px, py, 1, 1, '#475569');
+          else if (hash === 1) r(px, py, 1, 1, '#273142');
+        }
+      }
+    }
+
+    // PASS 4: Road Markings & Pedestrian Crosswalks
+    // Center dashed line along Plaza Boulevard (seg1)
+    for (let x = 24; x < 260; x += 22) {
+      const dashW = Math.min(12, 260 - x);
+      r(x, 271, dashW, 2, '#F8FAFC');
+      r(x, 273, dashW, 1, 'rgba(0, 0, 0, 0.25)');
+    }
+    // Center dashed line along River Approach Avenue (seg2)
+    for (let y = 278; y < 342; y += 22) {
+      const dashH = Math.min(12, 342 - y);
+      r(275, y, 2, dashH, '#F8FAFC');
+      r(277, y, 1, dashH, 'rgba(0, 0, 0, 0.25)');
+    }
+    // Center dashed line along Bridge Entrance Avenue (seg3)
+    for (let x = 284; x < 336; x += 22) {
+      const dashW = Math.min(12, 336 - x);
+      r(x, 349, dashW, 2, '#F8FAFC');
+      r(x, 351, dashW, 1, 'rgba(0, 0, 0, 0.25)');
+    }
+
+    // Crosswalk 1: Plaza Promenade to Adventure Camp (x: 168..180)
+    for (let zy = 255; zy <= 287; zy += 5) {
+      r(166, zy, 18, 3, '#F8FAFC');
+      r(166, zy + 3, 18, 1, 'rgba(0, 0, 0, 0.25)');
+    }
+    // Crosswalk 2: Bridge Entrance (x: 342..352)
+    for (let zy = 333; zy <= 365; zy += 5) {
+      r(341, zy, 11, 3, '#F8FAFC');
+      r(341, zy + 3, 11, 1, 'rgba(0, 0, 0, 0.25)');
+    }
+
+    // ── B. PLAZA CONNECTIONS & ADVENTURE CAMP ENTRANCE PATH ────────
+    // North sidewalk connector from Boulevard to Plaza (x: 146..174, y: 210..240)
+    r(146, 210, 28, 30, '#D8D2C8');
+    r(146, 210, 1, 30, '#64748B');
+    r(173, 210, 1, 30, '#64748B');
+
+    // South stone walkway from Boulevard straight between the two Camp Tents (x: 166..184, y: 306..368)
+    // Left Tent is at x=140, Right Tent is at x=210, Campfire is at (175, 390) — zero overlap!
+    r(165, 306, 20, 62, '#64748B');
+    r(166, 306, 18, 61, '#D8D2C8');
+    for (let py = 312; py < 366; py += 8) {
+      r(166, py, 18, 1, '#B8B1A5');
+      r(167, py + 1, 16, 1, '#E5DFD5');
+    }
+
+    // Alley between Cottage and Town Hall
+    r(124, 78, 42, 60, '#D8D2C8');
+    r(76, 92, 60, 16, '#D8D2C8');
+    r(186, 90, 48, 16, '#D8D2C8');
+
+    // Street Lanterns along West Bank avenues
+    streetLantern(142, 238);
+    streetLantern(242, 314);
+    streetLantern(312, 316);
+    streetLantern(346, 316);
+    streetLantern(346, 384);
+
+    // ── C. PLAZA RUNNING-BOND COBBLESTONE PAVING ───────────────────
     const px = 38;
     const py = 104;
     const pw = 240;
     const ph = 142;
 
-    // Plaza perimeter border
     r(px - 4, py - 4, pw + 8, ph + 8, '#8C6032');
     r(px - 2, py - 2, pw + 4, ph + 4, '#CBD5E1');
     r(px - 2, py - 2, pw + 4, 2, '#F8FAFC');
     r(px - 2, py + ph, pw + 4, 2, '#64748B');
 
-    // Plaza paving blocks with mortar
     const stoneColA = '#E2E8F0';
     const stoneColB = '#CBD5E1';
     const stoneHi = '#F8FAFC';
@@ -408,7 +526,7 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
       }
     }
 
-    // ── NORTH STAIRS FROM PLAZA TO WHISPERING WOODS ─────────────
+    // North stairs from Plaza to Whispering Woods
     const stairX = 276;
     const stairY = 56;
     const stairW = 44;
@@ -427,7 +545,6 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
       r(stairX, sy + 2, stairW, 1, '#F8FAFC');
     }
 
-    // Balustrade Stone Pillars with Lanterns
     const drawPillar = (plX: number, plY: number) => {
       r(plX - 1, plY - 1, 6, 12, '#1E293B');
       r(plX, plY, 4, 10, '#94A3B8');
@@ -440,6 +557,40 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
     drawPillar(stairX - 4, stairY + stairH - 4);
     drawPillar(stairX + stairW + 1, stairY);
     drawPillar(stairX + stairW + 1, stairY + stairH - 4);
+
+    // ── D. EAST BANK MULTI-PASS STONE PROMENADE (TO PIER & WOODS) ──
+    // Grounded stone walkway connecting River Bridge (x: 416) to Crystal Bay Pier (x: 648, y: 232)
+    // and Whispering Woods (y: 204). Rendered in 2 global passes so corners have zero seams!
+    const eastPromenadeSegments = [
+      { x: 416, y: 337, w: 112, h: 28 }, // East from Bridge
+      { x: 500, y: 234, w: 28, h: 131 }, // North avenue toward Coast & Woods
+      { x: 500, y: 234, w: 148, h: 28 }, // East straight into Crystal Bay Pier (x: 648, y: 232)
+      { x: 502, y: 204, w: 24, h: 32 },  // North entrance into Whispering Woods
+    ];
+
+    // PASS 1: Stone Curb Border for all East Bank Promenade segments
+    for (const seg of eastPromenadeSegments) {
+      r(seg.x - 2, seg.y - 2, seg.w + 4, seg.h + 4, '#64748B');
+      r(seg.x - 1, seg.y - 1, seg.w + 2, seg.h + 2, '#94A3B8');
+    }
+
+    // PASS 2: Continuous Stone Paver Fill & Subtle Running-Bond Joints
+    for (const seg of eastPromenadeSegments) {
+      r(seg.x, seg.y, seg.w, seg.h, '#D8D2C8');
+      for (let gx = Math.ceil(seg.x / 14) * 14; gx < seg.x + seg.w; gx += 14) {
+        r(gx, seg.y, 1, seg.h, '#B8B1A5');
+      }
+      for (let gy = Math.ceil(seg.y / 14) * 14; gy < seg.y + seg.h; gy += 14) {
+        r(seg.x, gy, seg.w, 1, '#B8B1A5');
+      }
+      r(seg.x, seg.y, seg.w, 1, '#E5DFD5');
+    }
+
+    // Lanterns along East Bank Promenade
+    streetLantern(432, 334);
+    streetLantern(532, 366);
+    streetLantern(496, 232);
+    streetLantern(632, 232);
   };
 
   // ── 7. WALK-IN COZY COTTAGE / POTION SHOP (HABBLAUD 3/4 STYLE) ─────
@@ -449,283 +600,179 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
     const by = 24;
     const bw = 96;
     const bh = 74;
+    const wallH = 16;
 
-    const wallWood = '#78350F';
-    const wallCap = '#451A03';
-    const baseboard = '#543006';
-    const plaster = '#FDE68A';
+    r(bx - 3, by + bh, bw + 6, 6, 'rgba(0, 0, 0, 0.4)');
 
-    // Ambient drop shadow around exterior
-    r(bx - 3, by - 3, bw + 6, bh + 8, 'rgba(0, 0, 0, 0.28)');
+    const floorY = by + wallH;
+    const floorH = bh - wallH;
+    r(bx, floorY, bw, floorH, '#B47832');
 
-    // ── INTERIOR PARQUET WOOD FLOOR ──
-    const woodTones = ['#C99668', '#C48F61', '#CF9F72', '#C6925F'];
-    for (let py = by + 24; py < by + bh - 6; py += 4) {
-      const row = Math.floor((py - by) / 4);
-      for (let px = bx + 6; px < bx + bw - 6; px += 24) {
-        const tone = woodTones[(row + Math.floor(px / 24)) % woodTones.length];
-        r(px, py, 23, 3, tone);
-        r(px, py, 23, 1, '#DDB489'); // Plank top highlight
-        r(px + 23, py, 1, 4, '#8E5A2D'); // Seam
-        r(px, py + 3, 24, 1, '#8E5A2D');
+    const plankH = 8;
+    for (let y = floorY; y < floorY + floorH; y += plankH) {
+      r(bx, y + plankH - 1, bw, 1, '#7A4814');
+      r(bx, y, bw, 1, '#D8A056');
+      const row = Math.floor((y - floorY) / plankH);
+      for (let x = bx + (row % 2) * 16; x < bx + bw; x += 32) {
+        r(x, y, 1, plankH, '#5A3208');
       }
     }
 
-    // ── NORTH ELEVATED WALL (32px High) ──
-    const wallH = 24;
-    r(bx, by, bw, wallH, plaster);
-    // Vertical timber studs
-    for (let tx = bx; tx <= bx + bw; tx += 16) {
-      r(tx, by, 3, wallH, wallWood);
-      r(tx + 1, by, 1, wallH, '#A16207');
+    const rx = bx + 16;
+    const ry = floorY + 12;
+    const rw = 40;
+    const rh = 28;
+    r(rx - 1, ry - 1, rw + 2, rh + 2, '#451A03');
+    r(rx, ry, rw, rh, '#991B1B');
+    r(rx + 2, ry + 2, rw - 4, rh - 4, '#DC2626');
+    r(rx + 4, ry + 4, rw - 8, rh - 8, '#F59E0B');
+    r(rx + 6, ry + 6, rw - 12, rh - 12, '#FEF08A');
+
+    r(bx, by, bw, wallH, '#E2E8F0');
+    r(bx, by, bw, 2, '#CBD5E1');
+    r(bx, by, bw, 1, '#F8FAFC');
+    r(bx, by + wallH - 2, bw, 2, '#94A3B8');
+
+    for (let px = bx + 6; px < bx + bw - 6; px += 10) {
+      r(px, by + 2, 2, wallH - 4, '#64748B');
     }
-    // Top wall cap rail
-    r(bx - 1, by - 2, bw + 2, 4, wallCap);
-    r(bx, by - 2, bw, 1, '#8B5A2B');
-    // Wooden baseboard
-    r(bx, by + wallH - 3, bw, 3, baseboard);
 
-    // ── STONE CHIMNEY & CRACKLING FIREPLACE ──
-    const chX = bx + 8;
-    const chY = by - 8;
-    // Chimney exterior
-    r(chX - 1, chY, 18, 32, '#334155');
-    r(chX, chY, 16, 32, '#64748B');
-    for (let cy = chY; cy < chY + 32; cy += 4) {
-      r(chX, cy, 16, 1, '#475569');
-      r(chX + ((cy % 8 === 0) ? 8 : 4), cy, 1, 4, '#475569');
+    // Glowing Stone Fireplace
+    const fpX = bx + 6;
+    const fpY = by + 2;
+    const fpW = 24;
+    const fpH = wallH + 10;
+    r(fpX, fpY, fpW, fpH, '#334155');
+    r(fpX + 1, fpY + 1, fpW - 2, 2, '#64748B');
+    r(fpX + 3, fpY + 4, fpW - 6, fpH - 6, '#0F172A');
+    r(fpX + 5, fpY + 8, fpW - 10, fpH - 10, '#DC2626');
+    r(fpX + 7, fpY + 11, fpW - 14, fpH - 13, '#F59E0B');
+    r(fpX + 9, fpY + 13, fpW - 18, 3, '#FEF08A');
+
+    // Apothecary Shelves
+    const apX = bx + 36;
+    const apY = by + 2;
+    const apW = 52;
+    r(apX, apY, apW, 12, '#5A3208');
+    r(apX, apY + 5, apW, 2, '#8C5218');
+    r(apX, apY + 11, apW, 2, '#8C5218');
+
+    const botCols = ['#EF4444', '#10B981', '#3B82F6', '#A855F7', '#F59E0B', '#06B6D4'];
+    for (let i = 0; i < 5; i++) {
+      r(apX + 3 + i * 10, apY + 1, 4, 4, botCols[i % botCols.length]);
+      r(apX + 4 + i * 10, apY - 1, 2, 2, '#CBD5E1');
+      r(apX + 3 + i * 10, apY + 7, 4, 4, botCols[(i + 3) % botCols.length]);
+      r(apX + 4 + i * 10, apY + 5, 2, 2, '#CBD5E1');
     }
-    r(chX - 2, chY - 3, 20, 3, '#94A3B8');
 
-    // Fireplace Mantle & Hearth
-    const fpX = bx + 10;
-    const fpY = by + 8;
-    r(fpX, fpY, 14, 16, '#1E293B'); // Firebox interior
-    r(fpX - 2, fpY - 2, 18, 3, wallWood); // Mantle
-    // Glowing embers & crackling flames
-    r(fpX + 3, fpY + 11, 8, 3, '#EA580C');
-    r(fpX + 4, fpY + 9, 6, 3, '#F97316');
-    r(fpX + 5, fpY + 7, 4, 3, '#FBBF24');
-    r(fpX + 6, fpY + 6, 2, 2, '#FFFFFF'); // Hot flame core
+    // Perimeter walls
+    r(bx, by + wallH, 4, bh - wallH, '#475569');
+    r(bx + 1, by + wallH, 1, bh - wallH, '#94A3B8');
+    r(bx + bw - 4, by + wallH, 4, bh - wallH, '#475569');
+    r(bx + bw - 2, by + wallH, 1, bh - wallH, '#94A3B8');
 
-    // ── WALL-MOUNTED POTION APOTHECARY RACK ──
-    const potX = bx + 36;
-    const potY = by + 6;
-    r(potX, potY, 28, 12, '#451A03'); // Wooden shelf
-    r(potX + 2, potY + 2, 24, 2, '#78350F');
-    r(potX + 2, potY + 8, 24, 2, '#78350F');
-    // Colorful potion phials
-    r(potX + 4, potY + 4, 3, 4, '#38BDF8'); // Mana blue
-    r(potX + 9, potY + 4, 3, 4, '#EF4444'); // Health red
-    r(potX + 14, potY + 4, 3, 4, '#22C55E'); // Stamina green
-    r(potX + 19, potY + 4, 3, 4, '#A855F7'); // Void purple
-    r(potX + 24, potY + 4, 3, 4, '#FACC15'); // Haste yellow
-
-    // ── CIRCULAR WOVEN WOOL RUG ──
-    const rugX = bx + 30;
-    const rugY = by + 36;
-    const rugW = 36;
-    const rugH = 20;
-    r(rugX + 4, rugY, rugW - 8, rugH, '#F59E0B');
-    r(rugX, rugY + 3, rugW, rugH - 6, '#F59E0B');
-    r(rugX + 5, rugY + 1, rugW - 10, rugH - 2, '#991B1B');
-    r(rugX + 1, rugY + 4, rugW - 2, rugH - 8, '#991B1B');
-    r(rugX + Math.floor(rugW / 2) - 3, rugY + Math.floor(rugH / 2) - 2, 6, 4, '#FBBF24');
-
-    // ── ALCHEMIST STUDY DESK & GRIMOIRE ──
-    const deskX = bx + 70;
-    const deskY = by + 30;
-    r(deskX, deskY, 18, 12, '#854D0E');
-    r(deskX + 1, deskY + 1, 16, 10, '#A16207');
-    r(deskX + 3, deskY + 3, 7, 5, '#FEF08A'); // Open book pages
-    r(deskX + 6, deskY + 3, 1, 5, '#78350F'); // Book spine
-    r(deskX + 13, deskY + 2, 2, 3, '#38BDF8'); // Inkwell
-    r(deskX + 14, deskY + 1, 1, 2, '#FFFFFF'); // Candle flame
-
-    // Wooden study stool
-    r(deskX + 6, deskY + 14, 6, 6, '#78350F');
-    r(deskX + 7, deskY + 15, 4, 4, '#B45309');
-
-    // ── COZY ARMCHAIR NEAR FIREPLACE ──
-    const chairX = bx + 28;
-    const chairY = by + 36;
-    r(chairX, chairY, 12, 12, '#B91C1C'); // Crimson upholstery
-    r(chairX + 1, chairY + 1, 10, 10, '#DC2626');
-    r(chairX - 1, chairY + 2, 2, 8, '#78350F'); // Armrest L
-    r(chairX + 11, chairY + 2, 2, 8, '#78350F'); // Armrest R
-
-    // ── WEST & EAST PERIMETER TIMBER WALLS ──
-    r(bx, by + wallH, 6, bh - wallH, wallWood);
-    r(bx + 1, by + wallH, 2, bh - wallH, '#A16207');
-    r(bx + bw - 6, by + wallH, 6, bh - wallH, wallWood);
-    r(bx + bw - 3, by + wallH, 2, bh - wallH, '#A16207');
-
-    // ── LOW SOUTH PARAPET WALL WITH OPEN DOORWAY ──
-    const southY = by + bh - 8;
+    // Low south parapet wall with open doorway
+    const southY = by + bh - 6;
     const doorX = bx + 42;
     const doorW = 20;
 
-    // South wall left segment
-    r(bx, southY, doorX - bx, 8, wallWood);
-    r(bx, southY, doorX - bx, 2, wallCap);
-    // South wall right segment
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 8, wallWood);
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 2, wallCap);
+    r(bx, southY, doorX - bx, 6, '#334155');
+    r(bx, southY, doorX - bx, 2, '#64748B');
+    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 6, '#334155');
+    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 2, '#64748B');
 
-    // OPEN DOORWAY THRESHOLD WITH COZY WELCOME MAT
-    r(doorX, southY - 2, doorW, 10, '#E2E8F0'); // Stone step
-    r(doorX + 2, southY, doorW - 4, 6, '#78350F'); // Welcome mat
-    r(doorX + 3, southY + 1, doorW - 6, 4, '#FDE68A');
-
-    // Exterior Window Planter Boxes
-    r(bx + 12, southY + 4, 16, 4, '#451A03');
-    r(bx + 13, southY + 3, 14, 2, '#15803D');
-    r(bx + 14, southY + 2, 3, 2, '#EF4444');
-    r(bx + 20, southY + 2, 3, 2, '#FBBF24');
-
-    r(bx + bw - 28, southY + 4, 16, 4, '#451A03');
-    r(bx + bw - 27, southY + 3, 14, 2, '#15803D');
-    r(bx + bw - 25, southY + 2, 3, 2, '#38BDF8');
-    r(bx + bw - 19, southY + 2, 3, 2, '#F43F5E');
+    // Open Doorway Threshold
+    r(doorX, southY - 2, doorW, 8, '#CBD5E1');
+    r(doorX, southY - 2, doorW, 1, '#F8FAFC');
   };
 
-  // ── 8. WALK-IN TOWN HALL / GUILD HOUSE (HABBLAUD 3/4 STYLE) ──────
+  // ── 8. WALK-IN TOWN HALL / GUILD HOUSE (HABBLAUD 3/4 STYLE) ────────
   // Coordinates: x: 152, y: 16, w: 120, h: 78
   const drawTownHall = () => {
     const bx = 152;
     const by = 16;
     const bw = 120;
     const bh = 78;
+    const wallH = 16;
 
-    const stoneWall = '#FFFFFF';
-    const stoneTrim = '#1E3A8A';
-    const gold = '#F59E0B';
+    r(bx - 3, by + bh, bw + 6, 6, 'rgba(0, 0, 0, 0.4)');
 
-    // Ambient drop shadow around exterior
-    r(bx - 3, by - 3, bw + 6, bh + 8, 'rgba(0, 0, 0, 0.28)');
-
-    // ── INTERIOR CHECKERED MARBLE & CERAMIC FLOOR ──
-    const tileA = '#F2EDE4';
-    const tileB = '#D2D8DE';
-    for (let py = by + 26; py < by + bh - 6; py += 8) {
-      const row = Math.floor((py - by) / 8);
-      for (let px = bx + 6; px < bx + bw - 6; px += 8) {
-        const col = Math.floor((px - bx) / 8);
-        const tileColor = (row + col) % 2 === 0 ? tileA : tileB;
-        r(px, py, 7, 7, tileColor);
-        r(px, py, 7, 1, '#FFFFFF'); // Gloss gleam
-        r(px + 7, py, 1, 8, '#94A3B8'); // Grout line
-        r(px, py + 7, 8, 1, '#94A3B8');
+    const floorY = by + wallH;
+    const floorH = bh - wallH;
+    const tileSize = 8;
+    for (let y = floorY; y < floorY + floorH; y += tileSize) {
+      for (let x = bx; x < bx + bw; x += tileSize) {
+        const isWhite = (Math.floor((x - bx) / tileSize) + Math.floor((y - floorY) / tileSize)) % 2 === 0;
+        const curW = Math.min(tileSize, bx + bw - x);
+        const curH = Math.min(tileSize, floorY + floorH - y);
+        r(x, y, curW, curH, isWhite ? '#F8FAFC' : '#1E293B');
+        if (isWhite && curW > 1 && curH > 1) {
+          r(x + 1, y + 1, curW - 2, 1, '#FFFFFF');
+        }
       }
     }
 
-    // ── NORTH ELEVATED WALL (32px High) ──
-    const wallH = 26;
-    r(bx, by, bw, wallH, stoneWall);
-    // Classical pilasters
-    for (let tx = bx; tx <= bx + bw; tx += 24) {
-      r(tx, by, 4, wallH, stoneTrim);
-      r(tx + 1, by, 2, wallH, '#3B82F6');
+    r(bx, by, bw, wallH, '#1E293B');
+    r(bx, by, bw, 2, '#475569');
+    r(bx, by, bw, 1, '#94A3B8');
+    r(bx, by + wallH - 2, bw, 2, '#0F172A');
+
+    for (let px = bx + 8; px < bx + bw - 8; px += 8) {
+      r(px, by + 2, 1, wallH - 4, '#334155');
     }
-    // Grand crown cornice
-    r(bx - 2, by - 3, bw + 4, 4, '#0F172A');
-    r(bx - 1, by - 2, bw + 2, 2, gold);
-    // Baseboard molding
-    r(bx, by + wallH - 3, bw, 3, '#1E293B');
 
-    // ── GRAND HERALDRY GUILD CREST BANNER ──
-    const banX = bx + 16;
-    const banY = by + 3;
-    r(banX, banY, 16, 18, '#991B1B'); // Crimson banner
-    r(banX + 2, banY + 2, 12, 14, '#DC2626');
-    r(banX + 6, banY + 5, 4, 4, gold); // Gold lion/shield
-    r(banX + 7, banY + 4, 2, 6, '#FEF08A');
-    r(banX, banY + 18, 8, 3, '#991B1B'); // Banner swallow-tail L
-    r(banX + 8, banY + 18, 8, 3, '#991B1B'); // Banner swallow-tail R
+    // Grand Guild Banner
+    const banX = bx + 48;
+    const banY = by + 2;
+    r(banX, banY, 24, 13, '#1E3A8A');
+    r(banX + 2, banY + 2, 20, 9, '#2563EB');
+    r(banX + 10, banY + 4, 4, 5, '#FBBF24');
+    r(banX + 8, banY + 6, 8, 2, '#FBBF24');
 
-    // ── LARGE ARCHED STAINED-GLASS WINDOW ──
-    const winX = bx + Math.floor(bw / 2) - 16;
-    const winY = by + 4;
-    r(winX - 1, winY - 1, 34, 18, '#0F172A');
-    r(winX, winY, 32, 16, '#38BDF8');
-    r(winX + 2, winY + 2, 28, 12, '#60A5FA');
-    // Stained glass tracery
-    r(winX + 15, winY, 2, 16, '#0F172A');
-    r(winX, winY + 8, 32, 2, '#0F172A');
-    r(winX + 4, winY + 3, 6, 4, '#FFFFFF'); // Sunlight gleam
+    // Grand Council Table
+    const tblX = bx + 36;
+    const tblY = floorY + 16;
+    const tblW = 48;
+    const tblH = 22;
 
-    // ── MUNICIPAL BOOKSHELF DISPLAY ──
-    const bookX = bx + bw - 32;
-    const bookY = by + 5;
-    r(bookX, bookY, 18, 16, '#78350F');
-    r(bookX + 2, bookY + 2, 14, 2, '#451A03');
-    r(bookX + 2, bookY + 8, 14, 2, '#451A03');
-    // Books
-    r(bookX + 3, bookY + 4, 3, 4, '#2563EB');
-    r(bookX + 7, bookY + 4, 3, 4, '#DC2626');
-    r(bookX + 11, bookY + 4, 3, 4, '#16A34A');
+    r(tblX - 1, tblY + tblH, tblW + 2, 4, 'rgba(0, 0, 0, 0.3)');
+    r(tblX, tblY, tblW, tblH, '#451A03');
+    r(tblX + 2, tblY + 2, tblW - 4, tblH - 4, '#78350F');
+    r(tblX + 2, tblY + 2, tblW - 4, 1, '#B45309');
 
-    // ── GRAND COUNCIL TABLE & EXECUTIVE CHAIRS ──
-    const tabX = bx + 36;
-    const tabY = by + 40;
-    const tabW = 48;
-    const tabH = 20;
-
-    r(tabX, tabY, tabW, tabH, '#78350F'); // Mahogany table
-    r(tabX + 2, tabY + 2, tabW - 4, tabH - 4, '#92400E');
-    r(tabX + 4, tabY + 3, tabW - 8, 1, '#B45309'); // Table highlight
-
-    // 4 High-Back Leather Chairs
-    const drawChair = (cx: number, cy: number) => {
-      r(cx, cy, 8, 8, '#0F172A');
-      r(cx + 1, cy + 1, 6, 6, '#1E293B');
-      r(cx + 2, cy + 2, 4, 4, '#2563EB');
+    // Leather Armchairs
+    const chair = (cx: number, cy: number) => {
+      r(cx, cy, 8, 8, '#7F1D1D');
+      r(cx + 1, cy + 1, 6, 6, '#991B1B');
+      r(cx + 2, cy + 2, 4, 4, '#DC2626');
     };
-    drawChair(tabX + 8, tabY - 8);
-    drawChair(tabX + 32, tabY - 8);
-    drawChair(tabX + 8, tabY + tabH);
-    drawChair(tabX + 32, tabY + tabH);
+    chair(tblX + 6, tblY - 7);
+    chair(tblX + 20, tblY - 7);
+    chair(tblX + 34, tblY - 7);
+    chair(tblX + 6, tblY + tblH - 1);
+    chair(tblX + 20, tblY + tblH - 1);
+    chair(tblX + 34, tblY + tblH - 1);
 
-    // ── RECEPTION DESK & GUESTBOOK LEDGER ──
-    const recX = bx + 94;
-    const recY = by + 34;
-    r(recX, recY, 18, 24, '#78350F');
-    r(recX + 1, recY + 1, 16, 22, '#A16207');
-    r(recX + 3, recY + 4, 6, 5, '#FEF08A'); // Ledger pages
-    r(recX + 12, recY + 3, 2, 3, '#F59E0B'); // Desk bell
-
-    // Decorative Potted Indoor Ficus
-    r(bx + 14, by + 42, 10, 10, '#C2410C'); // Terracotta urn
-    r(bx + 12, by + 32, 14, 12, '#15803D'); // Lush leaves
-    r(bx + 14, by + 34, 10, 8, '#22C55E');
-
-    // Water Dispenser Cooler
-    r(bx + 14, by + 58, 8, 12, '#CBD5E1');
-    r(bx + 15, by + 52, 6, 6, '#38BDF8'); // Water bottle
-    r(bx + 17, by + 53, 2, 2, '#FFFFFF');
-
-    // ── WEST & EAST PERIMETER STONE WALLS ──
+    // Perimeter walls
     r(bx, by + wallH, 6, bh - wallH, '#475569');
     r(bx + 1, by + wallH, 2, bh - wallH, '#94A3B8');
     r(bx + bw - 6, by + wallH, 6, bh - wallH, '#475569');
     r(bx + bw - 3, by + wallH, 2, bh - wallH, '#94A3B8');
 
-    // ── LOW SOUTH PARAPET WALL WITH DOUBLE DOORWAY ──
+    // Low south parapet wall with open double doorway
     const southY = by + bh - 8;
     const doorX = bx + 48;
     const doorW = 24;
 
-    // South wall left segment
     r(bx, southY, doorX - bx, 8, '#334155');
     r(bx, southY, doorX - bx, 2, '#64748B');
-    // South wall right segment
     r(doorX + doorW, southY, bx + bw - (doorX + doorW), 8, '#334155');
     r(doorX + doorW, southY, bx + bw - (doorX + doorW), 2, '#64748B');
 
-    // OPEN DOUBLE DOORWAY THRESHOLD
+    // Open double doorway threshold
     r(doorX, southY - 2, doorW, 10, '#E2E8F0');
     r(doorX, southY - 2, doorW, 1, '#F8FAFC');
-    r(doorX + Math.floor(doorW / 2) - 1, southY - 2, 2, 10, '#94A3B8'); // Threshold divider
+    r(doorX + Math.floor(doorW / 2) - 1, southY - 2, 2, 10, '#94A3B8');
   };
 
   // ── 9. CLIFF ROCK FORMATIONS & CRAGGY RIDGE ──────────────────────
@@ -751,38 +798,44 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
     r(cx + 2, cy - 2, 10, 3, '#74543C');
   };
 
-  // ── 10. RETRO FANTASY ZONE LABELS ─────────────────────────────────
-  const label = (text: string, x: number, y: number, bgCol: string) => {
-    ctx.font = 'bold 6px monospace';
-    const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
-    const bh = 10;
+  // ── 10. RETRO FANTASY CARVED WAYMARKERS & SIGNPOSTS ───────────────
+  // Replaces harsh black boxes with authentic RPG wooden/stone signboards
+  const drawWaymarkers = () => {
+    const waymarker = (text: string, x: number, y: number, color: string) => {
+      ctx.font = 'bold 6px monospace';
+      const textWidth = ctx.measureText(text).width;
+      const bw = Math.ceil(textWidth) + 8;
+      const bh = 11;
 
-    r(x - 1, y - 1, bw + 2, bh + 2, '#000000');
-    r(x, y, bw, bh, bgCol);
-    r(x, y, bw, 1, 'rgba(255,255,255,0.4)');
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 7);
+      // Wooden signpost drop shadow
+      r(x, y + 1, bw, bh, 'rgba(0, 0, 0, 0.35)');
+      // Carved wood frame
+      r(x, y, bw, bh, '#3E1D08');
+      r(x + 1, y + 1, bw - 2, bh - 2, color);
+      r(x + 1, y + 1, bw - 2, 1, 'rgba(255, 255, 255, 0.4)');
+      r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.3)');
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(text, x + 4, y + 8);
+    };
+
+    waymarker('🏡 VERDANT PLAZA', T * 20, T * 13, '#15803D');
+    waymarker('🌲 WHISPERING WOODS', T * 54, T * 3, '#1E6020');
+    waymarker('🏖️ CRYSTAL BAY', T * 82, T * 3, '#0284C7');
+    waymarker('⛰️ CRAGGY RIDGE', T * 5, T * 32, '#854D0E');
+    waymarker('🔥 ADVENTURE CAMP', T * 26, T * 54, '#B45309');
+    waymarker('🌉 RIVER CROSSING', T * 42, T * 40, '#0D9488');
   };
 
-  const drawLabels = () => {
-    label('VERDANT VILLAGE PLAZA', T * 20, T * 13, '#15803D');
-    label('WHISPERING WOODS', T * 46, T * 3, '#1E6020');
-    label('CRYSTAL BAY', T * 82, T * 3, '#1878B0');
-    label('CRAGGY RIDGE', T * 5, T * 32, '#8B5020');
-    label('ADVENTURE CAMP', T * 52, T * 30, '#B87820');
-    label('RIVER CROSSING', T * 52, T * 47, '#1E8868');
-  };
-
-  // ── EXECUTE ALL RENDER PASSES ─────────────────────────────────────
+  // ── EXECUTE ALL RENDER PASSES IN DEPTH-SORTED SEQUENCE ───────────
   drawGrass();
   drawForestZone();
   drawWater();
   drawRiver();
-  drawBridge();
   drawRoadsAndSidewalks();
+  drawBridge();
   drawCottage();
   drawTownHall();
   drawCliffs();
-  drawLabels();
+  drawWaymarkers();
 }

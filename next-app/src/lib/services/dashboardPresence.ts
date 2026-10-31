@@ -100,6 +100,10 @@ export class DashboardPresenceService {
     return this.onlineUsers.get(userId);
   }
 
+  static getOnlineUsers(): PresenceUser[] {
+    return Array.from(this.onlineUsers.values());
+  }
+
   static cleanup(): void {
     if (this.channel) {
       removeRealtimeChannel(this.channel);

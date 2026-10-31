@@ -31,6 +31,11 @@
   box-shadow: none;
 }
 
+.button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -86,6 +91,19 @@
   .ghost:hover:not(:disabled) {
     transform: none;
     background-color: var(--card-inner);
+  }
+}
+
+/* Touch devices: keep small buttons at a comfortable tap size */
+@media (pointer: coarse) {
+  .sm {
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 }
 

@@ -372,25 +372,30 @@ export function renderSchoolMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   r(gymX + 84, quadY + 30, 24, 12, '#92400E'); // Bench
   r(gymX + 84, quadY + 80, 24, 12, '#92400E');
 
-  // ── 7. ZONE BANNER LABELS ─────────────────────────────────
-  const label = (text: string, x: number, y: number, bgCol: string) => {
+  // ── 7. ARCHITECTURAL ACADEMIC WALL PLAQUES ───────────────
+  const schoolPlaque = (text: string, x: number, y: number, color: string) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
     const bw = Math.ceil(textWidth) + 8;
-    const bh = 10;
+    const bh = 11;
 
-    r(x - 1, y - 1, bw + 2, bh + 2, '#000000');
-    r(x, y, bw, bh, bgCol);
-    r(x, y, bw, 1, 'rgba(255,255,255,0.4)');
+    // Academic plaque cast shadow
+    r(x, y + 1, bw, bh, 'rgba(0, 0, 0, 0.35)');
+    // Polished brass trim
+    r(x, y, bw, bh, '#B45309');
+    r(x + 1, y + 1, bw - 2, bh - 2, color);
+    r(x + 1, y + 1, bw - 2, 1, 'rgba(255, 255, 255, 0.35)');
+    r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
+
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 7);
+    ctx.fillText(text, x + 4, y + 8);
   };
 
-  label('CLASSROOM 101', c1x + 10, c1y + 14, '#2563EB');
-  label('SCIENCE LAB', sX + 10, sY + 14, '#059669');
-  label('LOCKER COMMONS', 180, corY + 13, '#D97706');
-  label('CAMPUS LIBRARY', libX + 10, libY + 12, '#7C3AED');
-  label('CAFETERIA', cafX + 10, cafY + 12, '#EA580C');
-  label('GYMNASIUM', gymX + 8, gymY + 8, '#DC2626');
-  label('CAMPUS QUAD', gymX + 8, quadY + 6, '#15803D');
+  schoolPlaque('📚 CLASSROOM 101', c1x + 10, c1y + 14, '#1E40AF');
+  schoolPlaque('🧪 SCIENCE LAB', sX + 10, sY + 14, '#065F46');
+  schoolPlaque('🎒 LOCKER COMMONS', 180, corY + 13, '#92400E');
+  schoolPlaque('📖 CAMPUS LIBRARY', libX + 10, libY + 12, '#5B21B6');
+  schoolPlaque('🥪 CAFETERIA', cafX + 10, cafY + 12, '#9A3412');
+  schoolPlaque('🏀 GYMNASIUM', gymX + 8, gymY + 8, '#991B1B');
+  schoolPlaque('🌿 CAMPUS QUAD', gymX + 8, quadY + 6, '#166534');
 }
