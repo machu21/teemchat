@@ -112,10 +112,7 @@ export class WorldSyncService {
           const senderClientId = (data.client_id as string) || (raw.client_id as string);
           const senderUserId = (data.user_id as string) || (raw.user_id as string);
 
-          if (senderClientId === this.clientInstanceId) return;
-          if (!senderClientId && senderUserId === this.currentUserId) return;
-
-          const effectiveId = senderClientId || senderUserId;
+          const effectiveId = this.resolvePeerId(senderUserId, senderClientId);
           if (!effectiveId) return;
 
           const x = Number(data.x ?? raw.x ?? 420);
@@ -167,10 +164,7 @@ export class WorldSyncService {
           const senderClientId = (data.client_id as string) || (raw.client_id as string);
           const senderUserId = (data.user_id as string) || (raw.user_id as string);
 
-          if (senderClientId === this.clientInstanceId) return;
-          if (!senderClientId && senderUserId === this.currentUserId) return;
-
-          const effectiveId = senderClientId || senderUserId;
+          const effectiveId = this.resolvePeerId(senderUserId, senderClientId);
           const text = (data.text as string) || (raw.text as string);
           if (!effectiveId || !text) return;
 
@@ -332,6 +326,19 @@ export class WorldSyncService {
     }, delay);
   }
 
+  /**
+   * Remote players are keyed by user id so one person is one avatar, even with several
+   * tabs/devices or a stale connection left over from a reconnect. The key also matches the
+   * LiveKit participant identity used for proximity audio. Returns null for our own user.
+   */
+  private resolvePeerId(userId?: string, clientId?: string, presenceKey?: string): string | null {
+    if (clientId && clientId === this.clientInstanceId) return null;
+    if (userId && userId === this.currentUserId) return null;
+    const id = userId || clientId || presenceKey || null;
+    if (!id || id === this.currentUserId || id === this.clientInstanceId) return null;
+    return id;
+  }
+
   private handlePresenceUpdate() {
     if (!this.channel) return;
     try {
@@ -344,11 +351,8 @@ export class WorldSyncService {
           const clientId = p.client_id as string | undefined;
           const userId = p.user_id as string | undefined;
 
-          if (clientId === this.clientInstanceId) continue;
-          if (!clientId && userId === this.currentUserId) continue;
-
-          const effectiveId = clientId || (userId && userId !== this.currentUserId ? userId : null) || key;
-          if (!effectiveId || effectiveId === this.clientInstanceId || effectiveId === this.currentUserId) continue;
+          const effectiveId = this.resolvePeerId(userId, clientId, key);
+          if (!effectiveId) continue;
 
           activeIds.add(effectiveId);
           const name = (p.display_name as string) || 'Explorer';

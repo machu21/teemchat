@@ -114,6 +114,14 @@ export default function LandingPage() {
     getOrFetchGuestIdentity()
       .then((ident) => setGuestIdentity(ident))
       .catch(() => {});
+
+    // Deep link from the dashboard "Create a Free Account" button
+    if (new URLSearchParams(window.location.search).get('signup') === '1') {
+      queueMicrotask(() => {
+        setIsSignUp(true);
+        setAuthModalOpen(true);
+      });
+    }
   }, [initSession, initTheme]);
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { UserSession, createGuestSession } from '@/lib/models/user';
 import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
+import { SpaceService } from '@/lib/services/spaces';
 import {
   AvatarConfig,
   Gender,
@@ -10,6 +11,8 @@ import {
   defaultFemaleAvatarConfig,
 } from '@/lib/models/avatar';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+
+const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 interface SessionState {
   session: UserSession | null;
@@ -123,10 +126,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
 
       // Listen for auth state changes
-      supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, newSession: Session | null) => {
+      supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, newSession: Session | null) => {
         if (!newSession?.user) {
           const cur = get().session;
-          if (cur && !cur.isGuest) {
+          // Provisioned guests have a real auth account; a sign-out (also relayed from other tabs)
+          // must end their session here too, or this tab keeps broadcasting a ghost avatar.
+          // Purely local guests (non-UUID ids) never had an auth session, so they are kept.
+          const isAuthBackedGuest = Boolean(cur?.isGuest && UUID_REGEX.test(cur.id));
+          if (cur && (!cur.isGuest || (event === 'SIGNED_OUT' && isAuthBackedGuest))) {
             set({ session: null, isGuest: false });
           }
           return;
@@ -462,6 +469,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
     } catch {}
     if (current?.isGuest) {
+      SpaceService.clearGuestMaps();
       try {
         await supabase.rpc('delete_guest_account');
       } catch {}

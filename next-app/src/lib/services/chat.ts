@@ -8,12 +8,19 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 export class ChatService {
   private static profileNameCache: Map<string, string> = new Map();
 
-  static async fetchMessages(roomId: string): Promise<ChatMessageModel[]> {
+  /**
+   * Fetches recent messages for a room inside one space. Room ids like 'general' are reused by
+   * every space, so results are always scoped by space_id. Non-persisted (non-UUID) spaces have
+   * no stored history and rely on WorldSync broadcast instead.
+   */
+  static async fetchMessages(roomId: string, spaceId: string): Promise<ChatMessageModel[]> {
+    if (!UUID_REGEX.test(spaceId)) return [];
     try {
       const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
       const { data, error } = await supabase
         .from('messages')
         .select('*, profiles:sender_id(display_name)')
+        .eq('space_id', spaceId)
         .eq('room_id', roomId)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: true })
@@ -99,10 +106,13 @@ export class ChatService {
 
   static listenToRoomMessages(
     roomId: string,
+    spaceId: string,
     onMessage: (msg: ChatMessageModel) => void,
     onDeleted?: (id: string) => void
-  ): RealtimeChannel {
-    const topic = `public:messages:${roomId}`;
+  ): RealtimeChannel | null {
+    if (!UUID_REGEX.test(spaceId)) return null;
+
+    const topic = `public:messages:${spaceId}:${roomId}`;
     cleanupExistingChannel(topic);
 
     const channel = supabase
@@ -113,7 +123,7 @@ export class ChatService {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `room_id=eq.${roomId}`,
+          filter: `space_id=eq.${spaceId}`,
         },
         async (payload) => {
           const rec = payload.new as {
@@ -125,6 +135,7 @@ export class ChatService {
             created_at: string;
             conversation_id?: string;
           };
+          if (rec.room_id !== roomId) return;
           let senderName = 'Explorer';
 
           if (rec.sender_id) {
@@ -161,7 +172,7 @@ export class ChatService {
           event: 'DELETE',
           schema: 'public',
           table: 'messages',
-          filter: `room_id=eq.${roomId}`,
+          filter: `space_id=eq.${spaceId}`,
         },
         (payload) => {
           const old = payload.old as { id?: string };

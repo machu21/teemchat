@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import styles from './dashboard.module.css';
 import { useSessionStore } from '@/stores/session';
 import { useSocialStore } from '@/stores/social';
@@ -72,6 +72,40 @@ export default function DashboardPage() {
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [copiedSpaceId, setCopiedSpaceId] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
+
+  const openCreateModal = () => {
+    setFormError('');
+    setCreateModalOpen(true);
+  };
+
+  const openJoinModal = () => {
+    setFormError('');
+    setJoinModalOpen(true);
+  };
+
+  const handleCopySpaceLink = async (space: SpaceModel) => {
+    const url = InviteLinkService.generateInviteUrl(space.slug || space.id, {
+      theme: space.mapTheme,
+      name: space.name,
+    });
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedSpaceId(space.id);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedSpaceId(null), 2000);
+    } catch {
+      window.prompt('Copy this invite link:', url);
+    }
+  };
 
   // Avatar editor local state
   const [editGender, setEditGender] = useState<Gender>('male');
@@ -157,7 +191,12 @@ export default function DashboardPage() {
 
     try {
       const slug =
-        newSpaceSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-') ||
+        newSpaceSlug
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '') ||
         `space-${Date.now().toString().slice(-4)}`;
       const created = await SpaceService.createSpace(
         {
@@ -189,11 +228,18 @@ export default function DashboardPage() {
     const rawInput = joinCodeInput.trim();
     const meta = InviteLinkService.extractInviteMetadata(rawInput);
     const extracted = meta.code || InviteLinkService.extractCode(rawInput) || rawInput;
-    const space = await SpaceService.getSpaceByCodeOrSlug(extracted, {
-      theme: meta.theme || undefined,
-      name: meta.name || undefined,
-    });
-    setIsSubmitting(false);
+    let space: SpaceModel | null = null;
+    try {
+      space = await SpaceService.getSpaceByCodeOrSlug(extracted, {
+        theme: meta.theme || undefined,
+        name: meta.name || undefined,
+      });
+    } catch {
+      setFormError('Could not look up that space. Check your connection and try again.');
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
 
     if (space) {
       setJoinModalOpen(false);
@@ -214,25 +260,36 @@ export default function DashboardPage() {
 
   const handleSaveAvatar = async () => {
     if (!session) return;
-    await updateProfile(
-      editDisplayName || session.displayName,
-      session.status,
-      {
-        gender: editGender,
-        skinColor: editSkin,
-        shirtColor: editShirt,
-        hairColor: editHair,
-        hairStyle: editHairStyle,
-        accessory: editAccessory,
-        topStyle: editTopStyle,
-        bottomStyle: editBottomStyle,
-        bottomColor: editBottomColor,
-        shoesColor: editShoesColor,
-        facialHair: editFacialHair,
-      },
-      editGender
-    );
-    setAvatarDrawerOpen(false);
+    setIsSavingAvatar(true);
+    try {
+      await updateProfile(
+        editDisplayName || session.displayName,
+        session.status,
+        {
+          gender: editGender,
+          skinColor: editSkin,
+          shirtColor: editShirt,
+          hairColor: editHair,
+          hairStyle: editHairStyle,
+          accessory: editAccessory,
+          topStyle: editTopStyle,
+          bottomStyle: editBottomStyle,
+          bottomColor: editBottomColor,
+          shoesColor: editShoesColor,
+          facialHair: editFacialHair,
+        },
+        editGender
+      );
+      setAvatarDrawerOpen(false);
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  const hasActiveFilter = spaceSearch.trim() !== '' || activeSpaceTab !== 'all';
+  const clearFilters = () => {
+    setSpaceSearch('');
+    setActiveSpaceTab('all');
   };
 
   // Filtered spaces computation
@@ -274,10 +331,10 @@ export default function DashboardPage() {
     <div className={styles.page}>
       {/* Top Navbar */}
       <header className={styles.header}>
-        <div className={styles.brand} onClick={() => router.push('/')}>
-          <span className={styles.logoIcon}>👾</span>
+        <button type="button" className={styles.brand} onClick={() => router.push('/')} aria-label="TeemChat home">
+          <span className={styles.logoIcon} aria-hidden="true">👾</span>
           <span className={styles.logoText}>TeemChat</span>
-        </div>
+        </button>
 
         <div className={styles.userProfile}>
           <ThemeToggle />
@@ -362,10 +419,10 @@ export default function DashboardPage() {
           </div>
 
           <div className={styles.actionButtons}>
-            <NeoButton variant="secondary" onClick={() => setJoinModalOpen(true)}>
+            <NeoButton variant="secondary" onClick={openJoinModal}>
               🎟️ Join by Code
             </NeoButton>
-            <NeoButton variant="primary" onClick={() => setCreateModalOpen(true)}>
+            <NeoButton variant="primary" onClick={openCreateModal}>
               ➕ Create Space
             </NeoButton>
           </div>
@@ -382,10 +439,43 @@ export default function DashboardPage() {
 
         {/* Space Grid */}
         {isLoading ? (
-          <div className={styles.loading}>Loading your virtual worlds...</div>
+          <div className={styles.spaceGrid} aria-busy="true" aria-label="Loading your virtual worlds">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className={styles.skeletonCard}>
+                <div className={`${styles.skeletonLine} ${styles.skeletonShort}`} />
+                <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`} />
+                <div className={styles.skeletonLine} />
+                <div className={styles.skeletonLine} />
+                <div className={`${styles.skeletonLine} ${styles.skeletonButton}`} />
+              </div>
+            ))}
+          </div>
         ) : filteredSpaces.length === 0 ? (
-          <div className={styles.loading}>
-            No virtual spaces found matching your filter criteria.
+          <div className={styles.emptyState}>
+            <span className={styles.emptyStateIcon} aria-hidden="true">
+              {hasActiveFilter ? '🔍' : '🗺️'}
+            </span>
+            <h2 className={styles.emptyStateTitle}>
+              {hasActiveFilter ? 'No spaces match your filters' : 'No spaces yet'}
+            </h2>
+            <p className={styles.emptyStateText}>
+              {hasActiveFilter
+                ? 'Try a different search or tab, or clear the filters to see everything.'
+                : 'Create your own world or join a friend with an invite code.'}
+            </p>
+            <div className={styles.emptyStateActions}>
+              {hasActiveFilter && (
+                <NeoButton variant="ghost" onClick={clearFilters}>
+                  Clear Filters
+                </NeoButton>
+              )}
+              <NeoButton variant="secondary" onClick={openJoinModal}>
+                🎟️ Join by Code
+              </NeoButton>
+              <NeoButton variant="primary" onClick={openCreateModal}>
+                ➕ Create Space
+              </NeoButton>
+            </div>
           </div>
         ) : (
           <div className={styles.spaceGrid}>
@@ -410,6 +500,8 @@ export default function DashboardPage() {
                         className={`${styles.pinBtn} ${isPinned ? styles.pinned : ''}`}
                         onClick={() => togglePinSpace(space.id)}
                         title={isPinned ? 'Unpin space' : 'Pin space to favorites'}
+                        aria-label={isPinned ? `Unpin ${space.name}` : `Pin ${space.name} to favorites`}
+                        aria-pressed={isPinned}
                       >
                         {isPinned ? '📌' : '📍'}
                       </button>
@@ -453,7 +545,17 @@ export default function DashboardPage() {
                   </div>
 
                   <div className={styles.spaceCardFooter}>
-                    <span className={styles.joinCodeText}>Code: {space.slug}</span>
+                    <div className={styles.joinCodeGroup}>
+                      <span className={styles.joinCodeText}>Code: {space.slug}</span>
+                      <button
+                        type="button"
+                        className={styles.copyCodeBtn}
+                        onClick={() => handleCopySpaceLink(space)}
+                        aria-label={`Copy invite link for ${space.name}`}
+                      >
+                        {copiedSpaceId === space.id ? '✓ Copied' : '📋 Copy link'}
+                      </button>
+                    </div>
                     <NeoButton
                       variant="primary"
                       onClick={() => router.push(`/space/${space.slug || space.id}`)}
@@ -473,8 +575,9 @@ export default function DashboardPage() {
         className={styles.floatingMessengerBtn}
         onClick={() => openDrawer('dms')}
         title="Open Messenger"
+        aria-label={unreadCount > 0 ? `Open Messenger (${unreadCount} unread)` : 'Open Messenger'}
       >
-        <span>💬</span>
+        <span aria-hidden="true">💬</span>
         <span>Messenger</span>
         {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
       </button>
@@ -604,8 +707,9 @@ export default function DashboardPage() {
 
           <div className={styles.formRow}>
             <div className={styles.selectGroup}>
-              <label className={styles.label}>Top / Outfit</label>
+              <label className={styles.label} htmlFor="avatar-top">Top / Outfit</label>
               <select
+                id="avatar-top"
                 value={editTopStyle}
                 onChange={(e) => setEditTopStyle(e.target.value as TopStyle)}
                 className={styles.select}
@@ -619,8 +723,9 @@ export default function DashboardPage() {
             </div>
 
             <div className={styles.selectGroup}>
-              <label className={styles.label}>Bottom Style</label>
+              <label className={styles.label} htmlFor="avatar-bottom">Bottom Style</label>
               <select
+                id="avatar-bottom"
                 value={editBottomStyle}
                 onChange={(e) => setEditBottomStyle(e.target.value as BottomStyle)}
                 className={styles.select}
@@ -636,8 +741,9 @@ export default function DashboardPage() {
 
           <div className={styles.colorPickers}>
             <div>
-              <label className={styles.label}>Skin</label>
+              <label className={styles.label} htmlFor="avatar-skin">Skin</label>
               <input
+                id="avatar-skin"
                 type="color"
                 value={editSkin}
                 onChange={(e) => setEditSkin(e.target.value)}
@@ -645,8 +751,9 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Top</label>
+              <label className={styles.label} htmlFor="avatar-top-color">Top</label>
               <input
+                id="avatar-top-color"
                 type="color"
                 value={editShirt}
                 onChange={(e) => setEditShirt(e.target.value)}
@@ -654,8 +761,9 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Bottom</label>
+              <label className={styles.label} htmlFor="avatar-bottom-color">Bottom</label>
               <input
+                id="avatar-bottom-color"
                 type="color"
                 value={editBottomColor}
                 onChange={(e) => setEditBottomColor(e.target.value)}
@@ -663,8 +771,9 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Hair</label>
+              <label className={styles.label} htmlFor="avatar-hair-color">Hair</label>
               <input
+                id="avatar-hair-color"
                 type="color"
                 value={editHair}
                 onChange={(e) => setEditHair(e.target.value)}
@@ -672,8 +781,9 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className={styles.label}>Shoes</label>
+              <label className={styles.label} htmlFor="avatar-shoes-color">Shoes</label>
               <input
+                id="avatar-shoes-color"
                 type="color"
                 value={editShoesColor}
                 onChange={(e) => setEditShoesColor(e.target.value)}
@@ -684,8 +794,9 @@ export default function DashboardPage() {
 
           <div className={styles.formRow}>
             <div className={styles.selectGroup}>
-              <label className={styles.label}>Hair Style</label>
+              <label className={styles.label} htmlFor="avatar-hair-style">Hair Style</label>
               <select
+                id="avatar-hair-style"
                 value={editHairStyle}
                 onChange={(e) =>
                   setEditHairStyle(e.target.value as AvatarConfig['hairStyle'])
@@ -701,8 +812,9 @@ export default function DashboardPage() {
             </div>
 
             <div className={styles.selectGroup}>
-              <label className={styles.label}>Accessory</label>
+              <label className={styles.label} htmlFor="avatar-accessory">Accessory</label>
               <select
+                id="avatar-accessory"
                 value={editAccessory}
                 onChange={(e) =>
                   setEditAccessory(
@@ -721,8 +833,9 @@ export default function DashboardPage() {
           </div>
 
           <div className={styles.selectGroup}>
-            <label className={styles.label}>Facial Hair</label>
+            <label className={styles.label} htmlFor="avatar-facial-hair">Facial Hair</label>
             <select
+                id="avatar-facial-hair"
               value={editFacialHair}
               onChange={(e) => setEditFacialHair(e.target.value as FacialHair)}
               className={styles.select}
@@ -735,8 +848,8 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          <NeoButton variant="primary" size="lg" onClick={handleSaveAvatar}>
-            Save Changes
+          <NeoButton variant="primary" size="lg" onClick={handleSaveAvatar} disabled={isSavingAvatar}>
+            {isSavingAvatar ? 'Saving...' : 'Save Changes'}
           </NeoButton>
         </div>
       </NeoModal>
@@ -745,10 +858,13 @@ export default function DashboardPage() {
       <NeoModal
         isOpen={upgradeModalOpen}
         onClose={() => setUpgradeModalOpen(false)}
-        title="Upgrade to Paid Account"
+        title="Upgrade Your Account"
       >
         <div className={styles.upgradeCard}>
-          <p>Unlock unlimited personal spaces and access to your persistent AI companion.</p>
+          <p>
+            Guest sessions are temporary. Create a free account to keep your avatar, friends, and
+            spaces. Paid plans will unlock:
+          </p>
           <ul className={styles.upgradeList}>
             <li>✨ Unlimited Virtual Spaces</li>
             <li>🤖 Personal AI Companion with RAG vector memory</li>
@@ -758,12 +874,20 @@ export default function DashboardPage() {
           <NeoButton
             variant="primary"
             size="lg"
-            onClick={() => {
-              alert('Redirecting to Stripe checkout session...');
+            onClick={async () => {
+              setUpgradeModalOpen(false);
+              await signOut();
+              router.push('/?signup=1');
             }}
           >
-            Upgrade for $9.99 / mo
+            Create a Free Account
           </NeoButton>
+          <NeoButton variant="secondary" size="lg" disabled title="Payments are not available yet">
+            Paid Plans Coming Soon
+          </NeoButton>
+          <p className={styles.upgradeNote}>
+            Creating an account ends this guest session and removes its temporary map.
+          </p>
         </div>
       </NeoModal>
     </div>

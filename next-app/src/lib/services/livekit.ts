@@ -251,7 +251,8 @@ export class LiveKitService {
     this.notify();
   }
 
-  async toggleMicrophone(): Promise<void> {
+  /** Toggles the mic and resolves with the resulting enabled state (unchanged if permission was denied). */
+  async toggleMicrophone(): Promise<boolean> {
     const next = !this.isMicEnabled;
 
     if (this.room?.localParticipant) {
@@ -259,7 +260,7 @@ export class LiveKitService {
         await this.room.localParticipant.setMicrophoneEnabled(next);
         this.isMicEnabled = next;
         this.notify();
-        return;
+        return this.isMicEnabled;
       } catch (e) {
         console.error('Error toggling LiveKit microphone:', e);
       }
@@ -282,13 +283,15 @@ export class LiveKitService {
       this.isMicEnabled = next;
       this.notify();
     } catch (e) {
+      // Permission denied or no device: keep the previous state so the UI never claims we're broadcasting
       console.warn('Microphone permission or toggle error:', e);
-      this.isMicEnabled = next; // Allow simulation toggle
       this.notify();
     }
+    return this.isMicEnabled;
   }
 
-  async toggleCamera(): Promise<void> {
+  /** Toggles the camera and resolves with the resulting enabled state (unchanged if permission was denied). */
+  async toggleCamera(): Promise<boolean> {
     const next = !this.isCameraEnabled;
 
     if (this.room?.localParticipant) {
@@ -297,7 +300,7 @@ export class LiveKitService {
         this.isCameraEnabled = next;
         this.updateTracks();
         this.notify();
-        return;
+        return this.isCameraEnabled;
       } catch (e) {
         console.error('Error toggling LiveKit camera:', e);
       }
@@ -326,13 +329,15 @@ export class LiveKitService {
       this.isCameraEnabled = next;
       this.notify();
     } catch (e) {
+      // Permission denied or no device: keep the previous state so the UI never claims we're broadcasting
       console.warn('Camera permission or toggle error:', e);
-      this.isCameraEnabled = next; // Allow simulation toggle
       this.notify();
     }
+    return this.isCameraEnabled;
   }
 
-  async toggleScreenShare(): Promise<void> {
+  /** Toggles screen sharing and resolves with the resulting enabled state. */
+  async toggleScreenShare(): Promise<boolean> {
     const next = !this.isScreenShareEnabled;
 
     if (this.room?.localParticipant) {
@@ -341,7 +346,7 @@ export class LiveKitService {
         this.isScreenShareEnabled = next;
         this.updateTracks();
         this.notify();
-        return;
+        return this.isScreenShareEnabled;
       } catch (e) {
         console.error('Error toggling LiveKit screen share:', e);
       }
@@ -377,6 +382,7 @@ export class LiveKitService {
       this.isScreenShareEnabled = false;
       this.notify();
     }
+    return this.isScreenShareEnabled;
   }
 
   /**

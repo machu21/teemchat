@@ -6,8 +6,27 @@ import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-// In-memory guest temp map tracker
+// Only characters that are safe to interpolate into a PostgREST `.or()` filter string
+const SAFE_LOOKUP_REGEX = /^[a-zA-Z0-9 _-]+$/;
+
+// In-memory guest temp map tracker (mirrored to localStorage so it survives reloads)
 let guestTemporaryMap: SpaceModel | null = null;
+
+function hydrateGuestTemporaryMap(session: UserSession | null): SpaceModel | null {
+  if (guestTemporaryMap || typeof window === 'undefined') return guestTemporaryMap;
+  try {
+    const stored = localStorage.getItem('teem_guest_temp_map');
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as SpaceModel;
+    // Ignore maps left behind by a different guest on this device
+    const belongsToSession =
+      !parsed.ownerId || parsed.ownerId === 'guest' || parsed.ownerId === session?.id;
+    if (parsed?.id && belongsToSession) {
+      guestTemporaryMap = parsed;
+    }
+  } catch {}
+  return guestTemporaryMap;
+}
 
 export const SpaceService = {
   getGuestTemporaryMap(): SpaceModel | null {
@@ -33,7 +52,8 @@ export const SpaceService = {
     const isGuest = session?.isGuest ?? true;
 
     if (isGuest) {
-      return guestTemporaryMap ? [guestTemporaryMap] : [];
+      const guestMap = hydrateGuestTemporaryMap(session);
+      return guestMap ? [guestMap] : [];
     }
 
     try {
@@ -86,7 +106,7 @@ export const SpaceService = {
     const currentUserId = session?.id;
 
     if (isGuest) {
-      if (guestTemporaryMap) {
+      if (hydrateGuestTemporaryMap(session)) {
         throw new Error(
           'Guests can only create 1 temporary map. Upgrade to a paid account to create unlimited spaces, or delete your current temporary map.'
         );
@@ -288,6 +308,11 @@ export const SpaceService = {
         await supabase.from('spaces').delete().eq('id', id);
       }
       guestTemporaryMap = null;
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('teem_guest_temp_map');
+        }
+      } catch {}
       return true;
     }
 
@@ -396,12 +421,15 @@ export const SpaceService = {
       }
     } catch {}
 
-    // 6. Direct lookup by slug, join_code, or space name
+    // 6. Direct lookup by slug, join_code, or space name.
+    // Skipped for input with characters (commas, parens, wildcards) that would break or widen the filter.
     try {
+      if (!SAFE_LOOKUP_REGEX.test(q)) throw new Error('unsafe lookup');
       const { data: bySlugOrCode } = await supabase
         .from('spaces')
         .select('*')
         .or(`slug.ilike.${q},join_code.ilike.${q},name.ilike.${q}`)
+        .limit(1)
         .maybeSingle();
 
       if (bySlugOrCode) {
@@ -428,10 +456,12 @@ export const SpaceService = {
 
     // 7. Invite codes lookup in space_invites table
     try {
+      if (!SAFE_LOOKUP_REGEX.test(q)) throw new Error('unsafe lookup');
       const { data: invRow } = await supabase
         .from('space_invites')
         .select('space_id')
         .ilike('code', q)
+        .limit(1)
         .maybeSingle();
 
       if (invRow?.space_id) {

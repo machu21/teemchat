@@ -572,6 +572,13 @@
   box-shadow: none;
 }
 
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}
+
 /* Build Palette Panel */
 .buildPalette {
   position: absolute;

@@ -46,6 +46,10 @@ import {
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
+// 'pingPongTable' -> 'Ping Pong Table'
+const formatFurnitureLabel = (type: string) =>
+  type.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+
 export default function WorldPage({ params }: { params: Promise<{ code: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -357,12 +361,86 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       });
   }, [spaceCode, initSession, urlName, urlTheme]);
 
+  // If the session ends while inside (e.g. signed out in another tab), leave the space
+  // instead of stalling on the loading screen with a disconnected avatar.
+  const hadSessionRef = useRef(false);
+  useEffect(() => {
+    if (session) {
+      hadSessionRef.current = true;
+    } else if (hadSessionRef.current) {
+      hadSessionRef.current = false;
+      router.push('/');
+    }
+  }, [session, router]);
+
   const handleJoinAsGuest = async () => {
     setIsJoiningGuest(true);
-    const chosenName = guestName.trim() || guestIdentity?.displayName || 'Explorer';
-    await useSessionStore.getState().signInGuest(chosenName, guestGender, guestIdentity?.username);
-    setIsJoiningGuest(false);
-    setGuestModalOpen(false);
+    try {
+      const chosenName = guestName.trim() || guestIdentity?.displayName || 'Explorer';
+      await useSessionStore.getState().signInGuest(chosenName, guestGender, guestIdentity?.username);
+      setGuestModalOpen(false);
+    } catch (err) {
+      console.warn('Guest join error:', err);
+    } finally {
+      setIsJoiningGuest(false);
+    }
+  };
+
+  // The character setup modal is required to enter; dismissing it leaves the space
+  const handleDismissGuestModal = useCallback(() => {
+    router.push('/');
+  }, [router]);
+
+  const copyToClipboard = useCallback(async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showMediaStatus('📋', successMessage, '#3B82F6');
+    } catch {
+      showMediaStatus('⚠️', 'Could not access clipboard. Select the link and copy it manually.', '#EF4444');
+    }
+  }, [showMediaStatus]);
+
+  const handleToggleMic = async () => {
+    const wasOn = isMicOn;
+    const nowOn = await getLiveKit().toggleMicrophone();
+    if (nowOn === wasOn) {
+      showMediaStatus('⚠️', 'Microphone unavailable. Check browser permissions.', '#EF4444');
+    } else if (nowOn) {
+      playUnmuteSound();
+      showMediaStatus('🎙️', 'Microphone is ON (Broadcasting)', '#22C55E');
+    } else {
+      playMuteSound();
+      showMediaStatus('🔇', 'Microphone Muted', '#EF4444');
+    }
+  };
+
+  const handleToggleCam = async () => {
+    const wasOn = isCamOn;
+    const nowOn = await getLiveKit().toggleCamera();
+    if (nowOn === wasOn) {
+      showMediaStatus('⚠️', 'Camera unavailable. Check browser permissions.', '#EF4444');
+    } else if (nowOn) {
+      playScreenShareSound();
+      showMediaStatus('📷', 'Camera is ON (Preview in PiP)', '#38BDF8');
+    } else {
+      playMuteSound();
+      showMediaStatus('🚫', 'Camera Turned Off', '#94A3B8');
+    }
+  };
+
+  const handleToggleScreenShare = async () => {
+    const wasOn = isScreenShareOn;
+    const nowOn = await getLiveKit().toggleScreenShare();
+    if (nowOn === wasOn) {
+      // Cancelling the browser's share picker lands here too, so keep the message soft
+      if (!wasOn) showMediaStatus('📺', 'Screen share was not started', '#94A3B8');
+    } else if (nowOn) {
+      playScreenShareSound();
+      showMediaStatus('📺', 'Screen Share Active', '#F59E0B');
+    } else {
+      playMuteSound();
+      showMediaStatus('🛑', 'Screen Share Stopped', '#94A3B8');
+    }
   };
 
   // 2. Initialize WorldSync & LiveKit when session and space are loaded
@@ -485,8 +563,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       setVideoFeeds(allFeeds);
     };
 
-    // Load initial 30s room chat
-    ChatService.fetchMessages('general')
+    // Load initial 30s room chat (scoped to this space)
+    ChatService.fetchMessages('general', space.id)
       .then((msgs) => {
         msgs.forEach((m) => seenMessageIdsRef.current.add(m.id));
         setRoomMessages(msgs);
@@ -497,6 +575,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     const roomSub = ChatService.listenToRoomMessages(
       'general',
+      space.id,
       (msg) => handleIncomingRoomMessage(msg),
       (delId) => setRoomMessages((prev) => prev.filter((m) => m.id !== delId))
     );
@@ -564,6 +643,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         setRoomMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
         syncService?.broadcastChatMessage(msg);
         syncService?.broadcastSpeech(text);
+      } else {
+        // Give the user their text back instead of silently dropping it
+        setChatInput(text);
+        showMediaStatus('⚠️', 'Message not sent. Please try again.', '#EF4444');
       }
     } else {
       // AI Companion Chat Pipeline
@@ -587,7 +670,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const reason =
+            res.status === 401
+              ? 'Sign in with an account to chat with your companion.'
+              : data.message || data.error || 'Companion is unavailable right now. Try again shortly.';
+          setCompanionMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${reason}` }]);
+          return;
+        }
+
         const reply = data.response || "I'm right with you!";
         setCompanionMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
 
@@ -596,6 +688,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         }
       } catch (err) {
         console.error('Error in AI companion chat:', err);
+        setCompanionMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '⚠️ Could not reach your companion. Check your connection.' },
+        ]);
       } finally {
         setIsAiThinking(false);
       }
@@ -618,7 +714,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         {guestModalOpen && (
           <NeoModal
             isOpen={guestModalOpen}
-            onClose={() => {}}
+            onClose={handleDismissGuestModal}
             title="Join Space: Choose Your Character"
           >
             <div className={styles.characterSetupContent}>
@@ -776,17 +872,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       <footer className={styles.bottomDock}>
         <button
           className={`${styles.dockBtn} ${isMicOn ? styles.dockBtnActiveMic : ''}`}
-          onClick={async () => {
-            const willBeOn = !isMicOn;
-            if (willBeOn) {
-              playUnmuteSound();
-              showMediaStatus('🎙️', 'Microphone is ON (Broadcasting)', '#22C55E');
-            } else {
-              playMuteSound();
-              showMediaStatus('🔇', 'Microphone Muted', '#EF4444');
-            }
-            await getLiveKit().toggleMicrophone();
-          }}
+          onClick={handleToggleMic}
+          aria-pressed={isMicOn}
           title={isMicOn ? 'Microphone: ON (Broadcasting) - Click to Mute' : 'Microphone: OFF (Muted) - Click to Unmute'}
           aria-label={isMicOn ? 'Microphone: ON (Broadcasting) - Click to Mute' : 'Microphone: OFF (Muted) - Click to Unmute'}
         >
@@ -796,17 +883,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
         <button
           className={`${styles.dockBtn} ${isCamOn ? styles.dockBtnActiveCam : ''}`}
-          onClick={async () => {
-            const willBeOn = !isCamOn;
-            if (willBeOn) {
-              playScreenShareSound();
-              showMediaStatus('📷', 'Camera is ON (Preview in PiP)', '#38BDF8');
-            } else {
-              playMuteSound();
-              showMediaStatus('🚫', 'Camera Turned Off', '#94A3B8');
-            }
-            await getLiveKit().toggleCamera();
-          }}
+          onClick={handleToggleCam}
+          aria-pressed={isCamOn}
           title={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
           aria-label={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
         >
@@ -816,17 +894,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
         <button
           className={`${styles.dockBtn} ${isScreenShareOn ? styles.dockBtnActive : ''}`}
-          onClick={async () => {
-            const willBeOn = !isScreenShareOn;
-            if (willBeOn) {
-              playScreenShareSound();
-              showMediaStatus('📺', 'Screen Share Active', '#F59E0B');
-            } else {
-              playMuteSound();
-              showMediaStatus('🛑', 'Screen Share Stopped', '#94A3B8');
-            }
-            await getLiveKit().toggleScreenShare();
-          }}
+          onClick={handleToggleScreenShare}
+          aria-pressed={isScreenShareOn}
           title={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
           aria-label={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
         >
@@ -996,7 +1065,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
               />
-              <button type="submit" className={styles.sendBtn}>
+              <button type="submit" className={styles.sendBtn} disabled={!chatInput.trim() || (activeChannel === 'companion' && isAiThinking)}>
                 Send
               </button>
             </form>
@@ -1008,7 +1077,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {buildModeOpen && (
         <div className={styles.buildPalette}>
           <NeoCard className={styles.paletteCard}>
-            <div className={styles.paletteTitle}>Pick Furniture (Click Map to Place)</div>
+            <div className={styles.paletteTitle}>
+              {selectedFurniture
+                ? `Placing ${formatFurnitureLabel(selectedFurniture)}: click the map`
+                : 'Pick Furniture (Click Map to Place)'}
+            </div>
             <div className={styles.furnitureList}>
               {(
                 [
@@ -1033,9 +1106,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 <button
                   key={f}
                   className={`${styles.furnBtn} ${selectedFurniture === f ? styles.furnBtnActive : ''}`}
-                  onClick={() => setSelectedFurniture(f)}
+                  onClick={() => setSelectedFurniture(selectedFurniture === f ? null : f)}
+                  aria-pressed={selectedFurniture === f}
                 >
-                  {f}
+                  {formatFurnitureLabel(f)}
                 </button>
               ))}
             </div>
@@ -1069,8 +1143,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 theme: space?.mapTheme,
                 name: space?.name,
               });
-              navigator.clipboard.writeText(url);
-              showMediaStatus('📋', 'Copied invite link to clipboard!', '#3B82F6');
+              copyToClipboard(url, 'Copied invite link to clipboard!');
             }}
           >
             📋 Copy Invite Link
@@ -1356,6 +1429,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     key={track.id}
                     className={`${styles.trackItem} ${isActive ? styles.trackItemActive : ''}`}
                     onClick={() => isMapOwner && PlaylistService.playTrack(track)}
+                    onKeyDown={(e) => {
+                      if (isMapOwner && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        PlaylistService.playTrack(track);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={isMapOwner ? 0 : -1}
+                    aria-disabled={!isMapOwner}
+                    aria-current={isActive ? 'true' : undefined}
                     style={isMapOwner ? undefined : { cursor: 'not-allowed' }}
                   >
                     <div className={styles.trackItemLeft}>
@@ -1402,11 +1485,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                           className={styles.trackDeleteBtn}
                           title="Delete Custom Track"
                           aria-label="Delete Custom Track"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
                             if (confirm(`Remove "${track.title}" from space soundtrack?`)) {
-                              PlaylistService.deleteTrack(track.id, space?.id || '', session);
-                              showMediaStatus('🗑️', `Deleted "${track.title}"`, '#EF4444');
+                              try {
+                                await PlaylistService.deleteTrack(track.id, space?.id || '', session);
+                                showMediaStatus('🗑️', `Deleted "${track.title}"`, '#EF4444');
+                              } catch {
+                                showMediaStatus('⚠️', `Could not delete "${track.title}"`, '#EF4444');
+                              }
                             }
                           }}
                         >
@@ -1425,7 +1512,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {/* Guest Character Setup Modal on Direct Link */}
       <NeoModal
         isOpen={guestModalOpen}
-        onClose={() => {}}
+        onClose={handleDismissGuestModal}
         title="Join Space: Choose Your Character"
       >
         <div className={styles.characterSetupContent}>
@@ -1572,11 +1659,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     { displayName: session.displayName, avatarConfig: session.avatarConfig },
                     { displayName: selectedPlayer.displayName, avatarConfig: selectedPlayer.avatarConfig }
                   );
-                  if (syncService) {
-                    syncService.broadcastFriendRequest(selectedPlayer.userId);
-                  }
                   setFriendReqSending(false);
                   if (res.success) {
+                    syncService?.broadcastFriendRequest(selectedPlayer.userId);
                     setFriendReqSent(true);
                     setFriendReqStatus(res.message || 'Friend request sent! 🎉');
                     showMediaStatus('🤝', res.message || 'Friend request sent! 🎉', '#22C55E');
@@ -1620,15 +1705,20 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 size="md"
                 onClick={async () => {
                   if (!session) return;
-                  await FriendService.respondToRequest(
-                    incomingInGameReq.requestId,
-                    'accept',
-                    {
-                      userId: session.id,
-                      displayName: session.displayName,
-                      avatarConfig: session.avatarConfig,
-                    }
-                  );
+                  try {
+                    await FriendService.respondToRequest(
+                      incomingInGameReq.requestId,
+                      'accept',
+                      {
+                        userId: session.id,
+                        displayName: session.displayName,
+                        avatarConfig: session.avatarConfig,
+                      }
+                    );
+                  } catch {
+                    showMediaStatus('⚠️', 'Could not accept the request. Try again.', '#EF4444');
+                    return;
+                  }
                   if (syncService) {
                     syncService.broadcastFriendResponse(
                       incomingInGameReq.requestId,
@@ -1646,7 +1736,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 variant="secondary"
                 size="md"
                 onClick={async () => {
-                  await FriendService.respondToRequest(incomingInGameReq.requestId, 'decline');
+                  try {
+                    await FriendService.respondToRequest(incomingInGameReq.requestId, 'decline');
+                  } catch {
+                    // Declining is best-effort; the request simply stays pending
+                  }
                   setIncomingInGameReq(null);
                 }}
               >
