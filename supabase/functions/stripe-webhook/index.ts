@@ -15,8 +15,13 @@ serve(async (req: Request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  if (!endpointSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET is not set; refusing unsigned webhook");
+    return new Response("Webhook not configured", { status: 500 });
+  }
+
   const signature = req.headers.get("stripe-signature");
-  if (!signature && endpointSecret) {
+  if (!signature) {
     return new Response("Missing stripe-signature header", { status: 400 });
   }
 
@@ -29,12 +34,7 @@ serve(async (req: Request) => {
   let event: StripeEvent;
 
   try {
-    if (endpointSecret) {
-      event = await stripe.webhooks.constructEventAsync(rawBody, signature!, endpointSecret);
-    } else {
-      // In local dev without webhook secret set yet, parse raw payload
-      event = JSON.parse(rawBody) as StripeEvent;
-    }
+    event = await stripe.webhooks.constructEventAsync(rawBody, signature, endpointSecret);
   } catch (err: any) {
     console.error(`Webhook signature verification failed: ${err.message}`);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
