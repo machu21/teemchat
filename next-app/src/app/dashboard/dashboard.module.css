@@ -150,73 +150,133 @@
   gap: 12px;
 }
 
-.spaceGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+.localGuestNotice {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  background-color: var(--card-inner);
+  border: 2px solid #F59E0B;
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 3px 3.5px 0 #F59E0B;
 }
 
-.spaceCard {
+/* Space list (rows) */
+.spaceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  background-color: var(--card-bg);
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: var(--neo-shadow);
+  overflow: hidden;
 }
 
-.spaceCardHeader {
+.spaceRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--card-border);
+  transition: background-color 0.12s ease;
 }
 
-.spaceCapacity {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-muted);
+.spaceRow:last-child {
+  border-bottom: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spaceRow:hover {
+    background-color: var(--card-inner);
+  }
+}
+
+.spaceRowIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+}
+
+.spaceRowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spaceRowTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .spaceName {
-  font-size: 1.25rem;
+  margin: 0;
+  font-size: 1.02rem;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .spaceDesc {
-  font-size: 0.88rem;
+  margin: 0;
+  font-size: 0.84rem;
   color: var(--text-muted);
-  line-height: 1.4;
-  min-height: 2.8em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.zoneTagRow {
+.spaceRowMeta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  margin: 6px 0;
-}
-
-.zoneTag {
-  background-color: var(--card-inner);
-  border: 1px solid var(--card-border);
-  border-radius: var(--neo-radius-sm);
-  padding: 4px 8px;
   font-size: 0.75rem;
   font-weight: 700;
-}
-
-.spaceCardFooter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px dashed var(--text-subtle);
-  padding-top: 12px;
-  margin-top: auto;
-}
-
-.joinCodeText {
-  font-size: 0.8rem;
-  font-weight: 700;
   color: var(--text-subtle);
+}
+
+.spaceRowActions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Pagination */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.pagerStatus {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-main);
+  min-width: 110px;
+  text-align: center;
+}
+
+.pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .loading {
@@ -344,15 +404,7 @@
   text-align: center;
 }
 
-/* Copy invite link on space cards */
-.joinCodeGroup {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-width: 0;
-}
-
+/* Copy invite link on space rows */
 .copyCodeBtn {
   padding: 4px 8px;
   min-height: 28px;
@@ -375,6 +427,49 @@
 .copyCodeBtn:focus-visible {
   outline: 2px solid var(--card-border);
   outline-offset: 2px;
+}
+
+.deleteSpaceBtn {
+  padding: 4px 8px;
+  min-height: 28px;
+  font-size: 0.85rem;
+  line-height: 1;
+  background-color: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deleteSpaceBtn:hover {
+    background-color: #FEE2E2;
+  }
+}
+
+.deleteSpaceBtn:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
+}
+
+.deleteSpaceBtn:focus-visible {
+  outline: 2px solid var(--card-border);
+  outline-offset: 2px;
+}
+
+.deleteConfirmText {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* Empty state */
@@ -417,15 +512,32 @@
 }
 
 /* Loading skeletons */
-.skeletonCard {
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--card-border);
+}
+
+.skeletonRow:last-child {
+  border-bottom: none;
+}
+
+.skeletonIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background-color: var(--card-inner);
+  border-radius: var(--neo-radius-sm);
+  animation: skeletonPulse 1.2s ease-in-out infinite;
+}
+
+.skeletonRowText {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background-color: var(--card-bg);
-  border: var(--neo-border-width, 2px) solid var(--card-border);
-  border-radius: var(--neo-radius);
-  box-shadow: var(--neo-shadow);
+  gap: 8px;
 }
 
 .skeletonLine {
@@ -436,20 +548,15 @@
   animation: skeletonPulse 1.2s ease-in-out infinite;
 }
 
-.skeletonShort {
-  width: 30%;
-}
-
 .skeletonTitle {
   height: 20px;
   width: 65%;
 }
 
 .skeletonButton {
+  flex-shrink: 0;
   height: 36px;
-  width: 40%;
-  align-self: flex-end;
-  margin-top: 8px;
+  width: 90px;
 }
 
 @keyframes skeletonPulse {
@@ -463,16 +570,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeletonLine {
+  .skeletonLine,
+  .skeletonIcon {
     animation: none;
   }
-}
-
-/* Enhanced Space Card Styles */
-.spaceHeaderRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .pinBtn {
@@ -500,24 +601,14 @@
   opacity: 1;
 }
 
-.liveMembersRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  background-color: var(--card-inner);
-  border: 1.5px solid var(--card-border);
-  border-radius: var(--neo-radius-sm);
-  margin-top: 4px;
-}
-
 .avatarStack {
   display: flex;
   align-items: center;
 }
 
 .avatarStackItem {
-  margin-right: -8px;
+  display: inline-flex;
+  margin-right: -6px;
   border: 1.5px solid var(--card-border);
   border-radius: 50%;
   overflow: hidden;
@@ -526,11 +617,11 @@
 
 .liveCountText {
   font-size: 0.75rem;
+  gap: 12px;
   font-weight: 800;
   color: #059669;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
 }
 
 [data-theme='dark'] .liveCountText {
@@ -639,9 +730,8 @@
     gap: 22px;
   }
 
-  .spaceGrid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+  .spaceRow {
+    padding: 12px;
   }
 }
 
@@ -730,36 +820,33 @@
     min-height: 44px;
   }
 
-  .spaceGrid {
-    grid-template-columns: 1fr;
-    gap: 14px;
+  .spaceRow {
+    flex-wrap: wrap;
+    gap: 10px 12px;
   }
 
-  .spaceCard {
-    padding: 14px;
-    gap: 10px;
+  .spaceRowMain {
+    flex-basis: calc(100% - 56px);
   }
 
-  .spaceName {
-    font-size: 1.15rem;
+  .spaceRowActions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
-  .spaceDesc {
-    min-height: auto;
-    font-size: 0.82rem;
-  }
-
-  .pinBtn {
-    width: 40px;
-    height: 40px;
+  .pinBtn,
+  .copyCodeBtn,
+  .deleteSpaceBtn {
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
   }
 
-  .spaceCardFooter {
-    padding-top: 10px;
+  .spaceRowActions > button:last-child {
+    min-height: 44px;
   }
 
   .floatingMessengerBtn {
@@ -813,18 +900,16 @@
     grid-template-columns: 1fr;
   }
 
-  .spaceCard {
-    padding: 12px;
+  .spaceRowIcon {
+    display: none;
   }
 
-  .spaceCardFooter {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+  .spaceRowMain {
+    flex-basis: 100%;
   }
 
-  .spaceCardFooter button {
-    width: 100%;
+  .spaceRowActions > button:last-child {
+    flex: 1;
   }
 
   .floatingMessengerBtn {

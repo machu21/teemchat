@@ -234,6 +234,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         p_username: targetUsername,
       });
 
+      if (rpcErr) {
+        // Without a DB account the guest can't persist friends or chat; make the cause visible
+        console.error('Guest provisioning failed, using a local-only guest:', rpcErr.message);
+      }
+
       if (!rpcErr && res && typeof res === 'object') {
         const email = (res as { email: string }).email;
         const { data: authRes, error: authErr } = await supabase.auth.signInWithPassword({

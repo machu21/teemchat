@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useEffect, useState, useRef, useCallback, use, useMemo } from 'react';
 import styles from './world.module.css';
 import { useSessionStore } from '@/stores/session';
+import { useSocialStore } from '@/stores/social';
 import { SpaceService } from '@/lib/services/spaces';
 import { SpaceModel, defaultHQ } from '@/lib/models/space';
 import { InviteLinkService } from '@/lib/services/invite';
@@ -283,6 +284,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [friendReqSending, setFriendReqSending] = useState(false);
   const [friendReqSent, setFriendReqSent] = useState(false);
   const [friendReqStatus, setFriendReqStatus] = useState<string | null>(null);
+  const socialFriends = useSocialStore((s) => s.friends);
+  const isSelectedPlayerFriend = Boolean(
+    selectedPlayer && socialFriends.some((f) => f.userId === selectedPlayer.userId)
+  );
   const [incomingInGameReq, setIncomingInGameReq] = useState<{
     requestId: string;
     senderId: string;
@@ -518,8 +523,20 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         showMediaStatus('🎉', `${res.receiverName} accepted your friend request!`, '#22C55E');
         setFriendReqSent(true);
         setFriendReqStatus(`✓ You and ${res.receiverName} are now friends!`);
+        useSocialStore.getState().refreshFriends(session.id).catch(() => {});
       };
       if (!isAccountUser) {
+        // Local-only guests have no friendships table; keep the friend on this device
+        FriendService.saveTemporaryFriend({
+          id: `temp_friend_${res.receiverId}_${Date.now()}`,
+          userId: res.receiverId,
+          username: res.receiverId,
+          displayName: res.receiverName,
+          status: 'available',
+          avatarConfig: res.receiverAvatar,
+          isOnline: true,
+          isTemporary: true,
+        });
         show();
         return;
       }
@@ -627,6 +644,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     });
 
     return () => {
+      PlaylistService.reset();
       sync.disconnect();
       livekit.leaveSpaceRoom().catch(() => {});
       if (roomSub) {
@@ -634,6 +652,13 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       }
     };
   }, [session, space, spaceCode, getLiveKit, showMediaStatus]);
+
+  // Load the friends list so the player card can show "✓ Friends"
+  const sessionId = session?.id;
+  useEffect(() => {
+    if (!sessionId) return;
+    useSocialStore.getState().refreshFriends(sessionId).catch(() => {});
+  }, [sessionId]);
 
   // 3. 30-Second TTL chat auto-pruner
   useEffect(() => {
@@ -714,7 +739,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           const reason =
-            res.status === 401
+            res.status === 401 || res.status === 403
               ? 'Sign in with an account to chat with your companion.'
               : data.message || data.error || 'Companion is unavailable right now. Try again shortly.';
           setCompanionMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${reason}` }]);
@@ -742,6 +767,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const handleProximityChanged = useCallback((distances: Map<string, number>) => {
     getLiveKit().updateProximityAudio(distances);
   }, [getLiveKit]);
+
+  // Guests (guest_* accounts) don't get an AI companion; the API enforces this too.
+  const companionEnabled = Boolean(session) && !session?.isGuest;
 
   const handleCompanionTap = useCallback(() => {
     setActiveChannel('companion');
@@ -819,14 +847,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           space={space}
           session={session}
           syncService={syncService}
-          companion={companion}
+          companion={companionEnabled ? companion : null}
           buildMode={buildModeOpen}
           selectedFurniture={selectedFurniture}
           targetTeleport={targetTeleport}
           initialTargetZone={initialTargetZone}
           isMicOn={isMicOn}
           isCamOn={isCamOn}
-          onCompanionTap={handleCompanionTap}
+          onCompanionTap={companionEnabled ? handleCompanionTap : undefined}
           onRemotePlayerTap={(player) => {
             setSelectedPlayer(player);
             setFriendReqSent(false);
@@ -1021,17 +1049,19 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           <RocketIcon size={20} />
         </button>
 
-        <button
-          className={styles.dockBtn}
-          onClick={() => {
-            setActiveChannel('companion');
-            setChatOpen(true);
-          }}
-          title="AI Companion"
-          aria-label="AI Companion"
-        >
-          <BotIcon size={20} />
-        </button>
+        {companionEnabled && (
+          <button
+            className={styles.dockBtn}
+            onClick={() => {
+              setActiveChannel('companion');
+              setChatOpen(true);
+            }}
+            title="AI Companion"
+            aria-label="AI Companion"
+          >
+            <BotIcon size={20} />
+          </button>
+        )}
       </footer>
 
       {/* Roblox-Style Chat Box Overlay */}
@@ -1052,12 +1082,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     <span className={styles.tabUnreadDot}>{unreadChatCount > 9 ? '9+' : unreadChatCount}</span>
                   )}
                 </button>
-                <button
-                  className={`${styles.tabBtn} ${activeChannel === 'companion' ? styles.tabBtnActive : ''}`}
-                  onClick={() => setActiveChannel('companion')}
-                >
-                  AI Companion
-                </button>
+                {companionEnabled && (
+                  <button
+                    className={`${styles.tabBtn} ${activeChannel === 'companion' ? styles.tabBtnActive : ''}`}
+                    onClick={() => setActiveChannel('companion')}
+                  >
+                    AI Companion
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -1690,7 +1722,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               <NeoButton
                 variant="primary"
                 size="lg"
-                disabled={friendReqSending || friendReqSent}
+                disabled={friendReqSending || friendReqSent || isSelectedPlayerFriend}
                 onClick={async () => {
                   if (!session) return;
                   setFriendReqSending(true);
@@ -1712,7 +1744,13 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   }
                 }}
               >
-                {friendReqSent ? '✓ Request Sent' : friendReqSending ? 'Sending Request...' : '🤝 Add Friend'}
+                {isSelectedPlayerFriend
+                  ? '✓ Friends'
+                  : friendReqSent
+                    ? '✓ Request Sent'
+                    : friendReqSending
+                      ? 'Sending Request...'
+                      : '🤝 Add Friend'}
               </NeoButton>
 
               {friendReqStatus && (
@@ -1746,20 +1784,25 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 size="md"
                 onClick={async () => {
                   if (!session) return;
-                  try {
-                    await FriendService.respondToRequest(
-                      incomingInGameReq.requestId,
-                      'accept',
-                      {
-                        userId: session.id,
-                        displayName: session.displayName,
-                        avatarConfig: session.avatarConfig,
-                      }
-                    );
-                  } catch {
+                  const accepted = await FriendService.respondToRequest(
+                    incomingInGameReq.requestId,
+                    'accept',
+                    {
+                      userId: session.id,
+                      displayName: session.displayName,
+                      avatarConfig: session.avatarConfig,
+                    },
+                    {
+                      senderId: incomingInGameReq.senderId,
+                      senderName: incomingInGameReq.senderName,
+                      senderAvatar: incomingInGameReq.senderAvatar,
+                    }
+                  );
+                  if (!accepted) {
                     showMediaStatus('⚠️', 'Could not accept the request. Try again.', '#EF4444');
                     return;
                   }
+                  useSocialStore.getState().refreshFriends(session.id).catch(() => {});
                   if (syncService) {
                     syncService.broadcastFriendResponse(
                       incomingInGameReq.requestId,

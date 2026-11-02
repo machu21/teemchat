@@ -62,8 +62,10 @@ export const SpaceService = {
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (error || !data || data.length === 0) {
-        return [defaultHQ()];
+      // No placeholder HQ: an empty result shows the dashboard's empty state
+      if (error || !data) {
+        if (error) console.warn('Spaces fetch notice:', error.message);
+        return [];
       }
 
       return data.map((item) => ({
@@ -86,7 +88,7 @@ export const SpaceService = {
       }));
     } catch (e) {
       console.error('Error fetching spaces:', e);
-      return [defaultHQ()];
+      return [];
     }
   },
 
@@ -302,7 +304,14 @@ export const SpaceService = {
     return true;
   },
 
-  async deleteSpace(id: string): Promise<boolean> {
+  isSpaceOwner(space: SpaceModel, session: UserSession | null): boolean {
+    if (!session) return false;
+    if (space.ownerId && space.ownerId === session.id) return true;
+    // Local-only guest maps are stamped 'guest' when provisioning failed
+    return Boolean(session.isGuest && space.isTemporary && space.ownerId === 'guest');
+  },
+
+  async deleteSpace(id: string, session?: UserSession | null): Promise<boolean> {
     if (guestTemporaryMap && guestTemporaryMap.id === id) {
       if (UUID_REGEX.test(id)) {
         await supabase.from('spaces').delete().eq('id', id);
@@ -316,8 +325,11 @@ export const SpaceService = {
       return true;
     }
 
-    const { error } = await supabase.from('spaces').delete().eq('id', id);
-    return !error;
+    let query = supabase.from('spaces').delete().eq('id', id);
+    if (session?.id) query = query.eq('owner_id', session.id);
+    // RLS filters out non-owned rows silently, so confirm a row was actually removed
+    const { data, error } = await query.select('id');
+    return !error && Array.isArray(data) && data.length > 0;
   },
 
   async getSpaceByCodeOrSlug(

@@ -27,6 +27,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid user token' }, { status: 401 });
     }
 
+    // Guest sessions don't get an AI companion. The email domain is set by provision_guest_account
+    // and is the authoritative signal; metadata flags are checked as a fallback.
+    const isGuest =
+      Boolean(user.is_anonymous) ||
+      Boolean(user.app_metadata?.is_guest) ||
+      Boolean(user.user_metadata?.is_guest) ||
+      Boolean(user.email?.endsWith('@guest.teemchat.local'));
+    if (isGuest) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Sign in with an account to chat with your companion.' },
+        { status: 403 }
+      );
+    }
+
     const userRate = checkRateLimit(`user:ai:${user.id}`, RATE_LIMITS.USER_AI_CHAT);
     if (!userRate.success) {
       return NextResponse.json(

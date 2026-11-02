@@ -3,32 +3,11 @@ import { GroupConversationModel, SocialMessageModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-const DEMO_GROUPS: GroupConversationModel[] = [
-  {
-    id: 'demo-squad-1',
-    name: 'Pixel Explorers HQ',
-    icon: '🚀',
-    createdBy: 'bot-companion-1',
-    lastMessageAt: new Date().toISOString(),
-    lastPreview: 'Ready for the campfire hangout tonight?',
-    membersCount: 4,
-  },
-  {
-    id: 'demo-squad-2',
-    name: 'Retro Game Night',
-    icon: '👾',
-    createdBy: 'bot-companion-2',
-    lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
-    lastPreview: 'Arcade zone tournament at 8PM!',
-    membersCount: 3,
-  },
-];
-
 export class GroupChatService {
   private static localMessageCache: Map<string, SocialMessageModel[]> = new Map();
 
   static async getUserGroups(userId: string): Promise<GroupConversationModel[]> {
-    if (!userId) return DEMO_GROUPS;
+    if (!userId) return [];
 
     try {
       const { data: memberRows, error: mErr } = await supabase
@@ -37,7 +16,7 @@ export class GroupChatService {
         .eq('user_id', userId);
 
       if (mErr || !memberRows || memberRows.length === 0) {
-        return DEMO_GROUPS;
+        return [];
       }
 
       const convIds = memberRows.map((r) => r.conversation_id);
@@ -49,7 +28,7 @@ export class GroupChatService {
         .order('last_message_at', { ascending: false });
 
       if (cErr || !convs || convs.length === 0) {
-        return DEMO_GROUPS;
+        return [];
       }
 
       return convs.map((c) => ({
@@ -62,8 +41,8 @@ export class GroupChatService {
         membersCount: 3,
       }));
     } catch (e) {
-      console.warn('Error fetching group conversations, fallback to demo squads:', e);
-      return DEMO_GROUPS;
+      console.warn('Error fetching group conversations, returning none:', e);
+      return [];
     }
   }
 

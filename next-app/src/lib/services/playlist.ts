@@ -475,6 +475,28 @@ export class PlaylistService {
     this.notify();
   }
 
+  // Fully tears down playback when leaving a space so music never leaks across pages.
+  // Volume / mute are user preferences and are intentionally kept.
+  static reset(): void {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      if (typeof this.audio.load === 'function') {
+        try {
+          this.audio.load();
+        } catch {
+          // Ignore environments without a media pipeline (e.g. jsdom)
+        }
+      }
+    }
+    this.currentTrack = null;
+    this.isPlaying = false;
+    this.currentTime = 0;
+    this.duration = 0;
+    this.playlist = [];
+    this.notify();
+  }
+
   static seek(seconds: number): void {
     const target = Math.max(0, Math.min(this.duration || 1000, seconds));
     if (this.audio && !isNaN(seconds)) {

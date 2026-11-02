@@ -33,7 +33,15 @@ export function NotificationBell() {
 
   const handleAccept = async (requestId: string) => {
     if (!session) return;
-    await FriendService.respondToRequest(requestId, 'accept');
+    const req = incomingRequests.find((r) => r.id === requestId);
+    await FriendService.respondToRequest(
+      requestId,
+      'accept',
+      { userId: session.id, displayName: session.displayName, avatarConfig: session.avatarConfig },
+      req
+        ? { senderId: req.senderId, senderName: req.sender?.displayName, senderAvatar: req.sender?.avatarConfig }
+        : undefined
+    );
     await Promise.all([
       refreshRequests(session.id),
       refreshFriends(session.id),

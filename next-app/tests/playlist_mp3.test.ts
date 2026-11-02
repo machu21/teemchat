@@ -183,6 +183,21 @@ describe('Sound Tripping & MP3 Upload Studio', () => {
     expect(PlaylistService.isPlaying).toBe(false);
   });
 
+  it('reset() stops playback and clears space playlist when leaving a space', async () => {
+    await PlaylistService.loadPlaylist('test-leave-space');
+    PlaylistService.setVolume(0.4);
+    PlaylistService.playTrack(PlaylistService.playlist[0]);
+
+    PlaylistService.reset();
+
+    expect(PlaylistService.isPlaying).toBe(false);
+    expect(PlaylistService.currentTrack).toBeNull();
+    expect(PlaylistService.playlist).toHaveLength(0);
+    expect(PlaylistService.currentTime).toBe(0);
+    // User preference survives the reset
+    expect(PlaylistService.volume).toBe(0.4);
+  });
+
   it('deletes custom track, updates playlist and revokes object URL', async () => {
     const revokeObjectURLSpy = vi.fn();
     globalThis.URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/mock-track-blob');

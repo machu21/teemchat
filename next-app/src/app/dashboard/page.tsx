@@ -8,7 +8,6 @@ import { SpaceService } from '@/lib/services/spaces';
 import { InviteLinkService } from '@/lib/services/invite';
 import { SpaceModel, spaceTiers } from '@/lib/models/space';
 import { NeoButton } from '@/components/neo/NeoButton';
-import { NeoCard } from '@/components/neo/NeoCard';
 import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoInput } from '@/components/neo/NeoInput';
@@ -37,6 +36,9 @@ import { MapSelector } from '@/components/neo/MapSelector';
 import { getMapConfig, MapThemeId } from '@/game/map/mapRegistry';
 import { useRouter } from 'next/navigation';
 
+const SPACES_PAGE_SIZE = 8;
+const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { session, initSession, signOut, updateProfile } = useSessionStore();
@@ -48,6 +50,9 @@ export default function DashboardPage() {
   // Space filtering & favorites state
   const [activeSpaceTab, setActiveSpaceTab] = useState<SpaceCategoryTab>('all');
   const [spaceSearch, setSpaceSearch] = useState('');
+  const [spacePage, setSpacePage] = useState(1);
+  // Guests whose provisioning failed get a non-UUID id and live only in this browser
+  const isLocalOnlyGuest = Boolean(session?.isGuest && !UUID_REGEX.test(session.id));
   const [pinnedSpaceIds, setPinnedSpaceIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -74,6 +79,9 @@ export default function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [copiedSpaceId, setCopiedSpaceId] = useState<string | null>(null);
+  const [spaceToDelete, setSpaceToDelete] = useState<SpaceModel | null>(null);
+  const [isDeletingSpace, setIsDeletingSpace] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -219,6 +227,41 @@ export default function DashboardPage() {
     }
   };
 
+  const openDeleteModal = (space: SpaceModel) => {
+    setDeleteError('');
+    setSpaceToDelete(space);
+  };
+
+  const handleDeleteSpace = async () => {
+    if (!spaceToDelete || !SpaceService.isSpaceOwner(spaceToDelete, session)) return;
+    setIsDeletingSpace(true);
+    setDeleteError('');
+    try {
+      const deleted = await SpaceService.deleteSpace(spaceToDelete.id, session);
+      if (!deleted) {
+        setDeleteError('Could not delete this space. Only the owner can delete it.');
+        return;
+      }
+      const deletedId = spaceToDelete.id;
+      setSpaces((prev) => prev.filter((s) => s.id !== deletedId));
+      setPinnedSpaceIds((prev) => {
+        if (!prev.includes(deletedId)) return prev;
+        const updated = prev.filter((id) => id !== deletedId);
+        try {
+          localStorage.setItem('teem_pinned_spaces', JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+        return updated;
+      });
+      setSpaceToDelete(null);
+    } catch {
+      setDeleteError('Could not delete this space. Check your connection and try again.');
+    } finally {
+      setIsDeletingSpace(false);
+    }
+  };
+
   const handleJoinSpace = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -290,6 +333,7 @@ export default function DashboardPage() {
   const clearFilters = () => {
     setSpaceSearch('');
     setActiveSpaceTab('all');
+    setSpacePage(1);
   };
 
   // Filtered spaces computation
@@ -317,6 +361,15 @@ export default function DashboardPage() {
       return true;
     });
   }, [spaces, spaceSearch, activeSpaceTab, session, pinnedSpaceIds]);
+
+  // Pagination over the filtered list; clamping keeps the page valid when filters shrink the list
+  const totalPages = Math.max(1, Math.ceil(filteredSpaces.length / SPACES_PAGE_SIZE));
+  const currentPage = Math.min(spacePage, totalPages);
+  const pagedSpaces = useMemo(
+    () =>
+      filteredSpaces.slice((currentPage - 1) * SPACES_PAGE_SIZE, currentPage * SPACES_PAGE_SIZE),
+    [filteredSpaces, currentPage]
+  );
 
   const counts = useMemo(() => {
     return {
@@ -406,6 +459,13 @@ export default function DashboardPage() {
 
       {/* Main Content Area */}
       <main className={styles.main}>
+        {isLocalOnlyGuest && (
+          <div className={styles.localGuestNotice} role="status">
+            ⚠️ Your guest session couldn&apos;t reach the server, so friends and chats are saved on
+            this device only. Sign out and join again to get a full guest account.
+          </div>
+        )}
+
         {/* Friends & Live Presence Strip */}
         <FriendsHubPanel />
 
@@ -431,21 +491,28 @@ export default function DashboardPage() {
         {/* Space Filtering Tabs & Search */}
         <SpaceTabsFilter
           activeTab={activeSpaceTab}
-          onTabChange={setActiveSpaceTab}
+          onTabChange={(tab) => {
+            setActiveSpaceTab(tab);
+            setSpacePage(1);
+          }}
           searchQuery={spaceSearch}
-          onSearchChange={setSpaceSearch}
+          onSearchChange={(q) => {
+            setSpaceSearch(q);
+            setSpacePage(1);
+          }}
           counts={counts}
         />
 
-        {/* Space Grid */}
+        {/* Space List */}
         {isLoading ? (
-          <div className={styles.spaceGrid} aria-busy="true" aria-label="Loading your virtual worlds">
+          <div className={styles.spaceList} aria-busy="true" aria-label="Loading your virtual worlds">
             {[0, 1, 2].map((i) => (
-              <div key={i} className={styles.skeletonCard}>
-                <div className={`${styles.skeletonLine} ${styles.skeletonShort}`} />
-                <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`} />
-                <div className={styles.skeletonLine} />
-                <div className={styles.skeletonLine} />
+              <div key={i} className={styles.skeletonRow}>
+                <div className={styles.skeletonIcon} />
+                <div className={styles.skeletonRowText}>
+                  <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`} />
+                  <div className={styles.skeletonLine} />
+                </div>
                 <div className={`${styles.skeletonLine} ${styles.skeletonButton}`} />
               </div>
             ))}
@@ -478,24 +545,61 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className={styles.spaceGrid}>
-            {filteredSpaces.map((space) => {
-              const tierInfo = spaceTiers[space.tier] || spaceTiers.free;
-              const isPinned = pinnedSpaceIds.includes(space.id);
+          <>
+            <ul className={styles.spaceList} aria-label="Virtual worlds">
+              {pagedSpaces.map((space) => {
+                const tierInfo = spaceTiers[space.tier] || spaceTiers.free;
+                const isPinned = pinnedSpaceIds.includes(space.id);
 
-              // Find friends in this space for live presence preview
-              const friendsInSpace = friends.filter(
-                (f) => f.currentSpace?.slug === space.slug || f.currentSpace?.slug === space.id
-              );
+                // Find friends in this space for live presence preview
+                const friendsInSpace = friends.filter(
+                  (f) => f.currentSpace?.slug === space.slug || f.currentSpace?.slug === space.id
+                );
 
-              const spaceMapConfig = getMapConfig(space.mapTheme);
+                const spaceMapConfig = getMapConfig(space.mapTheme);
 
-              return (
-                <NeoCard key={space.id} className={styles.spaceCard}>
-                  <div className={styles.spaceCardHeader}>
-                    <NeoBadge color={tierInfo.badgeColor}>{tierInfo.badgeText}</NeoBadge>
-                    <div className={styles.spaceHeaderRight}>
-                      <span className={styles.spaceCapacity}>👥 {space.maxCapacity} max</span>
+                return (
+                  <li key={space.id} className={styles.spaceRow}>
+                    <span
+                      className={styles.spaceRowIcon}
+                      style={{ borderColor: spaceMapConfig.badgeColor }}
+                      title={spaceMapConfig.name}
+                      aria-hidden="true"
+                    >
+                      {spaceMapConfig.icon}
+                    </span>
+
+                    <div className={styles.spaceRowMain}>
+                      <div className={styles.spaceRowTitleLine}>
+                        <h3 className={styles.spaceName}>{space.name}</h3>
+                        <NeoBadge color={tierInfo.badgeColor}>{tierInfo.badgeText}</NeoBadge>
+                      </div>
+                      <p className={styles.spaceDesc}>
+                        {space.description || spaceMapConfig.description}
+                      </p>
+                      <div className={styles.spaceRowMeta}>
+                        <span>{spaceMapConfig.name}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>👥 {space.maxCapacity} max</span>
+                        <span aria-hidden="true">·</span>
+                        {friendsInSpace.length > 0 ? (
+                          <span className={styles.liveCountText}>
+                            <span className={styles.avatarStack}>
+                              {friendsInSpace.slice(0, 3).map((f) => (
+                                <span key={f.id} className={styles.avatarStackItem}>
+                                  <PixelAvatar config={f.avatarConfig} size={18} />
+                                </span>
+                              ))}
+                            </span>
+                            {friendsInSpace.length} friends here
+                          </span>
+                        ) : (
+                          <span>Code: {space.slug}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.spaceRowActions}>
                       <button
                         className={`${styles.pinBtn} ${isPinned ? styles.pinned : ''}`}
                         onClick={() => togglePinSpace(space.id)}
@@ -505,68 +609,60 @@ export default function DashboardPage() {
                       >
                         {isPinned ? '📌' : '📍'}
                       </button>
-                    </div>
-                  </div>
-
-                  <h3 className={styles.spaceName}>{space.name}</h3>
-                  <p className={styles.spaceDesc}>
-                    {space.description || spaceMapConfig.description}
-                  </p>
-
-                  <div className={styles.zoneTagRow}>
-                    <span className={styles.zoneTag} style={{ borderColor: spaceMapConfig.badgeColor }}>
-                      {spaceMapConfig.icon} {spaceMapConfig.name}
-                    </span>
-                    {spaceMapConfig.zones.slice(0, 2).map((z) => (
-                      <span key={z.id} className={styles.zoneTag}>
-                        {z.tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Live Explorers Row */}
-                  <div className={styles.liveMembersRow}>
-                    <div className={styles.avatarStack}>
-                      {friendsInSpace.length > 0 ? (
-                        friendsInSpace.slice(0, 3).map((f) => (
-                          <div key={f.id} className={styles.avatarStackItem}>
-                            <PixelAvatar config={f.avatarConfig} size={22} />
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          Available to enter
-                        </span>
-                      )}
-                    </div>
-                    <span className={styles.liveCountText}>
-                      {friendsInSpace.length > 0 ? `🟢 ${friendsInSpace.length} friends here` : '🟢 Open Hub'}
-                    </span>
-                  </div>
-
-                  <div className={styles.spaceCardFooter}>
-                    <div className={styles.joinCodeGroup}>
-                      <span className={styles.joinCodeText}>Code: {space.slug}</span>
                       <button
                         type="button"
                         className={styles.copyCodeBtn}
                         onClick={() => handleCopySpaceLink(space)}
                         aria-label={`Copy invite link for ${space.name}`}
                       >
-                        {copiedSpaceId === space.id ? '✓ Copied' : '📋 Copy link'}
+                        {copiedSpaceId === space.id ? '✓ Copied' : '📋 Link'}
                       </button>
+                      {SpaceService.isSpaceOwner(space, session) && (
+                        <button
+                          type="button"
+                          className={styles.deleteSpaceBtn}
+                          onClick={() => openDeleteModal(space)}
+                          title="Delete space"
+                          aria-label={`Delete ${space.name}`}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                      <NeoButton
+                        variant="primary"
+                        onClick={() => router.push(`/space/${space.slug || space.id}`)}
+                        aria-label={`Enter ${space.name}`}
+                      >
+                        Enter →
+                      </NeoButton>
                     </div>
-                    <NeoButton
-                      variant="primary"
-                      onClick={() => router.push(`/space/${space.slug || space.id}`)}
-                    >
-                      Enter World →
-                    </NeoButton>
-                  </div>
-                </NeoCard>
-              );
-            })}
-          </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {totalPages > 1 && (
+              <nav className={styles.pager} aria-label="Spaces pagination">
+                <NeoButton
+                  variant="secondary"
+                  onClick={() => setSpacePage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  ← Prev
+                </NeoButton>
+                <span className={styles.pagerStatus} aria-live="polite">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <NeoButton
+                  variant="secondary"
+                  onClick={() => setSpacePage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next →
+                </NeoButton>
+              </nav>
+            )}
+          </>
         )}
       </main>
 
@@ -851,6 +947,35 @@ export default function DashboardPage() {
           <NeoButton variant="primary" size="lg" onClick={handleSaveAvatar} disabled={isSavingAvatar}>
             {isSavingAvatar ? 'Saving...' : 'Save Changes'}
           </NeoButton>
+        </div>
+      </NeoModal>
+
+      {/* Delete Space Confirmation Modal */}
+      <NeoModal
+        isOpen={spaceToDelete !== null}
+        onClose={() => {
+          if (!isDeletingSpace) setSpaceToDelete(null);
+        }}
+        title="Delete Space?"
+      >
+        <div className={styles.modalForm}>
+          {deleteError && <div className={styles.errorAlert}>{deleteError}</div>}
+          <p className={styles.deleteConfirmText}>
+            <strong>{spaceToDelete?.name}</strong> and everything in it (chat, furniture, settings)
+            will be permanently deleted. This can&apos;t be undone.
+          </p>
+          <div className={styles.deleteConfirmActions}>
+            <NeoButton
+              variant="ghost"
+              onClick={() => setSpaceToDelete(null)}
+              disabled={isDeletingSpace}
+            >
+              Cancel
+            </NeoButton>
+            <NeoButton variant="danger" onClick={handleDeleteSpace} disabled={isDeletingSpace}>
+              {isDeletingSpace ? 'Deleting...' : '🗑️ Delete Space'}
+            </NeoButton>
+          </div>
         </div>
       </NeoModal>
 

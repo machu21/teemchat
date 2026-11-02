@@ -104,7 +104,7 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
           const presence = onlineMap.get(f.userId);
           return {
             ...f,
-            isOnline: Boolean(presence) || f.userId.startsWith('bot-'),
+            isOnline: Boolean(presence),
             currentSpace: presence?.currentSpace || f.currentSpace,
             status: presence?.status || f.status,
             statusMessage: presence?.statusMessage || f.statusMessage,

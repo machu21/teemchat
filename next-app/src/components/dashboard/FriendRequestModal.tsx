@@ -70,17 +70,27 @@ export function FriendRequestModal() {
   const handleRespond = async (requestId: string, action: 'accept' | 'decline') => {
     if (!session) return;
     setStatusMessage(action === 'accept' ? 'Accepting...' : 'Declining...');
-    const ok = await FriendService.respondToRequest(requestId, action, {
-      userId: session.id,
-      displayName: session.displayName,
-      avatarConfig: session.avatarConfig,
-    });
+    const req = incomingRequests.find((r) => r.id === requestId);
+    const ok = await FriendService.respondToRequest(
+      requestId,
+      action,
+      {
+        userId: session.id,
+        displayName: session.displayName,
+        avatarConfig: session.avatarConfig,
+      },
+      req
+        ? { senderId: req.senderId, senderName: req.sender?.displayName, senderAvatar: req.sender?.avatarConfig }
+        : undefined
+    );
     if (ok) {
       await Promise.all([
         refreshRequests(session.id),
         refreshFriends(session.id),
       ]);
       setStatusMessage(action === 'accept' ? 'Friend added! 🎉' : 'Request declined.');
+    } else {
+      setStatusMessage('Could not update the request. Please try again.');
     }
   };
 
