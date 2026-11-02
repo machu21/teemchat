@@ -430,10 +430,12 @@
 }
 
 .deleteSpaceBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px 8px;
   min-height: 28px;
-  font-size: 0.85rem;
-  line-height: 1;
+  color: var(--text-main);
   background-color: var(--card-inner);
   border: 1.5px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
@@ -444,8 +446,15 @@
 
 @media (hover: hover) and (pointer: fine) {
   .deleteSpaceBtn:hover {
+    color: #B91C1C;
     background-color: #FEE2E2;
   }
+}
+
+.deleteBtnLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .deleteSpaceBtn:active {

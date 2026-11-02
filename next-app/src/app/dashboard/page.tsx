@@ -34,6 +34,7 @@ import { NotificationBell } from '@/components/dashboard/NotificationBell';
 import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
 import { MapSelector } from '@/components/neo/MapSelector';
 import { getMapConfig, MapThemeId } from '@/game/map/mapRegistry';
+import { TrashIcon } from '@/components/icons/LandingIcons';
 import { useRouter } from 'next/navigation';
 
 const SPACES_PAGE_SIZE = 8;
@@ -625,7 +626,7 @@ export default function DashboardPage() {
                           title="Delete space"
                           aria-label={`Delete ${space.name}`}
                         >
-                          🗑️
+                          <TrashIcon size={16} />
                         </button>
                       )}
                       <NeoButton
@@ -973,7 +974,13 @@ export default function DashboardPage() {
               Cancel
             </NeoButton>
             <NeoButton variant="danger" onClick={handleDeleteSpace} disabled={isDeletingSpace}>
-              {isDeletingSpace ? 'Deleting...' : '🗑️ Delete Space'}
+              {isDeletingSpace ? (
+                'Deleting...'
+              ) : (
+                <span className={styles.deleteBtnLabel}>
+                  <TrashIcon size={16} /> Delete Space
+                </span>
+              )}
             </NeoButton>
           </div>
         </div>
