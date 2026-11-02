@@ -454,45 +454,7 @@ export const SpaceService = {
       }
     } catch {}
 
-    // 7. Invite codes lookup in space_invites table
-    try {
-      if (!SAFE_LOOKUP_REGEX.test(q)) throw new Error('unsafe lookup');
-      const { data: invRow } = await supabase
-        .from('space_invites')
-        .select('space_id')
-        .ilike('code', q)
-        .limit(1)
-        .maybeSingle();
-
-      if (invRow?.space_id) {
-        const { data: byInvSpace } = await supabase
-          .from('spaces')
-          .select('*')
-          .eq('id', invRow.space_id)
-          .maybeSingle();
-
-        if (byInvSpace) {
-          return {
-            id: byInvSpace.id,
-            name: byInvSpace.name,
-            slug: byInvSpace.slug,
-            description: byInvSpace.description,
-            category: byInvSpace.category || 'Gaming',
-            visibility: byInvSpace.visibility || 'public',
-            tier: (byInvSpace.tier as SpaceTierType) || 'free',
-            mapTheme: byInvSpace.map_theme || 'village',
-            joinCode: byInvSpace.join_code,
-            ownerId: byInvSpace.owner_id,
-            maxCapacity: byInvSpace.max_capacity || 15,
-            memberCount: byInvSpace.member_count || 1,
-            paletteIndex: byInvSpace.palette_index || 0,
-            isActive: byInvSpace.is_active ?? true,
-            isTemporary: false,
-            createdAt: byInvSpace.created_at,
-          };
-        }
-      }
-    } catch {}
+    // Invite codes are resolved by resolve_space_invite above; space_invites is not readable by non-members.
 
     // 8. Direct UUID lookup
     if (UUID_REGEX.test(q)) {
@@ -561,6 +523,14 @@ export const SpaceService = {
       console.warn('Failed to join space via invite RPC:', e);
       return false;
     }
+  },
+
+  /** Current persisted map theme, or null for non-persisted spaces / lookup failures. */
+  async fetchMapTheme(spaceId: string): Promise<string | null> {
+    if (!UUID_REGEX.test(spaceId)) return null;
+    const { data, error } = await supabase.from('spaces').select('map_theme').eq('id', spaceId).maybeSingle();
+    if (error || !data) return null;
+    return (data.map_theme as string) || null;
   },
 
   async fetchWorldObjects(spaceId: string): Promise<WorldObjectModel[]> {

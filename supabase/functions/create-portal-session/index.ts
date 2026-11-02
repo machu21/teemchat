@@ -54,7 +54,14 @@ serve(async (req: Request) => {
       });
     }
 
-    const returnUrl = `${req.headers.get("origin") || "https://teemchat.app"}/#/billing`;
+    // Only return to our own app; the Origin header is caller-controlled.
+    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://teemchat.app")
+      .split(",")
+      .map((o: string) => o.trim().replace(/\/+$/, ""))
+      .filter(Boolean);
+    const requestOrigin = req.headers.get("origin") ?? "";
+    const appOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+    const returnUrl = `${appOrigin}/dashboard`;
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subData.stripe_customer_id,

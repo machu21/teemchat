@@ -208,7 +208,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const guestName = displayName && displayName.trim()
       ? displayName.trim()
       : (guestIdentity?.displayName || `Guest #${randomId}`);
-    const guestPw = `Guest_${Date.now()}_${randomId}!`;
+    // Guest usernames are public, so the password must not be guessable from the creation time.
+    const pwBytes = new Uint8Array(24);
+    crypto.getRandomValues(pwBytes);
+    const guestPw = `G_${Array.from(pwBytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
 
     // Attempt provision via Supabase RPC
     try {

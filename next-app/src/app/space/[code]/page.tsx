@@ -490,20 +490,47 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       handleIncomingRoomMessage(msg);
     };
 
+    // Broadcast payloads are client-supplied and can name any sender. For account-backed users,
+    // only act on what the database confirms; purely local guests have no DB rows to check.
+    const isAccountUser = UUID_REGEX.test(session.id);
+
     sync.onFriendRequestReceived = (req) => {
-      showMediaStatus('🤝', `${req.senderName} sent you a friend request!`, '#3B82F6');
-      setIncomingInGameReq(req);
+      const show = (verified: typeof req) => {
+        showMediaStatus('🤝', `${verified.senderName} sent you a friend request!`, '#3B82F6');
+        setIncomingInGameReq(verified);
+      };
+      if (!isAccountUser) {
+        show(req);
+        return;
+      }
+      FriendService.verifyIncomingRequest(req.senderId, session.id)
+        .then((dbReq) => {
+          if (!dbReq) return;
+          // Use the DB id so accepting goes through accept_friend_request.
+          show({ ...req, requestId: dbReq.id, senderName: dbReq.senderName, senderAvatar: dbReq.senderAvatar });
+        })
+        .catch(() => {});
     };
 
     sync.onFriendResponseReceived = (res) => {
-      if (res.action === 'accept') {
+      if (res.action !== 'accept') return;
+      const show = () => {
         showMediaStatus('🎉', `${res.receiverName} accepted your friend request!`, '#22C55E');
         setFriendReqSent(true);
         setFriendReqStatus(`✓ You and ${res.receiverName} are now friends!`);
+      };
+      if (!isAccountUser) {
+        show();
+        return;
       }
+      FriendService.isRequestAccepted(session.id, res.receiverId)
+        .then((accepted) => {
+          if (accepted) show();
+        })
+        .catch(() => {});
     };
 
-    sync.onMapThemeChanged = (newTheme) => {
+    const applyMapTheme = (newTheme: string) => {
       if (newTheme && newTheme in MAP_REGISTRY) {
         setSpace((prev) => {
           if (!prev || prev.mapTheme === newTheme) return prev;
@@ -515,6 +542,20 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           };
         });
       }
+    };
+
+    sync.onMapThemeChanged = (newTheme) => {
+      // Persisted spaces: the owner saves the theme before broadcasting, and RLS blocks anyone
+      // else from saving it, so apply the stored value rather than the claimed one.
+      if (!UUID_REGEX.test(space.id)) {
+        applyMapTheme(newTheme);
+        return;
+      }
+      SpaceService.fetchMapTheme(space.id)
+        .then((stored) => {
+          if (stored) applyMapTheme(stored);
+        })
+        .catch(() => {});
     };
 
     sync.connect();

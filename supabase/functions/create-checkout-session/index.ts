@@ -43,11 +43,33 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const {
-      planId = "ai_unlimited_monthly",
-      successUrl = `${req.headers.get("origin") || "https://teemchat.app"}/#/billing/success`,
-      cancelUrl = `${req.headers.get("origin") || "https://teemchat.app"}/#/billing/cancel`,
-    } = body;
+    const { planId = "ai_unlimited_monthly" } = body;
+
+    // Only redirect back to our own app, never to a URL supplied by the caller's choosing.
+    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://teemchat.app")
+      .split(",")
+      .map((o: string) => o.trim().replace(/\/+$/, ""))
+      .filter(Boolean);
+    const requestOrigin = req.headers.get("origin") ?? "";
+    const appOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+
+    const resolveRedirect = (candidate: unknown, fallbackPath: string): URL => {
+      if (typeof candidate === "string") {
+        try {
+          const url = new URL(candidate, appOrigin);
+          if (allowedOrigins.includes(url.origin)) return url;
+        } catch {
+          // fall through to default
+        }
+      }
+      return new URL(fallbackPath, appOrigin);
+    };
+
+    const successUrl = resolveRedirect(body.successUrl, "/dashboard?billing=success");
+    const cancelUrl = resolveRedirect(body.cancelUrl, "/dashboard?billing=cancel");
+    // Stripe substitutes this placeholder; keep the braces unencoded.
+    const successUrlWithSession =
+      `${successUrl.toString()}${successUrl.search ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 
     // Check if user already has a Stripe customer ID stored
     const { data: subData } = await supabase
@@ -101,8 +123,8 @@ serve(async (req: Request) => {
           planId: planId,
         },
       },
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl,
+      success_url: successUrlWithSession,
+      cancel_url: cancelUrl.toString(),
     });
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {

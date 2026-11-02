@@ -334,6 +334,46 @@ export class FriendService {
     }
   }
 
+  /**
+   * Realtime broadcasts carry whatever sender the client claims, so an in-space request is only
+   * trusted when a matching pending row exists. Returns the DB request (id + sender profile) or null.
+   */
+  static async verifyIncomingRequest(
+    senderId: string,
+    receiverId: string
+  ): Promise<{ id: string; senderName: string; senderAvatar: AvatarConfig } | null> {
+    if (!UUID_REGEX.test(senderId) || !UUID_REGEX.test(receiverId)) return null;
+    const { data, error } = await supabase
+      .from('friend_requests')
+      .select('id, sender:sender_id(display_name, avatar_config)')
+      .eq('sender_id', senderId)
+      .eq('receiver_id', receiverId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (error || !data) return null;
+    const sender = (data as unknown as {
+      sender: { display_name?: string; avatar_config?: unknown } | null;
+    }).sender;
+    return {
+      id: data.id as string,
+      senderName: sender?.display_name || 'Explorer',
+      senderAvatar: normalizeAvatarConfig(sender?.avatar_config),
+    };
+  }
+
+  /** True when the DB records that `receiverId` accepted `senderId`'s request. */
+  static async isRequestAccepted(senderId: string, receiverId: string): Promise<boolean> {
+    if (!UUID_REGEX.test(senderId) || !UUID_REGEX.test(receiverId)) return false;
+    const { data, error } = await supabase
+      .from('friend_requests')
+      .select('id')
+      .eq('sender_id', senderId)
+      .eq('receiver_id', receiverId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+    return !error && Boolean(data);
+  }
+
   static async getPendingRequests(currentUserId: string): Promise<{
     incoming: FriendRequestModel[];
     outgoing: FriendRequestModel[];
