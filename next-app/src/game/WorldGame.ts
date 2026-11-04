@@ -33,6 +33,7 @@ import { DoorActionType, ZombieSyncService } from '@/lib/services/zombieSync';
 import { WEAPONS, WEAPON_ORDER, type WeaponId } from './zombie/weapons';
 import type { Entrance } from './zombie/entrances';
 import type { ConsumableId } from './zombie/survival/types';
+import { ControlAction, DEFAULT_BINDINGS, KeyBindings, actionForCode } from '@/lib/settings/controls';
 
 export interface DoorPrompt {
   buildingId: string;
@@ -111,6 +112,10 @@ export class WorldGame {
   private jumpT: number = -1;
 
   private keysDown: Set<string> = new Set();
+  /** Player key bindings (Controls settings). */
+  private bindings: KeyBindings = DEFAULT_BINDINGS;
+  /** Touch sprint button held (hold mode). */
+  private touchSprintHeld = false;
   private joystickInput: { x: number; y: number } = { x: 0, y: 0 };
   private isRunning: boolean = false;
   private lastTime: number = 0;
@@ -390,6 +395,24 @@ export class WorldGame {
     return !!this.zombieMode?.toggleSprint();
   }
 
+  /** Sprint while the touch button is held (hold mode). */
+  zombieSprintHold(down: boolean) {
+    this.touchSprintHeld = down;
+  }
+
+  /** Applies Controls settings; keys held under the old bindings are released. */
+  setKeyBindings(bindings: KeyBindings) {
+    this.bindings = bindings;
+    this.keysDown.clear();
+    this.zombieMode?.setTrigger(false);
+  }
+
+  /** True while any key bound to `action` is held. */
+  private held(action: ControlAction): boolean {
+    const [a, b] = this.bindings[action];
+    return (!!a && this.keysDown.has(a)) || (!!b && this.keysDown.has(b));
+  }
+
   /** Eat / drink / use a supply (C picks what you need most). */
   zombieUseSupply(id?: ConsumableId): boolean {
     return !!this.zombieMode?.useSupply(id);
@@ -541,7 +564,7 @@ export class WorldGame {
     // 1. Calculate Movement Vector
     let dx = 0;
     let dy = 0;
-    this.zombieMode?.setSprint(this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight'));
+    this.zombieMode?.setSprint(this.held('sprint') || this.touchSprintHeld);
     const speed = (this.player.isSwimming ? 110 : 160) * (this.zombieMode?.moveMultiplier() ?? 1);
     // Mouse aim goes stale when the mouse rests: fall back to aiming where you walk
     if (this.zombieMode && this.lastAimAt && performance.now() - this.lastAimAt > AIM_IDLE_MS) {
@@ -550,10 +573,10 @@ export class WorldGame {
     }
 
     // Keyboard Input
-    if (this.keysDown.has('KeyW') || this.keysDown.has('ArrowUp')) dy -= 1;
-    if (this.keysDown.has('KeyS') || this.keysDown.has('ArrowDown')) dy += 1;
-    if (this.keysDown.has('KeyA') || this.keysDown.has('ArrowLeft')) dx -= 1;
-    if (this.keysDown.has('KeyD') || this.keysDown.has('ArrowRight')) dx += 1;
+    if (this.held('moveUp')) dy -= 1;
+    if (this.held('moveDown')) dy += 1;
+    if (this.held('moveLeft')) dx -= 1;
+    if (this.held('moveRight')) dx += 1;
 
     if (dx !== 0 || dy !== 0) {
       this.player.clearTargetDestination();
@@ -1340,14 +1363,15 @@ export class WorldGame {
           this.resetZoom();
           return;
         }
-        // Zombie mode: doors/windows in reach take E/L/B before the building Enter/Exit prompt
+        const bound = actionForCode(this.bindings, e.code);
+        // Zombie mode: doors/windows in reach take interact/lock/board before the building Enter/Exit prompt
         if (this.zombieMode && !e.repeat) {
           const action =
-            e.code === 'KeyE'
+            bound === 'interact'
               ? 'toggle'
-              : e.code === 'KeyL'
+              : bound === 'lock'
                 ? 'lockToggle'
-                : e.code === 'KeyB'
+                : bound === 'barricade'
                   ? e.shiftKey
                     ? 'removePlank'
                     : 'addPlank'
@@ -1357,28 +1381,28 @@ export class WorldGame {
             return;
           }
         }
-        if (e.code === 'KeyE' && !e.repeat && this.doorPrompt) {
+        if (bound === 'interact' && !e.repeat && this.doorPrompt) {
           e.preventDefault();
           this.activateDoor();
           return;
         }
         if (this.zombieMode) {
-          if (e.code === 'KeyF') {
+          if (bound === 'fire') {
             e.preventDefault();
             if (!e.repeat) this.zombieMode.setTrigger(true);
             return;
           }
-          if (e.code === 'KeyR' && !e.repeat) {
+          if (bound === 'reload' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.reload();
             return;
           }
-          if (e.code === 'KeyQ' && !e.repeat) {
+          if (bound === 'nextWeapon' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.cycleWeapon(e.shiftKey ? -1 : 1);
             return;
           }
-          if (e.code === 'KeyC' && !e.repeat) {
+          if (bound === 'useSupply' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.useSupply();
             return;
@@ -1392,7 +1416,7 @@ export class WorldGame {
             }
           }
         }
-        if (e.code === 'Space' && !e.repeat && this.zombieMode) {
+        if (bound === 'jump' && !e.repeat && this.zombieMode) {
           e.preventDefault();
           this.jump();
           return;
@@ -1405,7 +1429,7 @@ export class WorldGame {
 
     this.onKeyUpBound = (e: KeyboardEvent) => {
       this.keysDown.delete(e.code);
-      if (e.code === 'KeyF') this.zombieMode?.setTrigger(false);
+      if (actionForCode(this.bindings, e.code) === 'fire') this.zombieMode?.setTrigger(false);
     };
 
     // Survival: the mouse aims (and turns the vision cone) while it's over the canvas
@@ -1425,6 +1449,7 @@ export class WorldGame {
     this.onBlurBound = () => {
       this.zombieMode?.setTrigger(false);
       this.keysDown.clear();
+      this.touchSprintHeld = false;
     };
     window.addEventListener('blur', this.onBlurBound);
     this.canvas.addEventListener('pointermove', this.onPointerAimBound);

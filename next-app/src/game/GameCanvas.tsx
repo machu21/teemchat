@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react';
 import styles from './GameCanvas.module.css';
 import { WorldGame, DoorPrompt, FloorInfo } from '@/game/WorldGame';
 import { SpaceModel } from '@/lib/models/space';
@@ -29,6 +29,19 @@ const SPECIAL_WARNINGS: Record<SpecialZombieType, string> = {
   dreadnought: '🛡 Dreadnought — it calls the horde',
 };
 import { WEAPONS } from '@/game/zombie/weapons';
+import { useControlsStore } from '@/stores/controls';
+import { ControlPos, SIZE_SCALE, TouchControl, clampPos, primaryLabel } from '@/lib/settings/controls';
+
+/** Half-size (px, at size "md") per control, so custom positions stay on screen after a resize. */
+const CONTROL_HALF: Record<TouchControl, { w: number; h: number }> = {
+  joystick: { w: 64, h: 64 },
+  fire: { w: 28, h: 28 },
+  jump: { w: 24, h: 24 },
+  sprint: { w: 24, h: 24 },
+  weapons: { w: 96, h: 40 },
+  zoom: { w: 22, h: 56 },
+  action: { w: 32, h: 32 },
+};
 
 import { AvatarConfig } from '@/lib/models/avatar';
 
@@ -113,6 +126,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const doorPromptRef = useRef<HTMLDivElement | null>(null);
   const [floorInfo, setFloorInfo] = useState<FloorInfo | null>(null);
   const [zombieHud, setZombieHud] = useState<ZombieHud | null>(null);
+
+  // Controls settings (key bindings + touch layout), saved per device
+  const bindings = useControlsStore((s) => s.bindings);
+  const touch = useControlsStore((s) => s.touch);
+  const editingLayout = useControlsStore((s) => s.editingLayout);
+  const hydrateControls = useControlsStore((s) => s.hydrate);
+  const setControlPosition = useControlsStore((s) => s.setPosition);
+  const resetControlLayout = useControlsStore((s) => s.resetLayout);
+  const setEditingLayout = useControlsStore((s) => s.setEditingLayout);
+  const editingRef = useRef(false);
+  useEffect(() => {
+    editingRef.current = editingLayout;
+  }, [editingLayout]);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const orientation = area.w > area.h ? 'landscape' : 'portrait';
+  const [drag, setDrag] = useState<{ id: TouchControl; pos: ControlPos } | null>(null);
+  const dragRef = useRef<{
+    id: TouchControl;
+    pointerId: number;
+    offX: number;
+    offY: number;
+    w: number;
+    h: number;
+    root: DOMRect;
+    pos: ControlPos | null;
+  } | null>(null);
+  const [sprintHeld, setSprintHeld] = useState(false);
 
   // 1. One-time Game Lifecycle Initialization (keyed ONLY by space.id and session.id)
   useEffect(() => {
@@ -213,6 +253,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     game.buildModeEnabled = buildMode;
     game.selectedFurniture = selectedFurniture;
     game.setZombieMode(zombieMode);
+    game.setKeyBindings(useControlsStore.getState().bindings);
 
     game.loadCloudObjects();
     game.start();
@@ -346,10 +387,122 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => clearInterval(timer);
   }, [space.id]);
 
+  // Saved controls load after mount (storage isn't available during SSR → no hydration mismatch)
+  useEffect(() => {
+    hydrateControls();
+  }, [hydrateControls]);
+
+  useEffect(() => {
+    gameRef.current?.setKeyBindings(bindings);
+  }, [bindings]);
+
+  // Game-area size drives orientation-specific layouts and on-screen clamping
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setArea({ w: Math.round(width), h: Math.round(height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Esc leaves the layout editor
+  useEffect(() => {
+    if (!editingLayout) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingLayout(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingLayout, setEditingLayout]);
+
+  /** Inline position for a control with a custom spot (else the responsive CSS default applies). */
+  const ctlStyle = (id: TouchControl): CSSProperties | undefined => {
+    const p = drag?.id === id ? drag.pos : touch.positions[orientation][id];
+    if (!p) return undefined;
+    const s = SIZE_SCALE[touch.size];
+    const hw = Math.round(CONTROL_HALF[id].w * s);
+    const hh = Math.round(CONTROL_HALF[id].h * s);
+    // The layer is mirrored for left-handed play, so mirror the stored (screen) x back
+    const x = touch.hand === 'left' ? 1 - p.x : p.x;
+    return {
+      left: `clamp(${hw}px, ${(x * 100).toFixed(2)}%, calc(100% - ${hw}px))`,
+      top: `clamp(${hh}px, ${(p.y * 100).toFixed(2)}%, calc(100% - ${hh}px))`,
+      right: 'auto',
+      bottom: 'auto',
+      translate: '-50% -50%',
+    };
+  };
+
+  // Layout editor: drag any control (capture phase, so the control itself never fires)
+  const onLayerPointerDown = (e: React.PointerEvent) => {
+    if (!editingRef.current || !containerRef.current) return;
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-ctl]');
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = el.getBoundingClientRect();
+    dragRef.current = {
+      id: el.dataset.ctl as TouchControl,
+      pointerId: e.pointerId,
+      offX: e.clientX - (r.left + r.width / 2),
+      offY: e.clientY - (r.top + r.height / 2),
+      w: r.width,
+      h: r.height,
+      root: containerRef.current.getBoundingClientRect(),
+      pos: null,
+    };
+    el.setPointerCapture?.(e.pointerId);
+  };
+  const onLayerPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = clampPos(
+      { x: (e.clientX - d.offX - d.root.left) / d.root.width, y: (e.clientY - d.offY - d.root.top) / d.root.height },
+      { w: d.root.width, h: d.root.height },
+      { w: d.w, h: d.h }
+    );
+    d.pos = pos;
+    setDrag({ id: d.id, pos });
+  };
+  const onLayerPointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    if (d.pos) setControlPosition(orientation, d.id, d.pos);
+    dragRef.current = null;
+    setDrag(null);
+  };
+  const onLayerClick = (e: React.MouseEvent) => {
+    if (editingRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+  const layerProps = {
+    className: `${styles.touchLayer} ${touch.hand === 'left' ? styles.touchMirror : ''} ${editingLayout ? styles.touchEditing : ''}`,
+    style: { '--ts': SIZE_SCALE[touch.size], '--to': touch.opacity } as CSSProperties,
+    onPointerDownCapture: onLayerPointerDown,
+    onPointerMoveCapture: onLayerPointerMove,
+    onPointerUpCapture: onLayerPointerUp,
+    onPointerCancelCapture: onLayerPointerUp,
+    onClickCapture: onLayerClick,
+  };
+
+  const setSprintHold = (down: boolean) => {
+    if (touch.sprintMode !== 'hold') return;
+    setSprintHeld(down);
+    gameRef.current?.zombieSprintHold(down);
+  };
+
   // Multi-touch aware virtual joystick handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
-    if (touchIdRef.current !== null) return;
+    if (touchIdRef.current !== null || editingRef.current) return;
 
     const touch = e.changedTouches[0];
     touchIdRef.current = touch.identifier;
@@ -565,7 +718,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               </div>
             )}
             <div className={styles.zombieHint}>
-              <kbd>F</kbd> fire · <kbd>R</kbd> reload · <kbd>Q</kbd>/<kbd>1-6</kbd> weapon · <kbd>Shift</kbd> sprint · <kbd>C</kbd> eat/drink · <kbd>Space</kbd> jump
+              <kbd>{primaryLabel(bindings, 'fire')}</kbd> fire · <kbd>{primaryLabel(bindings, 'reload')}</kbd> reload ·{' '}
+              <kbd>{primaryLabel(bindings, 'nextWeapon')}</kbd>/<kbd>1-6</kbd> weapon · <kbd>{primaryLabel(bindings, 'sprint')}</kbd> sprint ·{' '}
+              <kbd>{primaryLabel(bindings, 'useSupply')}</kbd> eat/drink · <kbd>{primaryLabel(bindings, 'jump')}</kbd> jump
             </div>
             {zombieHud.dead && <div className={styles.zombieDead}>You were bitten…</div>}
           </div>
@@ -584,19 +739,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               </span>
               {(zombieHud.entrance.state === 'open' || zombieHud.entrance.state === 'closed') && (
                 <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('toggle')}>
-                  <kbd>E</kbd> {zombieHud.entrance.state === 'open' ? 'Close' : 'Open'}
+                  <kbd>{primaryLabel(bindings, 'interact')}</kbd> {zombieHud.entrance.state === 'open' ? 'Close' : 'Open'}
                 </button>
               )}
               {zombieHud.entrance.kind === 'door' &&
                 (zombieHud.entrance.state === 'closed' || zombieHud.entrance.state === 'locked') && (
                   <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('lockToggle')}>
-                    <kbd>L</kbd> {zombieHud.entrance.state === 'locked' ? 'Unlock' : 'Lock'}
+                    <kbd>{primaryLabel(bindings, 'lock')}</kbd> {zombieHud.entrance.state === 'locked' ? 'Unlock' : 'Lock'}
                   </button>
                 )}
               {zombieHud.entrance.state !== 'open' &&
                 zombieHud.entrance.planks < 4 && (
                   <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('addPlank')}>
-                    <kbd>B</kbd> Board up
+                    <kbd>{primaryLabel(bindings, 'barricade')}</kbd> Board up
                   </button>
                 )}
               {zombieHud.entrance.progress > 0 && (
@@ -606,10 +761,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               )}
             </div>
           )}
+          <div {...layerProps}>
           <div
             className={styles.weaponBar}
             role="group"
             aria-label="Weapons"
+            data-ctl="weapons"
+            style={ctlStyle('weapons')}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className={styles.weaponCurrent}>
@@ -626,7 +784,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                   className={styles.weaponReload}
                   onClick={() => gameRef.current?.zombieReload()}
                   aria-label="Reload"
-                  title="Reload (R)"
+                  title={`Reload (${primaryLabel(bindings, 'reload')})`}
                 >
                   R
                 </button>
@@ -687,17 +845,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           )}
           <button
             type="button"
-            className={`${styles.zombieSprintBtn} ${zombieHud.sprintLatched ? styles.zombieSprintOn : ''}`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => gameRef.current?.zombieToggleSprint()}
-            aria-label="Sprint"
-            aria-pressed={zombieHud.sprintLatched}
-            title="Sprint (hold Shift)"
+            data-ctl="sprint"
+            style={ctlStyle('sprint')}
+            className={`${styles.zombieSprintBtn} ${(touch.sprintMode === 'hold' ? sprintHeld : zombieHud.sprintLatched) ? styles.zombieSprintOn : ''}`}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setSprintHold(true);
+            }}
+            onPointerUp={() => setSprintHold(false)}
+            onPointerLeave={() => setSprintHold(false)}
+            onPointerCancel={() => setSprintHold(false)}
+            onClick={() => {
+              if (touch.sprintMode === 'toggle') gameRef.current?.zombieToggleSprint();
+            }}
+            aria-label={touch.sprintMode === 'hold' ? 'Sprint (hold)' : 'Sprint'}
+            aria-pressed={touch.sprintMode === 'hold' ? sprintHeld : zombieHud.sprintLatched}
+            title={`Sprint (hold ${primaryLabel(bindings, 'sprint')})`}
           >
             🏃
           </button>
           <button
             type="button"
+            data-ctl="fire"
+            style={ctlStyle('fire')}
             className={styles.zombieAttackBtn}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -708,25 +878,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             onPointerLeave={() => gameRef.current?.zombieTrigger(false)}
             onPointerCancel={() => gameRef.current?.zombieTrigger(false)}
             aria-label={zombieHud.weapon.mag === null ? 'Attack' : 'Fire'}
-            title={zombieHud.weapon.mag === null ? 'Attack (F)' : 'Fire (hold F)'}
+            title={
+              zombieHud.weapon.mag === null
+                ? `Attack (${primaryLabel(bindings, 'fire')})`
+                : `Fire (hold ${primaryLabel(bindings, 'fire')})`
+            }
           >
             {zombieHud.weapon.icon}
           </button>
           <button
             type="button"
+            data-ctl="jump"
+            style={ctlStyle('jump')}
             className={styles.zombieJumpBtn}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => gameRef.current?.jump()}
             aria-label="Jump"
-            title="Jump over fences and cars (Space)"
+            title={`Jump over fences and cars (${primaryLabel(bindings, 'jump')})`}
           >
             ⤴
           </button>
+          </div>
         </>
       )}
 
+      <div {...layerProps}>
       {/* Zoom Controls HUD */}
       <div
+        data-ctl="zoom"
+        style={ctlStyle('zoom')}
         className={styles.zoomControls}
         role="group"
         aria-label="Camera Zoom Controls"
@@ -765,6 +945,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* Retro Game Boy On-Screen Controls (visibility managed responsively by CSS) */}
       <div
+        data-ctl="joystick"
+        style={ctlStyle('joystick')}
         className={`${styles.joystickZone} ${joystickActive ? styles.active : ''}`}
         onPointerDown={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
@@ -794,7 +976,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* Retro Action Button ('A') on the right side (social/non-zombie mode) */}
       {!zombieMode && (
-        <div className={styles.actionBtnZone} onPointerDown={(e) => e.stopPropagation()}>
+        <div className={styles.actionBtnZone} data-ctl="action" style={ctlStyle('action')} onPointerDown={(e) => e.stopPropagation()}>
           <button
             type="button"
             className={styles.actionBtn}
@@ -807,6 +989,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           >
             {doorPrompt ? '🚪' : 'A'}
           </button>
+        </div>
+      )}
+      </div>
+
+      {editingLayout && (
+        <div className={styles.layoutEditBar} role="dialog" aria-label="Arrange on-screen controls">
+          <span className={styles.layoutEditText}>
+            ✋ Drag the controls where you want them <small>({orientation} layout)</small>
+          </span>
+          <div className={styles.layoutEditActions}>
+            <button type="button" className={styles.layoutEditBtn} onClick={resetControlLayout}>
+              Reset
+            </button>
+            <button
+              type="button"
+              className={`${styles.layoutEditBtn} ${styles.layoutEditDone}`}
+              onClick={() => setEditingLayout(false)}
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>

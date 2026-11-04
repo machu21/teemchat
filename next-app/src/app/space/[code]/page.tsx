@@ -314,7 +314,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         : playlistState.isPlaying
           ? 'listening_music'
           : 'exploring',
-    openMap: () => setMapTeleportModalOpen(true),
+    openMap: () => {
+      if (zombieMode) showMediaStatus('🚫', 'No teleporting in Survival — you have to walk', '#EF4444');
+      else setMapTeleportModalOpen(true);
+    },
     openChat: () => {
       setActiveChannel('companion');
       setChatOpen(true);
@@ -883,7 +886,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           buildMode={buildModeOpen}
           selectedFurniture={selectedFurniture}
           targetTeleport={targetTeleport}
-          initialTargetZone={initialTargetZone}
+          initialTargetZone={zombieMode ? null : initialTargetZone}
           isMicOn={isMicOn}
           isCamOn={isCamOn}
           onCompanionTap={companionEnabled ? handleCompanionTap : undefined}
@@ -931,15 +934,18 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               🗺️ <span className={styles.hudBtnLabel}>Map Theme</span>
             </NeoButton>
           )}
-          <NeoButton
-            size="sm"
-            variant="primary"
-            className={styles.hudTeleportBtn}
-            onClick={() => setMapTeleportModalOpen(true)}
-            title="Fast travel / teleport across the map"
-          >
-            🚀 <span className={styles.hudBtnLabel}>Teleport</span>
-          </NeoButton>
+          {/* Survival has no fast travel: you walk (and run) everywhere */}
+          {!zombieMode && (
+            <NeoButton
+              size="sm"
+              variant="primary"
+              className={styles.hudTeleportBtn}
+              onClick={() => setMapTeleportModalOpen(true)}
+              title="Fast travel / teleport across the map"
+            >
+              🚀 <span className={styles.hudBtnLabel}>Teleport</span>
+            </NeoButton>
+          )}
           <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
             🎟️ <span className={styles.hudBtnLabel}>Invite Friends</span>
           </NeoButton>
@@ -1075,14 +1081,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           )}
         </button>
 
-        <button
-          className={`${styles.dockBtn} ${mapTeleportModalOpen ? styles.dockBtnActive : ''}`}
-          onClick={() => setMapTeleportModalOpen(!mapTeleportModalOpen)}
-          title="Teleport Across Map"
-          aria-label="Teleport Across Map"
-        >
-          <RocketIcon size={20} />
-        </button>
+        {!zombieMode && (
+          <button
+            className={`${styles.dockBtn} ${mapTeleportModalOpen ? styles.dockBtnActive : ''}`}
+            onClick={() => setMapTeleportModalOpen(!mapTeleportModalOpen)}
+            title="Teleport Across Map"
+            aria-label="Teleport Across Map"
+          >
+            <RocketIcon size={20} />
+          </button>
+        )}
 
         {companionEnabled && (
           <button
@@ -1699,7 +1707,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
       {/* World Map Fast Travel / Teleport Modal */}
       <NeoModal
-        isOpen={mapTeleportModalOpen}
+        isOpen={mapTeleportModalOpen && !zombieMode}
         onClose={() => setMapTeleportModalOpen(false)}
         title="🚀 World Map Teleport & Fast Travel"
       >
