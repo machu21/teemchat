@@ -833,13 +833,29 @@
     flex-shrink: 1;
   }
 
+  /* Teleport is already in the bottom dock on mobile */
+  .hudTeleportBtn {
+    display: none;
+  }
+
   .pipGrid {
-    top: calc(108px + env(safe-area-inset-top, 0px));
+    top: calc(104px + env(safe-area-inset-top, 0px));
     right: 10px;
+    gap: 8px;
+  }
+
+  .pipCard {
+    width: 116px;
+    height: 78px;
+  }
+
+  .pipLabel {
+    font-size: 0.64rem;
+    padding: 1px 4px;
   }
 
   .mediaStatusPill {
-    top: calc(108px + env(safe-area-inset-top, 0px));
+    top: calc(104px + env(safe-area-inset-top, 0px));
   }
 
   .spaceTitleBadge {
@@ -887,7 +903,7 @@
     width: auto;
     max-width: calc(100vw - 16px);
     bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-    height: 300px;
+    height: min(300px, calc(100dvh - 190px));
   }
 
   /* 16px avoids iOS auto-zoom when the input is focused */
@@ -901,7 +917,7 @@
   }
 
   .buildPalette {
-    top: calc(108px + env(safe-area-inset-top, 0px));
+    top: calc(104px + env(safe-area-inset-top, 0px));
     left: 8px;
     right: 8px;
     width: auto;
@@ -944,6 +960,10 @@
     min-width: 30px;
     aspect-ratio: 1 / 1;
   }
+
+  .hudBtnLabel {
+    display: none;
+  }
 }
 
 /* Very Small Mobile Screens (<= 380px) */
@@ -951,6 +971,61 @@
   .spaceTitleBadge {
     max-width: 120px;
     font-size: 0.75rem;
+  }
+}
+
+/* Mobile Landscape Orientation (short viewports <= 500px tall) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topHud {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    gap: 6px;
+  }
+
+  .hudTeleportBtn {
+    display: none;
+  }
+
+  .pipGrid {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .pipCard {
+    width: 104px;
+    height: 70px;
+  }
+
+  .mediaStatusPill {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+  }
+
+  .bottomDock {
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .dockBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chatBox {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+    width: min(320px, calc(100vw - 24px));
+    height: calc(100dvh - 116px);
+  }
+
+  .buildPalette {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+    max-height: calc(100dvh - 116px);
+    overflow-y: auto;
   }
 }
 

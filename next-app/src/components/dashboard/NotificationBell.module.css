@@ -140,15 +140,18 @@
 /* Tablet & Mobile Screens (<= 640px) */
 @media (max-width: 640px) {
   .dropdown {
-    width: min(300px, calc(100vw - 24px));
-    right: -48px;
-    max-height: 80vh;
+    position: fixed;
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    width: auto;
+    max-height: calc(80dvh - env(safe-area-inset-top, 0px));
   }
 }
 
 @media (max-width: 380px) {
   .dropdown {
-    width: calc(100vw - 16px);
-    right: -36px;
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
   }
 }

@@ -195,12 +195,56 @@
 
 /* Mobile tap targets (<= 640px) */
 @media (max-width: 640px) {
+  .modalTabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
   .modalTabBtn {
     min-height: 40px;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+  }
+
+  .searchInput {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .myHandleBanner {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .userCard,
+  .requestCard {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .userInfo {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .userNames {
+    min-width: 0;
+  }
+
+  .displayName,
+  .username {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .requestActions {
+    margin-left: auto;
   }
 
   .copyHandleBtn {
-    min-height: 40px;
+    min-height: 36px;
     padding: 6px 12px;
   }
 }

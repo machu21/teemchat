@@ -886,19 +886,20 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               onClick={() => setMapThemeModalOpen(true)}
               title="Change realm map theme (Map Owner)"
             >
-              🗺️ Map Theme
+              🗺️ <span className={styles.hudBtnLabel}>Map Theme</span>
             </NeoButton>
           )}
           <NeoButton
             size="sm"
             variant="primary"
+            className={styles.hudTeleportBtn}
             onClick={() => setMapTeleportModalOpen(true)}
             title="Fast travel / teleport across the map"
           >
-            🚀 Teleport
+            🚀 <span className={styles.hudBtnLabel}>Teleport</span>
           </NeoButton>
           <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
-            🎟️ Invite Friends
+            🎟️ <span className={styles.hudBtnLabel}>Invite Friends</span>
           </NeoButton>
         </div>
       </header>

@@ -13,7 +13,9 @@
     "lint": "npm --prefix next-app run lint",
     "cap:sync": "npm --prefix next-app run cap:sync",
     "cap:android": "npm --prefix next-app run cap:open:android",
-    "cap:ios": "npm --prefix next-app run cap:open:ios"
+    "cap:ios": "npm --prefix next-app run cap:open:ios",
+    "apk:debug": "npm --prefix next-app run apk:debug",
+    "apk:release": "npm --prefix next-app run apk:release"
   },
   "devDependencies": {
     "eslint": "^9.39.5",

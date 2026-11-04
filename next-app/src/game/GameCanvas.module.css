@@ -619,8 +619,20 @@
 
 @media (max-width: 640px) {
   .zombieHud {
-    width: 168px;
-    padding: 8px 10px;
+    top: calc(104px + env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px) + 4px);
+    width: 156px;
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .zombieHudTitle {
+    font-size: 0.72rem;
+  }
+
+  .zombieStats {
+    font-size: 0.72rem;
+    gap: 6px;
   }
 
   .zombieHint {
@@ -628,8 +640,8 @@
   }
 
   .zombieAttackBtn {
-    bottom: calc(156px + env(safe-area-inset-bottom, 0px));
-    right: max(68px, env(safe-area-inset-right, 0px) + 56px);
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    right: max(18px, env(safe-area-inset-right, 0px) + 14px);
   }
 }
 
@@ -665,12 +677,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 32px;
+  min-height: 36px;
   padding: 4px 10px;
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 800;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   color: #18181b;
   background-color: #fde047;
   border: 2px solid var(--card-border, #18181b);
@@ -691,6 +705,17 @@
   border-radius: 4px;
 }
 
+@media (hover: none), (pointer: coarse) {
+  .entranceBtn kbd {
+    display: none;
+  }
+
+  .entranceBtn {
+    min-height: 38px;
+    padding: 6px 12px;
+  }
+}
+
 .entranceProgress {
   flex-basis: 100%;
   height: 6px;
@@ -708,7 +733,8 @@
 
 @media (max-width: 640px) {
   .entranceChip {
-    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(272px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 20px);
   }
 }
 
@@ -722,6 +748,8 @@
   font-size: 1.3rem;
   font-weight: 800;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   color: #18181b;
   background-color: #a7f3d0;
   border: 2px solid var(--card-border, #18181b);
@@ -737,8 +765,8 @@
 
 @media (max-width: 640px) {
   .zombieJumpBtn {
-    bottom: calc(160px + env(safe-area-inset-bottom, 0px));
-    right: max(132px, env(safe-area-inset-right, 0px) + 120px);
+    bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    right: max(84px, env(safe-area-inset-right, 0px) + 80px);
   }
 }
 
@@ -785,12 +813,14 @@
 
 .weaponReload,
 .weaponSlot {
-  min-width: 32px;
-  height: 32px;
+  min-width: 34px;
+  height: 34px;
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 800;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   color: #18181b;
   background-color: #fde047;
   border: 2px solid var(--card-border, #18181b);
@@ -838,6 +868,8 @@
   top: max(64px, env(safe-area-inset-top, 0px) + 56px);
   left: 50%;
   z-index: 46;
+  max-width: calc(100vw - 32px);
+  text-align: center;
   padding: 6px 12px;
   transform: translateX(-50%);
   font-family: 'Plus Jakarta Sans', inherit;
@@ -852,13 +884,147 @@
 }
 
 @media (max-width: 640px) {
+  .zombieToast {
+    top: calc(104px + env(safe-area-inset-top, 0px));
+    font-size: 0.78rem;
+    padding: 5px 10px;
+  }
+
   .weaponBar {
+    left: max(10px, env(safe-area-inset-left, 0px) + 4px);
     min-width: 0;
-    max-width: calc(100% - 200px);
-    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 76px);
+    padding: 6px 8px;
+    bottom: calc(204px + env(safe-area-inset-bottom, 0px));
   }
 
   .weaponName {
     display: none;
+  }
+}
+
+/* Narrow mobile viewports (<= 380px) */
+@media (max-width: 380px) {
+  .joystickZone {
+    left: max(10px, env(safe-area-inset-left, 0px) + 4px);
+    width: 112px;
+    height: 112px;
+  }
+
+  .joystickBase {
+    width: 96px;
+    height: 96px;
+  }
+
+  .joystickThumb {
+    width: 42px;
+    height: 42px;
+  }
+
+  .zombieAttackBtn {
+    width: 52px;
+    height: 52px;
+    right: max(12px, env(safe-area-inset-right, 0px) + 8px);
+  }
+
+  .zombieJumpBtn {
+    width: 44px;
+    height: 44px;
+    right: max(72px, env(safe-area-inset-right, 0px) + 68px);
+  }
+}
+
+/* Mobile Landscape Orientation (short viewports <= 500px tall) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .zombieHud {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px) + 6px);
+    width: 156px;
+    padding: 5px 8px;
+    gap: 3px;
+  }
+
+  .zombieHudTitle {
+    font-size: 0.7rem;
+  }
+
+  .zombieHpTrack {
+    height: 14px;
+  }
+
+  .zombieStats {
+    font-size: 0.7rem;
+    gap: 6px;
+  }
+
+  .zombieHint {
+    display: none;
+  }
+
+  .zombieToast {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    font-size: 0.76rem;
+    padding: 4px 10px;
+  }
+
+  .joystickZone {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: max(14px, env(safe-area-inset-left, 0px) + 8px);
+    width: 108px;
+    height: 108px;
+  }
+
+  .joystickBase {
+    width: 92px;
+    height: 92px;
+  }
+
+  .actionBtnZone {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px) + 10px);
+  }
+
+  .zombieAttackBtn {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px) + 10px);
+    width: 50px;
+    height: 50px;
+  }
+
+  .zombieJumpBtn {
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    right: max(76px, env(safe-area-inset-right, 0px) + 70px);
+    width: 42px;
+    height: 42px;
+  }
+
+  .zoomControls {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px) + 6px);
+  }
+
+  .zoomBtn {
+    width: 34px;
+    height: 30px;
+  }
+
+  .zoomLevelBtn {
+    width: 34px;
+    padding: 3px 2px;
+  }
+
+  .weaponBar {
+    left: max(132px, env(safe-area-inset-left, 0px) + 124px);
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding: 5px 8px;
+    min-width: 0;
+  }
+
+  .weaponName {
+    display: none;
+  }
+
+  .entranceChip {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 }

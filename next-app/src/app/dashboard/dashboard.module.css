@@ -11,15 +11,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 28px;
+  flex-wrap: nowrap;
+  gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-right, 0px)) 12px calc(24px + env(safe-area-inset-left, 0px));
   background-color: var(--card-bg);
   border-bottom: var(--neo-border-width) solid var(--card-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   flex-shrink: 0;
   background: none;
@@ -37,33 +42,38 @@
 }
 
 .logoIcon {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
 }
 
 .logoText {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .userProfile {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .headerMessengerBtn {
-  display: inline-flex;
+  display: inline-flex !important;
 }
 
 .headerUpgradeBtn {
-  display: inline-flex;
+  display: inline-flex !important;
 }
 
 .headerSignOutBtn {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  gap: 6px;
 }
 
 .desktopText {
@@ -77,15 +87,16 @@
 .avatarPill {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
   box-shadow: 2px 2px 0px var(--card-border);
-  padding: 4px 12px;
+  padding: 4px 10px 4px 6px;
   border-radius: var(--neo-radius-full);
   cursor: pointer;
   transition: transform 0.1s ease;
   flex-shrink: 0;
+  height: 40px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -103,24 +114,32 @@
 .userInfo {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 140px;
 }
 
 .userName {
   font-size: 0.85rem;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .userRole {
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .main {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 40px 24px calc(180px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -147,6 +166,7 @@
 
 .actionButtons {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -177,8 +197,9 @@
 
 .spaceRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px 14px;
   padding: 12px 16px;
   border-bottom: 2px solid var(--card-border);
   transition: background-color 0.12s ease;
@@ -208,7 +229,7 @@
 }
 
 .spaceRowMain {
-  flex: 1;
+  flex: 1 1 240px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -217,8 +238,9 @@
 
 .spaceRowTitleLine {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
   min-width: 0;
 }
 
@@ -229,6 +251,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .spaceDesc {
@@ -253,8 +277,11 @@
 .spaceRowActions {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  margin-left: auto;
 }
 
 /* Pagination */
@@ -375,6 +402,38 @@
   .formRow {
     grid-template-columns: 1fr;
   }
+}
+
+/* Avatar Modal Account Section */
+.modalAccountSection {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px dashed var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalAccountInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modalAccountName {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.modalAccountRole {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.modalSignOutBtn {
+  margin-top: 4px;
 }
 
 /* Upgrade Card */
@@ -637,12 +696,24 @@
   color: #34D399;
 }
 
-/* Floating Messenger Toggle (Bottom-Right) */
-.floatingMessengerBtn {
+/* Floating Messenger & AI Companion Dock (Bottom-Right) */
+.floatingActionsDock {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  right: calc(24px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  right: calc(20px + env(safe-area-inset-right, 0px));
   z-index: 990;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.floatingActionsDock > * {
+  pointer-events: auto;
+}
+
+.floatingMessengerBtn {
   background-color: var(--primary, #7C3AED);
   color: #FFFFFF;
   border: var(--neo-border-width) solid var(--card-border);
@@ -655,6 +726,9 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -671,10 +745,6 @@
 }
 
 .floatingCompanionBtn {
-  position: fixed;
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  z-index: 990;
   width: 52px;
   height: 52px;
   display: flex;
@@ -686,6 +756,9 @@
   border-radius: 50%;
   box-shadow: 3px 3.5px 0px var(--card-border);
   cursor: pointer;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -755,18 +828,50 @@
   box-shadow: 3px 3px 0px var(--card-border) !important;
 }
 
-/* Tablet & Mobile Screens (<= 768px) */
-@media (max-width: 768px) {
-  .header {
-    padding: 10px 16px;
+/* Medium Desktop & Tablet Landscape (<= 1024px) */
+@media (max-width: 1024px) {
+  .headerMessengerBtn {
+    display: none !important;
   }
 
-  .headerMessengerBtn {
+  .headerUpgradeBtn {
+    display: none !important;
+  }
+
+  .desktopText {
     display: none;
   }
 
+  .headerSignOutBtn {
+    padding: 0 !important;
+    width: 40px;
+    height: 40px;
+    min-height: 40px !important;
+    min-width: 40px;
+  }
+}
+
+/* Tablet & Mobile Screens (<= 768px) */
+@media (max-width: 768px) {
+  .header {
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) 10px calc(14px + env(safe-area-inset-left, 0px));
+    gap: 8px;
+  }
+
+  .userInfo {
+    display: none;
+  }
+
+  .avatarPill {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
   .main {
-    padding: 24px 16px;
+    padding: 24px 16px calc(170px + env(safe-area-inset-bottom, 0px));
     gap: 22px;
   }
 
@@ -778,19 +883,20 @@
 /* Mobile Screens (<= 640px) */
 @media (max-width: 640px) {
   .header {
-    padding: 10px 12px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 10px calc(12px + env(safe-area-inset-left, 0px));
   }
 
   .brand {
     gap: 6px;
+    min-width: 0;
   }
 
   .logoIcon {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
   }
 
   .logoText {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
   }
 
   .userProfile {
@@ -798,35 +904,15 @@
   }
 
   .avatarPill {
-    padding: 2px 4px;
-    gap: 0;
-    box-shadow: 1.5px 1.5px 0px var(--card-border);
-  }
-
-  .userInfo {
-    display: none;
-  }
-
-  .headerUpgradeBtn {
-    display: none;
-  }
-
-  .desktopText {
-    display: none;
-  }
-
-  .mobileText {
-    display: inline;
-    font-size: 1.05rem;
+    box-shadow: 2px 2px 0px var(--card-border);
   }
 
   .headerSignOutBtn {
-    padding: 6px 10px;
-    min-height: 40px;
+    box-shadow: 2px 2px 0px var(--card-border);
   }
 
   .main {
-    padding: 16px 12px;
+    padding: 16px 12px calc(160px + env(safe-area-inset-bottom, 0px));
     gap: 16px;
   }
 
@@ -862,56 +948,145 @@
 
   .spaceRow {
     flex-wrap: wrap;
+    align-items: flex-start;
     gap: 10px 12px;
+    padding: 14px 12px;
   }
 
   .spaceRowMain {
-    flex-basis: calc(100% - 56px);
+    flex: 1 1 calc(100% - 56px);
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .spaceName {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    line-height: 1.25;
+  }
+
+  .spaceDesc {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.35;
   }
 
   .spaceRowActions {
     width: 100%;
     justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1.5px dashed var(--card-border);
+    gap: 8px;
   }
 
   .pinBtn,
   .copyCodeBtn,
   .deleteSpaceBtn {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 42px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
   }
 
+  .pinBtn {
+    background-color: var(--card-inner);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--neo-radius-sm);
+    box-shadow: 1.5px 1.5px 0px var(--card-border);
+    opacity: 0.85;
+  }
+
   .spaceRowActions > button:last-child {
+    flex: 1;
+    min-height: 42px;
+    justify-content: center;
+  }
+
+  .pager {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .pagerStatus {
+    min-width: 0;
+    font-size: 0.82rem;
+  }
+
+  .emptyState {
+    padding: 32px 16px;
+  }
+
+  .emptyStateActions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .emptyStateActions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .deleteConfirmActions {
+    flex-direction: column-reverse;
+  }
+
+  .deleteConfirmActions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .select {
+    font-size: 16px;
     min-height: 44px;
   }
 
-  .floatingCompanionBtn {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  .visibilityOption {
+    font-size: 0.82rem;
+    padding: 8px 8px;
+    gap: 4px;
+  }
+
+  .avatarCustomizer {
+    gap: 12px;
+  }
+
+  .previewBox {
+    padding: 10px;
+  }
+
+  .floatingActionsDock {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     right: calc(14px + env(safe-area-inset-right, 0px));
+    gap: 10px;
+  }
+
+  .floatingCompanionBtn {
     width: 46px;
     height: 46px;
     box-shadow: 2.5px 2.5px 0px var(--card-border);
   }
 
   .floatingMessengerBtn {
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    right: calc(14px + env(safe-area-inset-right, 0px));
     padding: 10px 14px;
     font-size: 0.85rem;
     box-shadow: 2.5px 2.5px 0px var(--card-border);
   }
 
   .colorPickers {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
   }
 
   .colorInput {
-    height: 40px;
+    height: 38px;
   }
 
   .genderButtonGroup {
@@ -928,15 +1103,19 @@
 /* Very Small Mobile Screens (<= 380px) */
 @media (max-width: 380px) {
   .header {
-    padding: 8px 10px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) 8px calc(10px + env(safe-area-inset-left, 0px));
   }
 
   .logoText {
-    display: none;
+    font-size: 1rem;
+  }
+
+  .userProfile {
+    gap: 5px;
   }
 
   .main {
-    padding: 12px 8px;
+    padding: 12px 8px calc(156px + env(safe-area-inset-bottom, 0px));
     gap: 14px;
   }
 
@@ -949,15 +1128,28 @@
   }
 
   .spaceRowIcon {
-    display: none;
+    width: 36px;
+    height: 36px;
+    font-size: 1.15rem;
   }
 
   .spaceRowMain {
-    flex-basis: 100%;
+    flex-basis: calc(100% - 48px);
   }
 
   .spaceRowActions > button:last-child {
     flex: 1;
+  }
+
+  .visibilityOption {
+    font-size: 0.76rem;
+    padding: 6px 4px;
+  }
+
+  .floatingActionsDock {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    gap: 8px;
   }
 
   .floatingMessengerBtn {
@@ -1104,4 +1296,19 @@
   display: inline-flex;
   flex-shrink: 0;
   color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .visibilityOption {
+    font-size: 0.82rem;
+    padding: 8px 8px;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 380px) {
+  .visibilityOption {
+    font-size: 0.75rem;
+    padding: 6px 4px;
+  }
 }

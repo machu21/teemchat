@@ -54,18 +54,20 @@
 .headerActions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 /* Friends Horizontal Scroll / Grid */
 .friendsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr));
   gap: 12px;
 }
 
 .friendCard {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   background-color: var(--card-inner);
@@ -73,7 +75,7 @@
   border-radius: var(--neo-radius-sm);
   box-shadow: 2px 2px 0px var(--card-border);
   padding: 10px 14px;
-  gap: 10px;
+  gap: 8px 10px;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
@@ -88,6 +90,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1 1 150px;
   min-width: 0;
 }
 
@@ -146,6 +149,7 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .teleportBtn {
@@ -190,7 +194,12 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     width: 100%;
-    gap: 6px;
+    gap: 8px;
+  }
+
+  .headerActions > * {
+    width: 100%;
+    justify-content: center;
   }
 
   .friendsGrid {
@@ -200,6 +209,16 @@
 
   .friendCard {
     padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .friendInfo {
+    flex: 1 1 150px;
+  }
+
+  .cardActions {
+    margin-left: auto;
   }
 
   .friendName {
@@ -208,5 +227,11 @@
 
   .statusSnippet {
     font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .headerActions {
+    grid-template-columns: 1fr;
   }
 }

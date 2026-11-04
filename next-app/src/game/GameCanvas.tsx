@@ -361,6 +361,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Quick Action Button (Game Boy 'A' button) on touchscreen
   const handleActionButton = () => {
     if (navigator.vibrate) navigator.vibrate(12);
+    if (gameRef.current?.zombieDoorAction('toggle')) {
+      return;
+    }
     if (gameRef.current?.activateDoor()) {
       return;
     }
@@ -490,7 +493,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             {zombieHud.dead && <div className={styles.zombieDead}>You were bitten…</div>}
           </div>
           {zombieHud.entrance && (
-            <div className={styles.entranceChip} role="group" aria-label="Door and window actions">
+            <div
+              className={styles.entranceChip}
+              role="group"
+              aria-label="Door and window actions"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <span className={styles.entranceLabel}>
                 {zombieHud.entrance.kind === 'door' ? '🚪' : '🪟'}{' '}
                 {zombieHud.entrance.state === 'barricaded'
@@ -521,7 +529,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               )}
             </div>
           )}
-          <div className={styles.weaponBar} role="group" aria-label="Weapons">
+          <div
+            className={styles.weaponBar}
+            role="group"
+            aria-label="Weapons"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <div className={styles.weaponCurrent}>
               <span className={styles.weaponIcon} aria-hidden="true">{zombieHud.weapon.icon}</span>
               <span className={styles.weaponName}>{zombieHud.weapon.name}</span>
@@ -574,6 +587,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             type="button"
             className={styles.zombieAttackBtn}
             onPointerDown={(e) => {
+              e.stopPropagation();
               e.preventDefault();
               gameRef.current?.zombieTrigger(true);
             }}
@@ -588,6 +602,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           <button
             type="button"
             className={styles.zombieJumpBtn}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => gameRef.current?.jump()}
             aria-label="Jump"
             title="Jump over fences and cars (Space)"
@@ -598,7 +613,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       )}
 
       {/* Zoom Controls HUD */}
-      <div className={styles.zoomControls} role="group" aria-label="Camera Zoom Controls">
+      <div
+        className={styles.zoomControls}
+        role="group"
+        aria-label="Camera Zoom Controls"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           className={styles.zoomBtn}
@@ -633,6 +653,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       {/* Retro Game Boy On-Screen Controls (visibility managed responsively by CSS) */}
       <div
         className={`${styles.joystickZone} ${joystickActive ? styles.active : ''}`}
+        onPointerDown={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -658,21 +679,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Retro Action Button ('A') on the right side */}
-      <div className={styles.actionBtnZone}>
-        <button
-          type="button"
-          className={styles.actionBtn}
-          onClick={handleActionButton}
-          aria-label={
-            doorPrompt
-              ? `${doorPrompt.action === 'enter' ? 'Enter' : 'Exit'} ${doorPrompt.name}`
-              : 'Action Button'
-          }
-        >
-          {doorPrompt ? '🚪' : 'A'}
-        </button>
-      </div>
+      {/* Retro Action Button ('A') on the right side (social/non-zombie mode) */}
+      {!zombieMode && (
+        <div className={styles.actionBtnZone} onPointerDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            onClick={handleActionButton}
+            aria-label={
+              doorPrompt
+                ? `${doorPrompt.action === 'enter' ? 'Enter' : 'Exit'} ${doorPrompt.name}`
+                : 'Action Button'
+            }
+          >
+            {doorPrompt ? '🚪' : 'A'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

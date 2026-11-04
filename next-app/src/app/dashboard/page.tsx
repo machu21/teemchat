@@ -29,7 +29,7 @@ import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
 import { MessengerDrawer } from '@/components/dashboard/MessengerDrawer';
 import { CompanionPanel } from '@/components/companion/CompanionPanel';
-import { BotIcon, GlobeIcon, LockIcon } from '@/components/icons/DockIcons';
+import { BotIcon, GlobeIcon, LockIcon, LogOutIcon } from '@/components/icons/DockIcons';
 import { FriendRequestModal } from '@/components/dashboard/FriendRequestModal';
 import { CreateSquadModal } from '@/components/dashboard/CreateSquadModal';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
@@ -45,7 +45,7 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 export default function DashboardPage() {
   const router = useRouter();
   const { session, initSession, signOut, updateProfile } = useSessionStore();
-  const { initSocial, cleanupSocial, openDrawer, unreadCount, friends } = useSocialStore();
+  const { initSocial, cleanupSocial, openDrawer, isDrawerOpen, unreadCount, friends } = useSocialStore();
 
   const [spaces, setSpaces] = useState<SpaceModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -469,17 +469,18 @@ export default function DashboardPage() {
           )}
 
           <NeoButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             className={styles.headerSignOutBtn}
             title="Sign Out"
+            aria-label="Sign Out"
             onClick={async () => {
               await signOut();
               router.push('/');
             }}
           >
+            <LogOutIcon size={16} />
             <span className={styles.desktopText}>Sign Out</span>
-            <span className={styles.mobileText} aria-hidden="true">🚪</span>
           </NeoButton>
         </div>
       </header>
@@ -710,28 +711,29 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Floating Messenger Quick Button */}
-      <button
-        className={styles.floatingMessengerBtn}
-        onClick={() => openDrawer('dms')}
-        title="Open Messenger"
-        aria-label={unreadCount > 0 ? `Open Messenger (${unreadCount} unread)` : 'Open Messenger'}
-      >
-        <span aria-hidden="true">💬</span>
-        <span>Messenger</span>
-        {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
-      </button>
+      {/* Floating Messenger & AI Companion Quick Buttons (hidden when drawer or companion is open) */}
+      {!companionOpen && !isDrawerOpen && (
+        <div className={styles.floatingActionsDock}>
+          <button
+            className={styles.floatingCompanionBtn}
+            onClick={() => setCompanionOpen(true)}
+            title="AI Companion"
+            aria-label="Open AI Companion"
+          >
+            <BotIcon size={22} />
+          </button>
 
-      {/* Floating AI Companion Quick Button */}
-      {!companionOpen && (
-        <button
-          className={styles.floatingCompanionBtn}
-          onClick={() => setCompanionOpen(true)}
-          title="AI Companion"
-          aria-label="Open AI Companion"
-        >
-          <BotIcon size={24} />
-        </button>
+          <button
+            className={styles.floatingMessengerBtn}
+            onClick={() => openDrawer('dms')}
+            title="Open Messenger"
+            aria-label={unreadCount > 0 ? `Open Messenger (${unreadCount} unread)` : 'Open Messenger'}
+          >
+            <span aria-hidden="true">💬</span>
+            <span>Messenger</span>
+            {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
+          </button>
+        </div>
       )}
 
       {/* AI Companion Chat Panel */}
@@ -1107,6 +1109,44 @@ export default function DashboardPage() {
           <NeoButton variant="primary" size="lg" onClick={handleSaveAvatar} disabled={isSavingAvatar}>
             {isSavingAvatar ? 'Saving...' : 'Save Changes'}
           </NeoButton>
+
+          {session && (
+            <div className={styles.modalAccountSection}>
+              <div className={styles.modalAccountInfo}>
+                <span className={styles.modalAccountName}>{session.displayName}</span>
+                <span className={styles.modalAccountRole}>
+                  {session.isGuest ? `@${session.username} • Guest Session` : `${session.tier.toUpperCase()} Member`}
+                </span>
+              </div>
+              {session.isGuest && (
+                <NeoButton
+                  variant="accent"
+                  size="md"
+                  fullWidth
+                  onClick={() => {
+                    setAvatarDrawerOpen(false);
+                    setUpgradeModalOpen(true);
+                  }}
+                >
+                  ⭐ Upgrade Account
+                </NeoButton>
+              )}
+              <NeoButton
+                variant="danger"
+                size="md"
+                fullWidth
+                onClick={async () => {
+                  setAvatarDrawerOpen(false);
+                  await signOut();
+                  router.push('/');
+                }}
+                className={styles.modalSignOutBtn}
+                title="Sign Out of TeemChat"
+              >
+                <LogOutIcon size={18} /> Sign Out
+              </NeoButton>
+            </div>
+          )}
         </div>
       </NeoModal>
 
