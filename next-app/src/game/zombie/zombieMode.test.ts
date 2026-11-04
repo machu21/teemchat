@@ -310,7 +310,7 @@ describe('ZombieMode weapons and loot', () => {
     const mode = new ZombieMode(walls, buildings, MAP_WIDTH, MAP_HEIGHT, 1, [], [], pistolAt(SPAWN.x, SPAWN.y - 4));
     mode.update(1 / 30, frame());
     expect(mode.getWeapon()).toBe('pistol');
-    mode.hp = 0;
+    mode.vitals = { ...mode.vitals, health: 0 };
     mode.update(1 / 30, frame());
     expect(mode.getWeapon()).toBe('axe');
   });
@@ -321,3 +321,92 @@ function makeModeWithLoot(bus: FakeBus, id: string, seed: number, loot: import('
   mode.attachNet(new FakeNet(bus, id) as unknown as ZombieSyncService);
   return mode;
 }
+
+describe('ZombieMode survival layer', () => {
+  type Internals = { taken: Set<number>; elapsed: number };
+  const internals = (m: ZombieMode) => m as unknown as Internals;
+  const huds = (m: ZombieMode) => {
+    const out: import('./zombieMode').ZombieHud[] = [];
+    m.onHudChanged = (h) => out.push(h);
+    return out;
+  };
+
+  it('picks supplies into the bag and C uses the one you need most', () => {
+    const loot = [
+      { id: 0, item: { kind: 'supply' as const, supply: 'water_bottle' as const }, x: SPAWN.x, y: SPAWN.y - 4 },
+      { id: 1, item: { kind: 'supply' as const, supply: 'apple' as const }, x: SPAWN.x + 6, y: SPAWN.y - 4 },
+    ];
+    const mode = new ZombieMode(walls, buildings, MAP_WIDTH, MAP_HEIGHT, 1, [], [], loot);
+    const seen = huds(mode);
+    mode.update(1 / 30, frame());
+    expect(seen.at(-1)?.supplies.map((s) => s.id).sort()).toEqual(['apple', 'water_bottle']);
+    mode.vitals = { ...mode.vitals, hydration: 10, hunger: 80 };
+    expect(mode.useSupply()).toBe(true);
+    expect(mode.vitals.hydration).toBeCloseTo(50, 0);
+    mode.update(1 / 30, frame({ feetX: SPAWN.x + 200 }));
+    expect(seen.at(-1)?.supplies.map((s) => s.id)).toEqual(['apple']);
+  });
+
+  it('sprinting is faster until stamina runs out; hunger and thirst drain over time', () => {
+    const mode = new ZombieMode(walls, buildings, MAP_WIDTH, MAP_HEIGHT, 1);
+    mode.setSprint(true);
+    mode.update(1 / 30, frame({ moveX: 1 }));
+    expect(mode.moveMultiplier()).toBeGreaterThan(1.3);
+    for (let i = 0; i < 30 * 9; i++) mode.update(1 / 30, frame({ moveX: 1 }));
+    expect(mode.vitals.exhausted).toBe(true);
+    expect(mode.moveMultiplier()).toBeLessThanOrEqual(1);
+    expect(mode.vitals.hunger).toBeLessThan(100);
+    expect(mode.vitals.hydration).toBeLessThan(mode.vitals.hunger);
+  });
+
+  it('starts at threat 0 and the client follows the host clock', () => {
+    const bus = new FakeBus();
+    bus.hostId = 'host';
+    const host = makeMode(bus, 'host', 1);
+    const client = makeMode(bus, 'client', 2);
+    const seen = huds(client);
+    step([[host, frame()], [client, frame()]], 0.5);
+    expect(seen.at(-1)?.threat).toBe(0);
+    internals(host).elapsed = 1000;
+    step([[host, frame()], [client, frame()]], 1.2);
+    expect(seen.at(-1)?.threat).toBe(5);
+  });
+
+  it('replicates specials and delivers a charger knockdown to the client it hits', () => {
+    const bus = new FakeBus();
+    bus.hostId = 'host';
+    const host = makeMode(bus, 'host', 1);
+    const client = makeMode(bus, 'client', 2);
+    const clientFeet = { x: 900, y: 600 };
+    const hostFrame = frame({ others: [{ id: 'client', ...clientFeet }] });
+    const clientFrame = frame({ feetX: clientFeet.x, feetY: clientFeet.y });
+    step([[host, hostFrame], [client, clientFrame]], 0.3);
+
+    const c = host.director.spawn('charger', clientFeet.x - 70, clientFeet.y);
+    c.state = 'chase';
+    c.targetId = 'client';
+    if (c.ability.kind === 'charge') Object.assign(c.ability, { phase: 'charging', timer: 1, dirX: 1, dirY: 0, cooldown: 0, hit: [] });
+    c.locked = true;
+    step([[host, hostFrame], [client, clientFrame]], 0.7);
+
+    const replica = client.sim.zombies.find((z) => z.id === c.id) as import('./survival/types').ZombieEntity | undefined;
+    expect(replica?.kind).toBe('charger');
+    expect(client.vitals.effects.some((e) => e.kind === 'knockdown')).toBe(true);
+    expect(client.hp).toBeLessThan(PLAYER_MAX_HP);
+  });
+
+  it('stores restock taken supplies for everyone after their timer', () => {
+    const bus = new FakeBus();
+    bus.hostId = 'host';
+    const loot = [{ id: 0, item: { kind: 'supply' as const, supply: 'chips' as const }, x: SPAWN.x, y: SPAWN.y - 4, respawn: 2 }];
+    const host = makeModeWithLoot(bus, 'host', 1, loot);
+    const client = makeModeWithLoot(bus, 'client', 2, loot);
+    const away = frame({ feetX: SPAWN.x + 300 });
+    step([[host, frame()], [client, away]], 0.5);
+    expect(internals(host).taken.has(0)).toBe(true);
+    expect(internals(client).taken.has(0)).toBe(true);
+    step([[host, away], [client, away]], 3);
+    expect(internals(host).taken.has(0)).toBe(false);
+    expect(internals(client).taken.has(0)).toBe(false);
+  });
+});

@@ -8,9 +8,26 @@ import { WorldSyncService } from '@/lib/services/worldSync';
 import { UserSession } from '@/lib/models/user';
 import { FurnitureType } from '@/game/entities/furniture';
 import { CompanionModel } from '@/lib/models/chat';
+import type { CompanionEmote, CompanionMood } from '@/lib/companion/types';
 import { getMapConfig } from '@/game/map/mapRegistry';
 import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM, SURVIVAL_ZOOM_LIMITS } from '@/game/camera';
 import { ZombieHud } from '@/game/zombie/zombieMode';
+import type { SpecialZombieType, StatusEffectKind } from '@/game/zombie/survival/types';
+
+const EFFECT_LABELS: Record<StatusEffectKind, string> = {
+  stimulant: '⚡ Wired',
+  poison: '☣ Poisoned',
+  slow: '🐌 Slowed',
+  knockdown: '💫 Down',
+  blinded: '🌫 Gassed',
+  regen: '💚 Healing',
+};
+
+const SPECIAL_WARNINGS: Record<SpecialZombieType, string> = {
+  charger: '🐂 Charger — sidestep the charge',
+  bloater: '🤢 Bloater — keep your distance',
+  dreadnought: '🛡 Dreadnought — it calls the horde',
+};
 import { WEAPONS } from '@/game/zombie/weapons';
 
 import { AvatarConfig } from '@/lib/models/avatar';
@@ -36,6 +53,13 @@ interface GameCanvasProps {
   }) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
   onZoneChanged?: (zoneName: string) => void;
+  /** Make the companion say something / emote. A new `seq` replays the cue. */
+  companionCue?: { text: string; emote?: CompanionEmote; mood?: CompanionMood; seq: number } | null;
+  /** Make the companion lead the player to a spot. A new `seq` starts a new guide. */
+  companionGuide?: { x: number; y: number; name: string; seq: number } | null;
+  onCompanionArrive?: (placeName: string) => void;
+  onCompanionWake?: () => void;
+  onCompanionSleep?: () => void;
   /** Zomboid-style vision cone + fog of war. */
   zombieMode?: boolean;
 }
@@ -55,8 +79,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onRemotePlayerTap,
   onProximityChanged,
   onZoneChanged,
+  companionCue,
+  companionGuide,
+  onCompanionArrive,
+  onCompanionWake,
+  onCompanionSleep,
   zombieMode = false,
 }) => {
+  // Latest companion callbacks, read by the engine without re-initializing it
+  const companionEventsRef = useRef({ onCompanionArrive, onCompanionWake, onCompanionSleep });
+  useEffect(() => {
+    companionEventsRef.current = { onCompanionArrive, onCompanionWake, onCompanionSleep };
+  }, [onCompanionArrive, onCompanionWake, onCompanionSleep]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<WorldGame | null>(null);
@@ -153,6 +187,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (onZoneChanged) {
       game.onZoneChanged = onZoneChanged;
     }
+    game.onCompanionWake = () => companionEventsRef.current.onCompanionWake?.();
+    game.onCompanionSleep = () => companionEventsRef.current.onCompanionSleep?.();
 
     game.onDoorPromptChanged = (prompt) => setDoorPrompt(prompt);
     game.onFloorChanged = (info) => setFloorInfo(info);
@@ -269,6 +305,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current.player.isCameraOn = isCamOn;
     }
   }, [isMicOn, isCamOn]);
+
+  useEffect(() => {
+    if (gameRef.current && companionCue) {
+      gameRef.current.companionSay(companionCue.text, companionCue.emote, companionCue.mood);
+    }
+  }, [companionCue]);
+
+  useEffect(() => {
+    if (gameRef.current && companionGuide) {
+      const { x, y, name } = companionGuide;
+      gameRef.current.companionGuideTo(x, y, name, () => companionEventsRef.current.onCompanionArrive?.(name));
+    }
+  }, [companionGuide]);
 
   useEffect(() => {
     if (gameRef.current && targetTeleport) {
@@ -480,15 +529,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               />
               <span className={styles.zombieHpText}>{zombieHud.hp} HP</span>
             </div>
+            <div className={styles.vitals}>
+              {(
+                [
+                  ['🍗', 'Hunger', zombieHud.hunger, '#f59e0b'],
+                  ['💧', 'Thirst', zombieHud.hydration, '#38bdf8'],
+                  ['⚡', 'Stamina', zombieHud.stamina, zombieHud.exhausted ? '#a1a1aa' : '#facc15'],
+                ] as const
+              ).map(([icon, label, value, color]) => (
+                <div key={label} className={styles.vitalRow} role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}>
+                  <span className={styles.vitalIcon} aria-hidden="true">{icon}</span>
+                  <span className={`${styles.vitalTrack} ${value < 15 ? styles.vitalLow : ''}`}>
+                    <span style={{ width: `${value}%`, backgroundColor: color }} />
+                  </span>
+                </div>
+              ))}
+            </div>
             <div className={styles.zombieStats}>
               <span>☠ {zombieHud.kills}</span>
               <span>🧟 {zombieHud.alive}</span>
+              <span title="Threat rises the longer you survive">🔥 Lv {zombieHud.threat}</span>
               {zombieHud.chasing > 0 && (
                 <span className={styles.zombieChasing}>⚠ {zombieHud.chasing} chasing</span>
               )}
             </div>
+            {(zombieHud.effects.length > 0 || zombieHud.safe || zombieHud.exhausted) && (
+              <div className={styles.effectChips}>
+                {zombieHud.safe && <span className={styles.effectGood}>🛏 Safe</span>}
+                {zombieHud.exhausted && <span className={styles.effectBad}>😮‍💨 Exhausted</span>}
+                {zombieHud.effects.map((k) => (
+                  <span key={k} className={k === 'stimulant' || k === 'regen' ? styles.effectGood : styles.effectBad}>
+                    {EFFECT_LABELS[k]}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className={styles.zombieHint}>
-              <kbd>F</kbd> fire · <kbd>R</kbd> reload · <kbd>Q</kbd>/<kbd>1-6</kbd> weapon · <kbd>Space</kbd> jump
+              <kbd>F</kbd> fire · <kbd>R</kbd> reload · <kbd>Q</kbd>/<kbd>1-6</kbd> weapon · <kbd>Shift</kbd> sprint · <kbd>C</kbd> eat/drink · <kbd>Space</kbd> jump
             </div>
             {zombieHud.dead && <div className={styles.zombieDead}>You were bitten…</div>}
           </div>
@@ -577,12 +654,48 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 ))}
               </div>
             )}
+            {zombieHud.supplies.length > 0 && (
+              <div className={styles.supplyBar} role="group" aria-label="Supplies">
+                {zombieHud.supplies.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={styles.supplyBtn}
+                    onClick={() => gameRef.current?.zombieUseSupply(s.id)}
+                    aria-label={`Use ${s.name} (${s.qty} left)`}
+                    title={`Use ${s.name}`}
+                  >
+                    <span aria-hidden="true">{s.icon}</span>
+                    {s.qty > 1 && <span className={styles.supplyQty}>{s.qty}</span>}
+                  </button>
+                ))}
+                <span className={styles.bagFill} aria-label={`Bag ${Math.round(zombieHud.bagFill * 100)}% full`}>
+                  🎒 {Math.round(zombieHud.bagFill * 100)}%
+                </span>
+              </div>
+            )}
           </div>
+          {zombieHud.specials.length > 0 && (
+            <div className={styles.specialWarn} role="alert">
+              {zombieHud.specials.map((k) => SPECIAL_WARNINGS[k]).join(' · ')}
+            </div>
+          )}
           {zombieHud.toast && (
             <div className={styles.zombieToast} role="status">
               {zombieHud.toast}
             </div>
           )}
+          <button
+            type="button"
+            className={`${styles.zombieSprintBtn} ${zombieHud.sprintLatched ? styles.zombieSprintOn : ''}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => gameRef.current?.zombieToggleSprint()}
+            aria-label="Sprint"
+            aria-pressed={zombieHud.sprintLatched}
+            title="Sprint (hold Shift)"
+          >
+            🏃
+          </button>
           <button
             type="button"
             className={styles.zombieAttackBtn}

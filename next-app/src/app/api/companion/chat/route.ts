@@ -1,12 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
 import { authenticateCompanionRequest, checkCompanionQuota } from '@/lib/companionAuth';
+import { COMPANION_REPLY_SCHEMA, buildSystemPrompt } from '@/lib/companion/prompt';
+import { normalizeWorldContext, oneLine, parseCompanionReply } from '@/lib/companion/normalize';
+import {
+  CompanionAiDeps,
+  awardBond,
+  ephemeralCompanion,
+  getOrCreateCompanion,
+  learnFromExchange,
+  loadRecentFacts,
+  loadRecentSummaries,
+  maybeSummarize,
+  mergeFacts,
+  saveExchange,
+  updateCompanionState,
+} from '@/lib/companion/server';
+import { CompanionMemoryFact } from '@/lib/companion/types';
 
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
 const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+
+const MAX_MESSAGE_LENGTH = 2000;
+
+type EmbedResult = { embedding?: { values?: number[] }; embeddings?: Array<{ values?: number[] }> };
+
+async function embed(text: string): Promise<number[] | null> {
+  const res = (await ai.models.embedContent({
+    model: 'gemini-embedding-001',
+    contents: text,
+    config: { outputDimensionality: 768 },
+  })) as unknown as EmbedResult;
+  return res?.embedding?.values || res?.embeddings?.[0]?.values || null;
+}
+
+const aiDeps: CompanionAiDeps = {
+  embed,
+  generateJson: async (prompt) => {
+    const res = await ai.models.generateContent({
+      model: geminiModel,
+      contents: prompt,
+      config: { responseMimeType: 'application/json', temperature: 0.2 },
+    });
+    return res.text;
+  },
+};
+
+/** Run background work after the response is sent; falls back to fire-and-forget outside a request scope (tests). */
+function runAfter(task: () => Promise<unknown>) {
+  const safe = () => task().catch((err) => console.warn('Companion background task warning:', err));
+  try {
+    after(safe);
+  } catch {
+    void safe();
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,16 +66,20 @@ export async function POST(req: NextRequest) {
     const { user, supabase } = auth;
 
     const body = await req.json();
-    const {
-      companion,
-      userName,
-      currentZone,
-      userMessage,
-      recentHistory = [],
-    } = body;
+    const { userName, userMessage, recentHistory = [] } = (body && typeof body === 'object' ? body : {}) as {
+      userName?: unknown;
+      userMessage?: unknown;
+      recentHistory?: unknown;
+    };
 
-    if (!userMessage) {
+    if (typeof userMessage !== 'string' || !userMessage.trim()) {
       return NextResponse.json({ error: 'Missing userMessage' }, { status: 400 });
+    }
+    if (userMessage.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json(
+        { error: 'Message too long', message: `Keep messages under ${MAX_MESSAGE_LENGTH} characters.` },
+        { status: 400 }
+      );
     }
 
     // 1. Quota check via Supabase RPC
@@ -35,137 +90,103 @@ export async function POST(req: NextRequest) {
           ? "⚡ You've reached your free daily trial limit (5/5 messages). Upgrade your account for full access, or chat again tomorrow!"
           : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
         quotaExceeded: true,
+        mood: 'sleepy',
+        emote: 'zzz',
+        actions: [],
       });
     }
 
-    // 2. Vector embedding + similarity search RAG
-    let ragMemories: Array<{ memory_key: string; memory_value: string }> = [];
-    try {
-      const embRes = await ai.models.embedContent({
-        model: 'text-embedding-004',
-        contents: userMessage,
-      });
-
-      const embeddingValues = (embRes as unknown as { embedding?: { values?: number[] }; embeddings?: Array<{ values?: number[] }> }).embedding?.values ||
-        (embRes as unknown as { embeddings?: Array<{ values?: number[] }> }).embeddings?.[0]?.values;
-
-      if (embeddingValues && companion?.id) {
-        const { data: matched } = await supabase.rpc('match_companion_memories', {
-          p_companion_id: companion.id,
-          p_query_embedding: embeddingValues,
-          p_match_count: 6,
-          p_min_similarity: 0.55,
-        });
-        if (matched && Array.isArray(matched)) {
-          ragMemories = matched;
-        }
-      }
-    } catch (e) {
-      console.warn('RAG semantic lookup warning:', e);
-    }
-
-    // 3. Build system instruction
-    const memoryBullets = ragMemories.map((m) => `- ${m.memory_key}: ${m.memory_value}`);
-    if (companion?.learnedContext) {
-      for (const [k, v] of Object.entries(companion.learnedContext)) {
-        if (!memoryBullets.some((b) => b.includes(k))) {
-          memoryBullets.push(`- ${k}: ${v}`);
-        }
-      }
-    }
-
-    const memorySection =
-      memoryBullets.length > 0
-        ? `\nRELEVANT MEMORIES ABOUT ${userName}:\n${memoryBullets.join('\n')}`
-        : `\nWHAT YOU KNOW ABOUT ${userName}:\n- This is a new friendship. Be curious and attentive!`;
-
-    const systemInstruction = `
-You are '${companion?.name || 'Pixel Companion'}', a loyal, charming personal AI companion inside 'TeemChat', a retro 2D virtual hangout.
-Persona: ${companion?.persona || 'Friendly retro companion'}
-Form: ${companion?.companionType || 'robot'} (${companion?.avatarStyle || 'bot_blue'})
-Owner: ${userName}
-Current location: ${currentZone || 'Verdant Village'}
-${memorySection}
-
-CRITICAL RULES:
-1. Speak faithfully in your persona. Warm, punchy, playful, and loyal.
-2. Be curious about ${userName}'s thoughts, plans, and build ideas in TeemChat.
-3. Keep replies natural, concise, and engaging (1 to 3 sentences unless technical code or deep explanation is explicitly requested).
-4. For code, always use triple backticks with language. For inline code use single backticks.
-5. Reference zones naturally (Verdant Village, Whispering Woods, Adventure Camp, Craggy Ridge, Crystal Bay, River Crossing).
-`;
-
-    // 4. Multi-turn conversation format
-    const contents = recentHistory.slice(-8).map((msg: { role: string; content: string }) => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    }));
-
-    contents.push({
-      role: 'user',
-      parts: [{ text: userMessage }],
+    // 2. The companion is always loaded server-side — persona/memories from the client are ignored.
+    const companion = await getOrCreateCompanion(supabase, user.id);
+    const ownerName = oneLine(userName, 32) || oneLine(user.user_metadata?.display_name, 32) || 'friend';
+    const world = normalizeWorldContext((body as Record<string, unknown>).world ?? {
+      zone: (body as Record<string, unknown>).currentZone,
     });
+
+    // 3. Memory: semantic recall + most important facts + recent diary summaries
+    let facts: CompanionMemoryFact[] = [];
+    let summaries: Awaited<ReturnType<typeof loadRecentSummaries>> = [];
+    if (companion) {
+      const [semantic, recent, diary] = await Promise.all([
+        embed(userMessage)
+          .then(async (vec) => {
+            if (!vec) return [];
+            const { data } = await supabase.rpc('match_companion_memories', {
+              p_companion_id: companion.id,
+              p_query_embedding: vec,
+              p_match_count: 6,
+              p_min_similarity: 0.55,
+            });
+            return Array.isArray(data)
+              ? data.map((m: { memory_key: string; memory_value: string }) => ({ key: m.memory_key, value: m.memory_value }))
+              : [];
+          })
+          .catch((e) => {
+            console.warn('RAG semantic lookup warning:', e);
+            return [];
+          }),
+        loadRecentFacts(supabase, companion.id, 8),
+        loadRecentSummaries(supabase, companion.id, 3),
+      ]);
+      facts = mergeFacts(semantic, recent);
+      summaries = diary;
+    }
+
+    const systemInstruction = buildSystemPrompt({
+      companion: companion ?? ephemeralCompanion(user.id),
+      ownerName,
+      facts,
+      summaries,
+      world,
+    });
+
+    // 4. Multi-turn conversation (text only, bounded)
+    const history = Array.isArray(recentHistory) ? recentHistory : [];
+    const contents = history
+      .slice(-8)
+      .filter((m): m is { role: string; content: string } => !!m && typeof m.content === 'string')
+      .map((msg) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content.slice(0, MAX_MESSAGE_LENGTH) }],
+      }));
+    contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
     const response = await ai.models.generateContent({
       model: geminiModel,
       contents,
       config: {
         systemInstruction,
-        temperature: 0.85,
-        maxOutputTokens: 1024,
+        temperature: 0.9,
+        maxOutputTokens: 4096,
+        responseMimeType: 'application/json',
+        responseJsonSchema: COMPANION_REPLY_SCHEMA,
       },
     });
 
-    const replyText = response.text || "I'm right beside you! Let's explore together!";
+    const reply = parseCompanionReply(response.text, companion?.mood ?? 'happy');
 
-    // 5. Asynchronous fact extraction & memory insertion in background
-    (async () => {
-      try {
-        if (!companion?.id) return;
-        const factPrompt = `
-Analyze this conversation:
-User: "${userMessage}"
-Companion: "${replyText}"
-Extract any personal preferences, facts, or instructions stated by user '${userName}'.
-Return a clean JSON object of key-value pairs (max 3), e.g. {"likes": "fishing", "role": "builder"}. If none, return {}. No markdown fences.
-`;
-        const factRes = await ai.models.generateContent({
-          model: geminiModel,
-          contents: factPrompt,
-        });
+    // 5. Bond grows with every real conversation (throttled server-side)
+    const bondXp = companion ? ((await awardBond(supabase, 1)) ?? companion.bondXp) : 0;
 
-        const rawJson = factRes.text?.replace(/```json|```/g, '').trim() || '{}';
-        const start = rawJson.indexOf('{');
-        const end = rawJson.lastIndexOf('}');
-        if (start !== -1 && end > start) {
-          const parsed = JSON.parse(rawJson.slice(start, end + 1));
-          for (const [k, v] of Object.entries(parsed)) {
-            const factText = `${k}: ${v} (about user ${userName})`;
-            const emb = await ai.models.embedContent({
-              model: 'text-embedding-004',
-              contents: factText,
-            });
+    // 6. Background: persist history, learn facts, update mood, roll up summaries
+    if (companion) {
+      runAfter(async () => {
+        await Promise.all([
+          saveExchange(supabase, companion, userMessage, reply.text),
+          updateCompanionState(supabase, companion, reply.mood),
+          learnFromExchange(supabase, aiDeps, companion, ownerName, userMessage, reply.text),
+        ]);
+        await maybeSummarize(supabase, aiDeps, companion, ownerName);
+      });
+    }
 
-            const embVals = (emb as unknown as { embedding?: { values?: number[] }; embeddings?: Array<{ values?: number[] }> }).embedding?.values ||
-              (emb as unknown as { embeddings?: Array<{ values?: number[] }> }).embeddings?.[0]?.values;
-
-            await supabase.from('companion_memories').insert({
-              companion_id: companion.id,
-              user_id: user.id,
-              memory_key: k,
-              memory_value: String(v),
-              category: 'learned_fact',
-              importance_score: 0.8,
-              embedding: embVals ? `[${embVals.join(',')}]` : null,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Async fact extraction error:', err);
-      }
-    })();
-
-    return NextResponse.json({ response: replyText });
+    return NextResponse.json({
+      response: reply.text,
+      mood: reply.mood,
+      emote: reply.emote,
+      actions: reply.actions,
+      bondXp,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Error generating companion response:', err);

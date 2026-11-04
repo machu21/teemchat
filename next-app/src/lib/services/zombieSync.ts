@@ -16,8 +16,24 @@ import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supa
 // movement already uses up to 10/s while walking — keep these rare.
 // ============================================================
 
-/** One zombie row: [id, x, y, goalX, goalY, stateIndex, hp, variant] (ints). */
-export type ZombieRow = [number, number, number, number, number, number, number, number];
+/**
+ * One zombie row: [id, x, y, goalX, goalY, stateIndex, hp, variant, kind?, ability?] (ints).
+ * kind = ZOMBIE_KINDS index, ability = ABILITY_FLAGS index (both in game/zombie/survival/types.ts; omitted for idle walkers).
+ * Append-only: older clients ignore the trailing elements.
+ */
+export type ZombieRow = [number, number, number, number, number, number, number, number, number?, number?];
+
+/**
+ * One-shot special-infected effect: i = charger impact on `id` (dmg `d`, knockdown),
+ * b = bloater burst (damage + gas cloud at x,y), r = dreadnought roar, c = charger breach.
+ */
+export interface ZombieFx {
+  k: 'i' | 'b' | 'r' | 'c';
+  x: number;
+  y: number;
+  id?: string;
+  d?: number;
+}
 
 export interface ZombieSnapshot {
   /** Sequence number, monotonic per host. */
@@ -35,6 +51,14 @@ export interface ZombieSnapshot {
   d?: EntranceRow[];
   /** Loot ids taken (changes since last snapshot; full list resent periodically). */
   t?: number[];
+  /** 1 when `t` is the full taken list (replace, so restocked items reappear for everyone). */
+  tf?: 1;
+  /** Loot ids restocked since the last snapshot. */
+  r?: number[];
+  /** Match clock (s) — drives the difficulty curve on every client. */
+  el?: number;
+  /** Special-infected effects since the last snapshot. */
+  x?: ZombieFx[];
 }
 
 /** [tileIndex, stateIndex (ENTRANCE_STATES), planks, hp]. */

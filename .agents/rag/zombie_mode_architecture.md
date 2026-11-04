@@ -242,6 +242,56 @@ Phase 2 swaps "host client" for a Node process that runs the same tick module an
   - Pickups are applied optimistically and sent as `zloot {i}`. The host broadcasts taken ids in `zsnap.t`, resends the full list periodically, and resends immediately when someone joins.
   - Remote players' tracers and muzzle flashes are not shown yet.
 
+## 4.7 Survival layer: vitals, bag, factions, specials
+
+Code: `next-app/src/game/zombie/survival/`, tests in `survival.test.ts` (pure) and the "survival layer" block of `zombieMode.test.ts` (wired). Everything is DOM-free and deterministic.
+
+**Wired into `ZombieMode`:** vitals, sprint, supplies, the difficulty clock and the three specials.
+- **Vitals.** `ZombieMode.vitals` replaces the old `hp` field; `hp` is now a getter. The old flat regen is gone: you heal while well fed (hunger and hydration ≥ 60), from food or meds, or by resting somewhere safe (indoors with nothing hunting within 10 tiles).
+- **Sprint.** Hold Shift; touch devices get the 🏃 toggle. It costs stamina and makes louder footsteps (radius 6). `moveMultiplier()` = weapon × vitals × sprint.
+- **Supplies.** City loot gains `{ kind: 'supply' }` spawns from a separate RNG stream, so gun ids are unchanged. Groceries, shops, gas stations and pharmacies restock every 300 s ÷ `lootMul`; other buildings are one-time. Supplies go into the bag (12 slots, 20 kg). C, or a tap on a HUD supply, uses one. Guns and ammo keep their existing slots and pouch.
+- **Difficulty.** The host counts `elapsed` and sends it as `zsnap.el`. Every client derives `difficultyAt(elapsed)`, which drives: walker speed, sim aggro, population and waves, special rolls (capped at 4 chargers, 6 bloaters, 1 dreadnought), loot restock, and vitals decay.
+- **Specials** run on the host through `SpecialsDirector`.
+  - Damage is armour-aware: melee via `sim.strike(..., scale)`, bullets via `director.damage`. Bites are scaled by type.
+  - Rows carry `[..., kind, abilityFlag]`. Clients mirror ability state with `applyFlag`; a charging Charger's goal row points along the dash.
+  - One-shot effects travel in `zsnap.x`: `i` impact + knockdown, `b` burst + gas, `r` roar, `c` breach.
+  - Gas clouds tick on every client, applying poison, slow and blinded, and shrinking the FOV via `ZombieVision.setViewScale`.
+- **Loot sync.** `zsnap.tf = 1` marks a full taken-list resend that replaces the client's set, and `zsnap.r` lists restocked ids.
+
+**Not wired yet:** factions/PvP and squads, and the admin/mod match gate (needs `zombie_matches`, below). Until then the match clock starts when a host first runs the horde.
+
+| Module | What it owns |
+| :--- | :--- |
+| `types.ts` | `PlayerVitals`, `InventoryItem`, `WeaponItem`, `Bag`, `QuickSlots`, `LootContainer`, `ZombieEntity` (= `Zombie` + kind/armour/ability), `SpecialZombieType`, `GameState`, `Relation` |
+| `difficulty.ts` | `difficultyAt(elapsed)`: spawn interval, population, aggro, speed, special chances, loot and decay multipliers. `FixedStep` is a 20 Hz accumulator with capped catch-up |
+| `vitals.ts` | `tickVitals`: hunger/hydration decay (hydration ×2.5 sprinting), stamina + exhaustion lock, starvation/dehydration HP drain, safe-zone stabilise. Status effects: stimulant, poison, slow, blinded, knockdown, regen |
+| `inventory.ts` | Slot + weight bag with stacking, ammo pouch auto-stack, quick reload, duplicate gun → ammo, consumables, POI container presets, loot tables, respawn timers or one-time flags |
+| `factions.ts` | `relationOf`: same account / mutual friend / same squad → `TEAM_ALLY`, otherwise `NEUTRAL_SURVIVOR`, `zombie:*` → `INFECTED`. `damageMultiplier` (no ally bullets, softened PvP). Squad invites with TTL |
+| `session.ts` | `space_members.role` → `ROOM_ADMIN` / `MOD_OPERATOR` / `SURVIVOR`; start/end gate; clock from a shared `startedAtMs`; `validateMove` (anti-teleport rubber-band, stairs portals allowed) |
+| `specials.ts` | Strategy per special + `SpecialsDirector` (run right after `sim.tick`). Charger: windup → straight charge → knockdown/breach → stun. Bloater: proximity fuse or death → burst + 10 s gas hazard. Dreadnought: armour (ballistic ×0.35) + roar every 14 s that `rallyHorde`s zombies within 30 tiles |
+
+`ZombieSim` gained three optional hooks for this: `add(x, y)`, `Zombie.locked` (an ability owns movement, so the sim skips AI), and `Zombie.speedMul`.
+
+### Sync plan (fits the existing `space:{id}:zombies` channel and budget)
+
+- **High frequency (horde).** Keep `zsnap` at ~3 Hz with client dead-reckoning.
+  - Append `kind` (`ZOMBIE_KINDS` index) as the 9th `ZombieRow` element, append-only.
+  - Send ability phase only while an ability is active, as a 10th element: charge direction is needed so clients can extrapolate a 210 px/s dash between snapshots. Without it the dash looks like teleporting.
+- **One-shot effects.** Send them as an immediate `zfx` broadcast, not inside the snapshot: `impact`, `breach`, `burst`, `roar`.
+  - Clients play the VFX/SFX, add hazards locally, and the impacted player applies `damageVitals` itself, the same way bites work today.
+  - Breaches still arrive authoritatively through `zsnap.d`.
+- **Vitals stay local** to each player, like HP today. Broadcast only what others render (alive, downed, maybe a health bucket) on the existing world presence/broadcast. Never send vitals per tick.
+- **Low frequency (loot).** Do container takes the same way as `zloot`: optimistic locally, `zloot {c: containerId, u: uid}` to the host, host broadcasts changes, plus a periodic full resend for late joiners.
+  - Respawns are derived from the match clock, so they need no extra traffic.
+  - Container contents are seeded from `(mapSeed, containerId, refill time)`, so the host only sends *taken* uids.
+- **Match state.** Broadcast can't prove who sent a message, so the admin/mod gate must live in Postgres.
+  - Add a `zombie_matches (space_id pk, phase, started_by, started_at)` table. Its RLS lets `space_members.role in ('owner','admin','moderator')` update it.
+  - Clients read it through `postgres_changes`: low frequency, which is fine.
+  - Every client computes `difficultyAt((now - started_at)/1000)` locally. A promoted host resumes the same curve with no handoff.
+  - Database Manager owns this migration.
+- **Host handoff gap.** `adopt()` resets ability state, because snapshots don't carry it. A charger mid-dash simply stops. That's acceptable.
+- **Rendering.** The client sim stays in the RAF loop, using `FixedStep` for the host sim and interpolating with `alpha`. Network handlers only write into buffers that the next frame reads. No React state per snapshot: the HUD stays on its existing change-key throttle.
+
 ## 5. Integration checklist (next steps)
 
 1. `buildZombieGrid(mapConfig, buildings)`: rasterise current walls, furniture and building footprints into a `TileGrid`.

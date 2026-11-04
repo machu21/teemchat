@@ -1028,3 +1028,228 @@
     bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ── Survival vitals, supplies, sprint, special warnings ───────── */
+.vitals {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vitalRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vitalIcon {
+  width: 16px;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.vitalTrack {
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  background-color: var(--card-inner, #f3f4f6);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 4px;
+}
+
+.vitalTrack > span {
+  display: block;
+  height: 100%;
+  transition: width 200ms ease-out;
+}
+
+.vitalLow {
+  animation: vitalPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes vitalPulse {
+  50% {
+    border-color: #ef4444;
+  }
+}
+
+.effectChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.effectGood,
+.effectBad {
+  padding: 1px 6px;
+  color: #18181b;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 999px;
+}
+
+.effectGood {
+  background-color: #bbf7d0;
+}
+
+.effectBad {
+  background-color: #fecaca;
+}
+
+.supplyBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.supplyBtn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--card-inner, #f3f4f6);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border, #18181b);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.supplyBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+.supplyQty {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 16px;
+  padding: 0 3px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 14px;
+  color: #ffffff;
+  background-color: #18181b;
+  border-radius: 999px;
+}
+
+.bagFill {
+  margin-left: 2px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--text-muted, #71717a);
+}
+
+.specialWarn {
+  position: absolute;
+  top: max(104px, env(safe-area-inset-top, 0px) + 96px);
+  left: 50%;
+  z-index: 46;
+  max-width: calc(100vw - 32px);
+  padding: 5px 12px;
+  transform: translateX(-50%);
+  font-family: 'Plus Jakarta Sans', inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  color: #ffffff;
+  background-color: #b91c1c;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  pointer-events: none;
+}
+
+/* Touch-only: desktop sprints with Shift */
+.zombieSprintBtn {
+  position: absolute;
+  bottom: max(172px, env(safe-area-inset-bottom, 24px) + 156px);
+  right: max(88px, env(safe-area-inset-right, 16px) + 76px);
+  z-index: 45;
+  width: 48px;
+  height: 48px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 50%;
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+}
+
+.zombieSprintOn {
+  background-color: #fb923c;
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .zombieSprintBtn {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .vitalTrack {
+    height: 6px;
+  }
+
+  .effectChips {
+    font-size: 0.6rem;
+  }
+
+  .specialWarn {
+    top: calc(140px + env(safe-area-inset-top, 0px));
+    font-size: 0.7rem;
+  }
+
+  /* Stacked above the jump button (the zoom controls own the right edge) */
+  .zombieSprintBtn {
+    bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+    right: max(84px, env(safe-area-inset-right, 0px) + 80px);
+    width: 44px;
+    height: 44px;
+  }
+
+  .supplyBtn {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .vitals {
+    gap: 2px;
+  }
+
+  .specialWarn {
+    top: calc(90px + env(safe-area-inset-top, 0px));
+  }
+
+  .zombieSprintBtn {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    right: max(20px, env(safe-area-inset-right, 0px) + 14px);
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vitalLow {
+    animation: none;
+  }
+}
+
+/* Tablet widths show the joystick (bottom-left, 128px tall): keep the weapon + supply bar above it */
+@media (min-width: 641px) and (max-width: 1024px) and (min-height: 501px) {
+  .weaponBar {
+    bottom: max(176px, env(safe-area-inset-bottom, 24px) + 160px);
+  }
+}

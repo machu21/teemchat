@@ -2,6 +2,8 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { AvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { ChatMessageModel } from '../models/chat';
+import { normalizeSpecies, oneLine } from '../companion/normalize';
+import type { CompanionSpecies } from '../companion/types';
 
 export interface RemotePlayerState {
   userId: string;
@@ -14,7 +16,17 @@ export interface RemotePlayerState {
   isMoving: boolean;
   speechBubble?: string;
   speechExpiresAt?: number;
+  /** Public companion badge (name + sprite only — never memories or chat). */
+  companion?: { name: string; species: CompanionSpecies };
   lastSeen: number;
+}
+
+function parseCompanionBadge(value: unknown): RemotePlayerState['companion'] {
+  if (!value || typeof value !== 'object') return undefined;
+  const v = value as { name?: unknown; species?: unknown };
+  const name = oneLine(v.name, 24);
+  if (!name) return undefined;
+  return { name, species: normalizeSpecies(v.species) };
 }
 
 export class WorldSyncService {
@@ -41,6 +53,7 @@ export class WorldSyncService {
   readonly currentUserId: string;
   readonly displayName: string;
   readonly avatarConfig: AvatarConfig;
+  private companionBadge: { name: string; species: CompanionSpecies } | null = null;
 
   onRemotePlayersChanged?: (players: Map<string, RemotePlayerState>) => void;
   onChatMessage?: (message: ChatMessageModel) => void;
@@ -294,6 +307,7 @@ export class WorldSyncService {
               avatar_config: this.avatarConfig,
               x: this.lastKnownX,
               y: this.lastKnownY,
+              companion: this.companionBadge,
             });
 
             this.handlePresenceUpdate();
@@ -360,6 +374,7 @@ export class WorldSyncService {
           const y = Number(p.y ?? 300);
           const presenceDir = (p.direction as 'up' | 'down' | 'left' | 'right') || 'down';
           const cfg = normalizeAvatarConfig(p.avatar_config);
+          const companion = parseCompanionBadge(p.companion);
 
           const actualUserId = userId || effectiveId;
           const existing = this.remotePlayers.get(effectiveId);
@@ -373,6 +388,7 @@ export class WorldSyncService {
               y,
               direction: presenceDir,
               isMoving: false,
+              companion,
               lastSeen: Date.now(),
             });
           } else {
@@ -380,6 +396,7 @@ export class WorldSyncService {
             existing.clientId = clientId;
             existing.displayName = name;
             existing.avatarConfig = cfg;
+            existing.companion = companion;
             // Live broadcasts are fresher than presence; never let a stale
             // presence snapshot snap a player back to an old spot.
             if (!existing.isMoving && !this.broadcastPositioned.has(effectiveId)) {
@@ -465,6 +482,19 @@ export class WorldSyncService {
     });
   }
 
+  /**
+   * Show (or hide) this player's companion to others. Rides on presence, so
+   * it costs one throttled re-track — never a per-frame call.
+   */
+  setCompanionBadge(badge: { name: string; species: CompanionSpecies } | null): void {
+    const same =
+      (badge === null && this.companionBadge === null) ||
+      (badge !== null && this.companionBadge !== null && badge.name === this.companionBadge.name && badge.species === this.companionBadge.species);
+    if (same) return;
+    this.companionBadge = badge ? { name: badge.name.slice(0, 24), species: badge.species } : null;
+    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack();
+  }
+
   /** Throttled presence re-track (max 1/sec, trailing call guaranteed). */
   private schedulePresenceTrack(): void {
     if (this.presenceTrackTimer) return;
@@ -482,6 +512,7 @@ export class WorldSyncService {
           x: this.lastKnownX,
           y: this.lastKnownY,
           direction: this.lastBroadcastDir,
+          companion: this.companionBadge,
         })
         .catch(() => {});
     }, wait);

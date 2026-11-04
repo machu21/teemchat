@@ -524,6 +524,19 @@
   align-self: flex-start;
 }
 
+.companionChip {
+  display: inline-block;
+  margin: 6px 6px 0 0;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #18181B;
+  background-color: #E2F952;
+  border: 2px solid #18181B;
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 #18181B;
+}
+
 .thinking {
   font-size: 0.8rem;
   font-weight: 700;

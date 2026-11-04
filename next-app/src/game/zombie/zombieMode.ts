@@ -24,12 +24,19 @@ import type {
   DoorActionType,
   EntranceRow,
   ZombieDoorAction,
+  ZombieFx,
   ZombieRow,
   ZombieShot,
   ZombieSnapshot,
   ZombieStrike,
   ZombieSyncService,
 } from '@/lib/services/zombieSync';
+import type { AbilityFlag, Bag, ConsumableId, DifficultyCoefficients, PlayerVitals, SpecialZombieType, StatusEffect } from './survival/types';
+import { ABILITY_FLAGS, ZOMBIE_KINDS } from './survival/types';
+import { addEffect, damageVitals, freshVitals, tickVitals } from './survival/vitals';
+import { BAG_MAX_WEIGHT, BAG_SLOTS, ITEM_DEFS, addToBag, bagWeight, freshLoadout, useConsumable as applyConsumable } from './survival/inventory';
+import { difficultyAt, rollZombieKind } from './survival/difficulty';
+import { BLOATER, CHARGER, SPECIAL_BEHAVIORS, SpecialsDirector, effectiveDamage, isSpecial, zombieKind } from './survival/specials';
 
 // ============================================================
 // ZOMBIE MODE — GAME CONTROLLER
@@ -60,6 +67,33 @@ export interface ZombieHud {
   owned: WeaponId[];
   /** Short-lived pickup / status message. */
   toast: string | null;
+  hunger: number;
+  hydration: number;
+  stamina: number;
+  /** Sprint is locked out until stamina recovers. */
+  exhausted: boolean;
+  sprinting: boolean;
+  /** Sprint toggle (touch) is latched on. */
+  sprintLatched: boolean;
+  /** Active status effects. */
+  effects: StatusEffect['kind'][];
+  /** Food / drink / meds in the bag. */
+  supplies: SupplyHud[];
+  /** Bag fill (0–1) by slots or weight, whichever is fuller. */
+  bagFill: number;
+  /** Whole difficulty level (rises every few minutes). */
+  threat: number;
+  /** Specials hunting someone right now, for the warning chip. */
+  specials: SpecialZombieType[];
+  /** Resting in a safe spot (indoors, nothing hunting nearby). */
+  safe: boolean;
+}
+
+export interface SupplyHud {
+  id: ConsumableId;
+  name: string;
+  icon: string;
+  qty: number;
 }
 
 export interface WeaponHud {
@@ -102,7 +136,18 @@ const GLOBAL_CAP = 150;
 const BASE_MAP_AREA = 1680 * 1080;
 const RESPAWN_CHECK_SECONDS = 3;
 const REGEN_DELAY = 6;
-const REGEN_PER_SECOND = 3;
+/** Passive healing while well fed and watered (hunger & hydration ≥ WELL_FED). */
+const WELL_FED = 60;
+const WELL_FED_REGEN = 1.5;
+/** Sprint speed multiplier (stamina-limited, see survival/vitals.ts). */
+export const SPRINT_MUL = 1.45;
+const SPRINT_FOOTSTEP_RADIUS = 6;
+/** A safe spot needs no hunting zombie within this many tiles. */
+const SAFE_CLEAR_TILES = 10;
+const USE_COOLDOWN = 0.8;
+/** Alive caps per special, so a long match doesn't become all dreadnoughts. */
+const SPECIAL_CAPS: Record<SpecialZombieType, number> = { charger: 4, bloater: 6, dreadnought: 1 };
+const FX_SECONDS: Record<ZombieFx['k'], number> = { i: 0.5, b: 0.9, r: 1.6, c: 0.7 };
 const SWING_RANGE = 36;
 const SWING_ARC = (120 * Math.PI) / 180;
 const SWING_DAMAGE = 40;
@@ -168,6 +213,25 @@ const SNAPSHOT_INTERVAL = 0.3;
 const SNAPSHOT_HEARTBEAT = 1;
 /** If the channel never becomes ready, simulate locally after this long. */
 const PENDING_FALLBACK_SECONDS = 5;
+/** Special looks (drawn scaled around the feet; see drawZombie). */
+const SPECIAL_LOOKS: Record<SpecialZombieType, { look: AvatarConfig; scale: number; filter: string }> = {
+  charger: {
+    look: { skinColor: '#9C8F6A', shirtColor: '#7F1D1D', hairColor: '#1C1917', hairStyle: 'buzz', accessory: 'none', topStyle: 'tshirt', bottomStyle: 'pants', bottomColor: '#292524', shoesColor: '#1C1917' },
+    scale: 1.3,
+    filter: 'none',
+  },
+  bloater: {
+    look: { skinColor: '#A3C46B', shirtColor: '#65A30D', hairColor: '#3F3F2E', hairStyle: 'short', accessory: 'none', topStyle: 'tshirt', bottomStyle: 'pants', bottomColor: '#3F6212', shoesColor: '#2B2B33' },
+    scale: 1.25,
+    filter: 'saturate(1.4)',
+  },
+  dreadnought: {
+    look: { skinColor: '#8A8F98', shirtColor: '#4B5563', hairColor: '#111827', hairStyle: 'buzz', accessory: 'none', topStyle: 'tshirt', bottomStyle: 'pants', bottomColor: '#1F2937', shoesColor: '#111827' },
+    scale: 1.75,
+    filter: 'contrast(1.2)',
+  },
+};
+
 /** Dead-reckoning speed per wire state index (matches ZOMBIE_STATES order). */
 const NET_SPEED = [0, ZOMBIE.wanderSpeed, ZOMBIE.wanderSpeed * 1.6, ZOMBIE.chaseSpeed, 0, 0];
 
@@ -183,8 +247,29 @@ interface NetTrack {
 export class ZombieMode {
   readonly vision: ZombieVision;
   readonly sim: ZombieSim;
-  hp = PLAYER_MAX_HP;
+  /** Special-infected strategies + gas clouds (abilities run on the host; hazards everywhere). */
+  readonly director: SpecialsDirector;
+  vitals: PlayerVitals = freshVitals();
   kills = 0;
+  /** Supplies only: guns, mags and ammo keep their own slots below. */
+  private bag: Bag = freshLoadout().bag;
+  private uidSeq = 0;
+  private sprintHeld = false;
+  private sprintLatched = false;
+  private sprinting = false;
+  private speedMul = 1;
+  private canAct = true;
+  private safe = false;
+  private useCooldown = 0;
+  /** Match clock (s): the host counts it, clients take it from snapshots. */
+  private elapsed = 0;
+  private difficulty: DifficultyCoefficients = difficultyAt(0);
+  private waveTimer = 0;
+  private outFx: ZombieFx[] = [];
+  private fx: (ZombieFx & { age: number })[] = [];
+  /** Host: match second each restocking item was taken. */
+  private takenAt: Map<number, number> = new Map();
+  private restocked: Set<number> = new Set();
   private sinceHurt = 99;
   private swingAge = 99;
   private swingFacing = 0;
@@ -272,10 +357,68 @@ export class ZombieMode {
     // Zombies spawn on the outdoor map (and ground floors) — never the off-map upper-floor band;
     // they reach upper floors by following players up the stairs.
     this.sim = new ZombieSim(this.vision.grid, { x: 32, y: 32, w: worldWidth - 64, h: worldHeight - 64 }, seed);
+    this.director = new SpecialsDirector(this.sim);
     this.worldHeight = worldHeight;
     this.hordeRng = mulberry32(seed ^ 0x9e3779b9);
     const areaRatio = (worldWidth * worldHeight) / BASE_MAP_AREA;
     this.targetPopulation = Math.min(MAX_POPULATION, Math.round(BASE_POPULATION * Math.sqrt(areaRatio) * 1.1));
+  }
+
+  /** Current health (0–100); vitals own it. */
+  get hp(): number {
+    return this.vitals.health;
+  }
+
+  /** Shift held (desktop). */
+  setSprint(held: boolean) {
+    this.sprintHeld = held;
+  }
+
+  /** Sprint toggle (touch button). Returns the new state. */
+  toggleSprint(): boolean {
+    this.sprintLatched = !this.sprintLatched;
+    return this.sprintLatched;
+  }
+
+  /**
+   * Eats / drinks / uses one supply. Without an id, picks what you need most
+   * (meds when hurt, drink when thirsty, food when hungry, stimulant when exhausted).
+   */
+  useSupply(id?: ConsumableId): boolean {
+    if (this.deadTimer > 0 || this.useCooldown > 0 || !this.canAct) return false;
+    const pick = id ?? this.bestSupply();
+    const stack = pick ? this.bag.items.find((i) => i.def === pick) : undefined;
+    if (!stack) {
+      if (!id) this.showToast('Nothing you need right now');
+      return false;
+    }
+    const r = applyConsumable({ bag: this.bag, quick: freshLoadout().quick }, this.vitals, stack.uid);
+    if (!r.used) return false;
+    this.bag = r.loadout.bag;
+    this.vitals = r.vitals;
+    this.useCooldown = USE_COOLDOWN;
+    const def = ITEM_DEFS[stack.def];
+    const verb = def.category === 'drink' || def.category === 'stimulant' ? 'Drank' : def.category === 'medical' ? 'Used' : 'Ate';
+    this.showToast(`${def.icon} ${verb} ${def.name}`);
+    return true;
+  }
+
+  private bestSupply(): ConsumableId | null {
+    const v = this.vitals;
+    const has = (cat: string) => this.bag.items.find((i) => ITEM_DEFS[i.def].category === cat)?.def as ConsumableId | undefined;
+    const needs: [number, string][] = [
+      [100 - v.health, 'medical'],
+      [100 - v.hydration, 'drink'],
+      [100 - v.hunger, 'food'],
+      [v.exhausted ? 90 : 80 - v.stamina, 'stimulant'],
+    ];
+    needs.sort((a, b) => b[0] - a[0]);
+    for (const [need, cat] of needs) {
+      if (need <= 10) break;
+      const id = has(cat);
+      if (id) return id;
+    }
+    return null;
   }
 
   /** Queue a melee swing (applied on the next update). */
@@ -341,9 +484,9 @@ export class ZombieMode {
     return true;
   }
 
-  /** Movement multiplier from the equipped weapon (machine gun is heavy). */
+  /** Movement multiplier: weapon weight × vitals (hunger, gas, knockdown, stimulant) × sprint. */
   moveMultiplier(): number {
-    return WEAPONS[this.weapon].moveMul;
+    return WEAPONS[this.weapon].moveMul * this.speedMul * (this.sprinting ? SPRINT_MUL : 1);
   }
 
   getWeapon(): WeaponId {
@@ -354,8 +497,20 @@ export class ZombieMode {
     this.toast = { text, age: 0 };
   }
 
-  private pickUp(spawn: LootSpawn) {
+  /** Returns false when the item stays on the ground (bag full). */
+  private pickUp(spawn: LootSpawn): boolean {
     const item = spawn.item;
+    if (item.kind === 'supply') {
+      const def = ITEM_DEFS[item.supply];
+      const r = addToBag(this.bag, item.supply, 1, () => `s${this.uidSeq++}`);
+      if (!r.added) {
+        if (this.toast?.text !== '🎒 Bag full') this.showToast('🎒 Bag full');
+        return false;
+      }
+      this.bag = r.bag;
+      this.showToast(`${def.icon} +1 ${def.name}`);
+      return true;
+    }
     if (item.kind === 'weapon') {
       const spec = WEAPONS[item.weapon];
       if (this.owned.has(item.weapon)) {
@@ -368,10 +523,11 @@ export class ZombieMode {
         if (this.weapon === 'axe') this.selectWeapon(item.weapon);
         this.showToast(`${spec.icon} Picked up ${spec.name} [${spec.slot}]`);
       }
-    } else {
+    } else if (item.kind === 'ammo') {
       this.reserve[item.ammo] += AMMO_BOX[item.ammo];
       this.showToast(`📦 +${AMMO_BOX[item.ammo]} ${AMMO_NAMES[item.ammo]}`);
     }
+    return true;
   }
 
   /** Walk over loot to grab it (optimistic on clients; the host broadcasts what's gone). */
@@ -383,15 +539,35 @@ export class ZombieMode {
       const dx = l.x - this.feet.x;
       const dy = l.y - (this.feet.y - 4);
       if (dx * dx + dy * dy > r2) continue;
+      if (!this.pickUp(l)) continue;
       this.taken.add(l.id);
-      this.pickUp(l);
-      if (this.authority === 'host') this.changedLoot.add(l.id);
+      if (this.authority === 'host') this.markTaken(l.id);
       else this.net?.sendLoot(l.id);
     }
   }
 
-  /** Lose guns and ammo on death (the axe stays). */
+  /** Host bookkeeping for a taken item (restocking items start their timer). */
+  private markTaken(id: number) {
+    this.changedLoot.add(id);
+    if (this.loot[id]?.respawn) this.takenAt.set(id, this.elapsed);
+  }
+
+  /** Host: stores restock once their timer runs out (slower as loot gets scarce). */
+  private restockLoot() {
+    const mul = Math.max(0.25, this.difficulty.lootMul);
+    for (const [id, at] of this.takenAt) {
+      const respawn = this.loot[id]?.respawn;
+      if (!respawn || this.elapsed - at < respawn / mul) continue;
+      this.takenAt.delete(id);
+      this.taken.delete(id);
+      this.changedLoot.delete(id);
+      this.restocked.add(id);
+    }
+  }
+
+  /** Lose guns, ammo and supplies on death (the axe stays). */
   private dropEverything() {
+    this.bag = { slots: BAG_SLOTS, maxWeight: BAG_MAX_WEIGHT, items: [] };
     this.owned = new Set(['axe']);
     this.mags = {};
     for (const k of Object.keys(this.reserve) as AmmoType[]) this.reserve[k] = 0;
@@ -424,7 +600,7 @@ export class ZombieMode {
     this.swingRequested = false;
     this.pressAge += dt;
     const want = this.pressAge <= PRESS_BUFFER_SECONDS || (this.triggerHeld && spec.auto);
-    if (!want || this.fireCooldown > 0 || this.deadTimer > 0 || this.reloadT >= 0) return null;
+    if (!want || this.fireCooldown > 0 || this.deadTimer > 0 || this.reloadT >= 0 || !this.canAct) return null;
     this.pressAge = 99; // consumed
 
     const aim = this.aim ?? this.vision.getFacing();
@@ -492,7 +668,7 @@ export class ZombieMode {
           const e = this.vision.grid.entrances.get(t);
           if (e) this.sim.setEntranceState(t, applyEntranceAction(e, { type: 'damage', amount: 999 }));
         }
-        if (r.targetId !== null && this.sim.damageZombie(r.targetId, spec.damage, a)) kills++;
+        if (r.targetId !== null && this.director.damage(r.targetId, spec.damage, 'ballistic', a)) kills++;
       }
       if (from === selfId) this.kills += kills;
       else if (kills > 0) this.outKills.set(from, (this.outKills.get(from) ?? 0) + kills);
@@ -648,11 +824,16 @@ export class ZombieMode {
     return this.pendingTime > PENDING_FALLBACK_SECONDS ? 'host' : 'pending';
   }
 
-  private takeDamage(amount: number) {
+  private takeDamage(amount: number, effects: StatusEffect[] = []) {
     if (this.deadTimer > 0) return;
-    this.hp = Math.max(0, this.hp - amount);
+    this.vitals = damageVitals(this.vitals, amount, effects);
     this.sinceHurt = 0;
     this.hurtFlash = 1;
+  }
+
+  /** Charger knockdown: the same effect on host and clients. */
+  private static knockdown(): StatusEffect[] {
+    return [{ kind: 'knockdown', remaining: CHARGER.knockdownSeconds, magnitude: 1, source: 'charger' }];
   }
 
   /**
@@ -663,11 +844,17 @@ export class ZombieMode {
     this.animTime += dt;
     this.feet = { x: input.feetX, y: input.feetY };
     this.vision.update(dt, input.feetX, input.feetY, input.moveX, input.moveY, input.insideBuildingId);
+    // Match clock: clients are corrected by every snapshot
+    this.elapsed += dt;
+    this.difficulty = difficultyAt(this.elapsed);
 
     const auth = this.resolveAuthority(dt);
     if (auth !== this.authority) {
       // Promoted: continue the horde from the last snapshot we received
-      if (auth === 'host') this.sim.adopt();
+      if (auth === 'host') {
+        this.sim.adopt();
+        this.director.adoptAll();
+      }
       if (auth === 'client') this.lastHostSeq = -1;
       this.authority = auth;
       this.snapshotTimer = 0;
@@ -703,12 +890,13 @@ export class ZombieMode {
       this.updateClient(dt);
     }
     this.pendingNoises = this.authority === 'host' ? this.pendingNoises : [];
+    if (this.authority !== 'host') this.director.tickHazards(dt);
+    for (const f of this.fx) f.age += dt;
+    this.fx = this.fx.filter((f) => f.age < FX_SECONDS[f.k]);
 
     this.sinceHurt += dt;
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.5);
-    if (this.sinceHurt > REGEN_DELAY && this.hp > 0) {
-      this.hp = Math.min(PLAYER_MAX_HP, this.hp + REGEN_PER_SECOND * dt);
-    }
+    this.updateVitals(dt, input);
 
     let result: 'respawn' | null = null;
     if (this.hp <= 0 && this.deadTimer <= 0) {
@@ -718,7 +906,7 @@ export class ZombieMode {
     } else if (this.deadTimer > 0) {
       this.deadTimer -= dt;
       if (this.deadTimer <= 0) {
-        this.hp = PLAYER_MAX_HP;
+        this.vitals = freshVitals();
         this.sinceHurt = 99;
         result = 'respawn';
       }
@@ -726,6 +914,47 @@ export class ZombieMode {
 
     this.emitHud();
     return result;
+  }
+
+  /** Hunger, thirst, stamina, gas and knockdown → this frame's movement modifiers. */
+  private updateVitals(dt: number, input: ZombieFrameInput) {
+    this.useCooldown = Math.max(0, this.useCooldown - dt);
+    if (this.deadTimer > 0) {
+      this.sprinting = false;
+      return;
+    }
+    const moving = input.moveX !== 0 || input.moveY !== 0;
+    const wantsSprint = moving && (this.sprintHeld || this.sprintLatched);
+    let v = this.vitals;
+    const gas = this.director.hazardEffectsAt(input.feetX, input.feetY);
+    for (const e of gas) v = { ...v, effects: addEffect(v.effects, e) };
+
+    // Safe spot: indoors with nothing hunting within SAFE_CLEAR_TILES
+    const r2 = (SAFE_CLEAR_TILES * this.vision.grid.tileSize) ** 2;
+    this.safe =
+      input.insideBuildingId !== null &&
+      !this.sim.zombies.some(
+        (z) => (z.state === 'chase' || z.state === 'attack') && (z.x - input.feetX) ** 2 + (z.y - input.feetY) ** 2 <= r2
+      );
+
+    const r = tickVitals(v, {
+      dt,
+      intent: wantsSprint ? 'sprint' : moving ? 'walk' : 'idle',
+      inSafeZone: this.safe,
+      resting: !moving && this.sinceHurt > REGEN_DELAY,
+      decayMul: this.difficulty.decayMul,
+    });
+    v = r.vitals;
+    if (this.sinceHurt > REGEN_DELAY && v.hunger >= WELL_FED && v.hydration >= WELL_FED && v.health > 0) {
+      v = { ...v, health: Math.min(PLAYER_MAX_HP, v.health + WELL_FED_REGEN * dt) };
+    }
+    // Starvation / poison are "hurt" too: no passive regen while they tick
+    if (r.damage > 0) this.sinceHurt = Math.min(this.sinceHurt, REGEN_DELAY / 2);
+    this.vitals = v;
+    this.speedMul = r.speedMul;
+    this.canAct = r.canAct;
+    this.sprinting = wantsSprint && r.canSprint;
+    this.vision.setViewScale(r.visionMul);
   }
 
   /** Authoritative simulation: spawning, AI, everyone's strikes, snapshots. */
@@ -739,11 +968,19 @@ export class ZombieMode {
 
     // Hordes follow the players: groups spawn just out of sight around each
     // player until their neighbourhood is busy; stragglers far from everyone recycle
+    this.sim.aggroMul = this.difficulty.aggroMul;
     this.respawnTimer -= dt;
     if (this.sim.zombies.length === 0 || this.respawnTimer <= 0) {
       this.respawnTimer = RESPAWN_CHECK_SECONDS;
       this.replenishHordes([self, ...input.others]);
     }
+    // Waves: on top of topping up, an extra group arrives every spawnIntervalSeconds
+    this.waveTimer += dt;
+    if (this.waveTimer >= this.difficulty.spawnIntervalSeconds) {
+      this.waveTimer = 0;
+      this.spawnWave([self, ...input.others]);
+    }
+    this.restockLoot();
 
     // Footsteps: ours from input, everyone else's from their movement broadcasts
     const noises = this.pendingNoises;
@@ -752,7 +989,8 @@ export class ZombieMode {
     if (this.footstepTimer <= 0) {
       this.footstepTimer = FOOTSTEP_INTERVAL;
       if (input.moveX !== 0 || input.moveY !== 0) {
-        noises.push({ x: input.feetX, y: input.feetY, radius: FOOTSTEP_RADIUS });
+        // Sprinting is loud
+        noises.push({ x: input.feetX, y: input.feetY, radius: this.sprinting ? SPRINT_FOOTSTEP_RADIUS : FOOTSTEP_RADIUS });
       }
       for (const o of input.others) {
         if (o.moving) noises.push({ x: o.x, y: o.y, radius: FOOTSTEP_RADIUS });
@@ -765,7 +1003,7 @@ export class ZombieMode {
     for (const { id } of claims) {
       if (id < 0 || id >= this.loot.length || this.taken.has(id)) continue;
       this.taken.add(id);
-      this.changedLoot.add(id);
+      this.markTaken(id);
     }
 
     // Door actions from clients: only within reach of where we last saw them
@@ -786,7 +1024,9 @@ export class ZombieMode {
     this.remoteStrikes = [];
     if (ownStrike) strikes.push({ strike: ownStrike, from: selfId });
     for (const { strike, from } of strikes) {
-      const { kills } = this.sim.strike(strike.x, strike.y, strike.f, SWING_RANGE, SWING_ARC, SWING_DAMAGE);
+      const { kills } = this.sim.strike(strike.x, strike.y, strike.f, SWING_RANGE, SWING_ARC, SWING_DAMAGE, (z) =>
+        effectiveDamage(z, 1, 'melee')
+      );
       if (from === selfId) this.kills += kills;
       else if (kills > 0) this.outKills.set(from, (this.outKills.get(from) ?? 0) + kills);
       noises.push({ x: strike.x, y: strike.y, radius: SWING_NOISE_RADIUS });
@@ -794,9 +1034,31 @@ export class ZombieMode {
     }
     this.resolveShots(noises);
 
-    for (const b of this.sim.tick(dt, targets, noises)) {
+    for (const b of this.director.scaleBites(this.sim.tick(dt, targets, noises))) {
       if (b.targetId === selfId) this.takeDamage(b.damage);
-      else this.outBites.push([b.targetId, b.damage]);
+      else this.outBites.push([b.targetId, Math.round(b.damage)]);
+    }
+
+    // Special infected: charges, bursts and roars (after the sim moved everyone)
+    for (const e of this.director.tick(dt, targets)) {
+      let fx: ZombieFx;
+      if (e.type === 'impact') {
+        fx = { k: 'i', x: Math.round(e.x), y: Math.round(e.y), id: e.targetId, d: e.damage };
+        if (e.targetId === selfId) this.takeDamage(e.damage, ZombieMode.knockdown());
+      } else if (e.type === 'burst') {
+        fx = { k: 'b', x: Math.round(e.x), y: Math.round(e.y) };
+        this.applyBurstToSelf(e.x, e.y);
+        this.pendingNoises.push({ x: e.x, y: e.y, radius: 8 });
+      } else if (e.type === 'roar') {
+        fx = { k: 'r', x: Math.round(e.x), y: Math.round(e.y) };
+      } else {
+        const g = this.vision.grid;
+        const c = e.tile % g.cols;
+        fx = { k: 'c', x: Math.round((c + 0.5) * g.tileSize), y: Math.round(((e.tile - c) / g.cols + 0.5) * g.tileSize) };
+        this.pendingNoises.push({ x: fx.x, y: fx.y, radius: 14 });
+      }
+      this.fx.push({ ...fx, age: 0 });
+      this.outFx.push(fx);
     }
 
     // Entrance changes (players or zombies) → sync + vision
@@ -812,12 +1074,53 @@ export class ZombieMode {
     if (this.net) this.maybeSendSnapshot(dt);
   }
 
-  /** Keeps ~LOCAL_TARGET zombies around every player (ground floors only), in groups. */
+  /** Bloater burst within reach of us: damage now, gas does the rest. */
+  private applyBurstToSelf(x: number, y: number) {
+    if (Math.hypot(this.feet.x - x, this.feet.y - y) <= BLOATER.burstRadiusTiles * this.vision.grid.tileSize) {
+      this.takeDamage(BLOATER.burstDamage);
+    }
+  }
+
+  /** Newly spawned zombies: difficulty speed, and a roll to become a special (capped per type). */
+  private dressSpawns(from: number) {
+    const counts: Record<SpecialZombieType, number> = { charger: 0, bloater: 0, dreadnought: 0 };
+    for (let i = 0; i < from; i++) {
+      const z = this.sim.zombies[i];
+      if (isSpecial(z)) counts[z.kind as SpecialZombieType]++;
+    }
+    for (let i = from; i < this.sim.zombies.length; i++) {
+      const z = this.sim.zombies[i];
+      const kind = rollZombieKind(this.difficulty, this.hordeRng());
+      if (kind !== 'walker' && counts[kind] < SPECIAL_CAPS[kind]) {
+        counts[kind]++;
+        this.director.promote(z, kind);
+        z.leader = undefined; // specials roam on their own
+      }
+      z.speedMul = (z.speedMul ?? 1) * this.difficulty.speedMul;
+    }
+  }
+
+  /** One extra group near a random player, ignoring the local target (still under the global cap). */
+  private spawnWave(players: SimTarget[]) {
+    const ground = players.filter((p) => p.y < this.worldHeight);
+    if (!ground.length) return;
+    const cap = Math.min(GLOBAL_CAP, Math.round(this.targetPopulation * this.difficulty.populationMul) * Math.max(1, ground.length));
+    const n = Math.min(cap - this.sim.zombies.length, GROUP_MIN + Math.floor(this.hordeRng() * (GROUP_MAX - GROUP_MIN + 1)));
+    if (n <= 0) return;
+    const p = ground[Math.floor(this.hordeRng() * ground.length)];
+    const from = this.sim.zombies.length;
+    this.sim.spawnGroup(p.x, p.y, SPAWN_RING_MIN_TILES, SPAWN_RING_MAX_TILES, n, players, SPAWN_RING_MIN_TILES - 1);
+    this.dressSpawns(from);
+  }
+
+  /** Keeps ~LOCAL_TARGET zombies (× difficulty) around every player (ground floors only), in groups. */
   private replenishHordes(players: SimTarget[]) {
     const ground = players.filter((p) => p.y < this.worldHeight);
     this.sim.despawnFar(players, DESPAWN_TILES, GROUP_MAX);
-    const localTarget = Math.min(LOCAL_TARGET, this.targetPopulation);
-    const cap = Math.min(GLOBAL_CAP, Math.max(this.targetPopulation, localTarget * Math.max(1, ground.length)));
+    const population = Math.round(this.targetPopulation * this.difficulty.populationMul);
+    const localTarget = Math.min(Math.round(LOCAL_TARGET * this.difficulty.populationMul), population);
+    const cap = Math.min(GLOBAL_CAP, Math.max(population, localTarget * Math.max(1, ground.length)));
+    const from = this.sim.zombies.length;
     for (const p of ground) {
       // Several groups per check when an area is empty (first spawn), one otherwise
       for (let g = 0; g < 4; g++) {
@@ -829,6 +1132,8 @@ export class ZombieMode {
         if (missing <= GROUP_MAX) break;
       }
     }
+    // despawnFar may have shrunk the list before `from` was read; dress only the new tail
+    this.dressSpawns(Math.min(from, this.sim.zombies.length));
   }
 
   /** Melee shatters closed glass windows in the swing arc. Returns true if any broke. */
@@ -875,37 +1180,44 @@ export class ZombieMode {
     const near = this.sim.zombies.filter((z) =>
       this.lastTargets.some((t) => (t.x - z.x) * (t.x - z.x) + (t.y - z.y) * (t.y - z.y) <= r2)
     );
-    const rows: ZombieRow[] = near.map((z) => [
-      z.id,
-      Math.round(z.x),
-      Math.round(z.y),
-      Math.round(z.goalX),
-      Math.round(z.goalY),
-      ZOMBIE_STATES.indexOf(z.state),
-      Math.ceil(z.hp),
-      z.variant,
-    ]);
+    const rows: ZombieRow[] = near.map((z) => this.zombieRow(z));
     const key = JSON.stringify(rows);
     this.entranceResendTimer -= SNAPSHOT_INTERVAL;
     // Someone joined: bring them up to date with doors and taken loot right away
     const members = this.net?.memberCount() ?? 0;
     if (members > this.lastMemberCount) this.entranceResendTimer = 0;
     this.lastMemberCount = members;
-    const resendAll = this.entranceResendTimer <= 0 && (this.dirtyEntrances.size > 0 || this.taken.size > 0);
+    const resendAll =
+      this.entranceResendTimer <= 0 && (this.dirtyEntrances.size > 0 || this.taken.size > 0 || this.takenAt.size > 0);
     const hasEvents =
-      this.outBites.length > 0 || this.outKills.size > 0 || this.changedEntrances.size > 0 || this.changedLoot.size > 0 || resendAll;
+      this.outBites.length > 0 ||
+      this.outKills.size > 0 ||
+      this.changedEntrances.size > 0 ||
+      this.changedLoot.size > 0 ||
+      this.restocked.size > 0 ||
+      this.outFx.length > 0 ||
+      resendAll;
     if (key === this.lastSnapKey && !hasEvents && this.sinceSnapshot < SNAPSHOT_HEARTBEAT) return;
 
-    const snap: ZombieSnapshot = { s: ++this.seq, z: rows };
+    const snap: ZombieSnapshot = { s: ++this.seq, z: rows, el: Math.round(this.elapsed) };
     const entranceTiles = resendAll ? this.dirtyEntrances : this.changedEntrances;
     if (entranceTiles.size > 0) {
       snap.d = [...entranceTiles].map((t) => this.entranceRow(t)).filter((r): r is EntranceRow => !!r);
     }
-    const lootIds = resendAll ? this.taken : this.changedLoot;
-    if (lootIds.size > 0) snap.t = [...lootIds];
+    if (resendAll) {
+      // Full list replaces the client's (so restocked items reappear even if a delta was missed)
+      snap.t = [...this.taken];
+      snap.tf = 1;
+    } else if (this.changedLoot.size > 0) {
+      snap.t = [...this.changedLoot];
+    }
+    if (this.restocked.size > 0) snap.r = [...this.restocked];
+    if (this.outFx.length) snap.x = this.outFx.slice(0, 16);
     if (resendAll) this.entranceResendTimer = ENTRANCE_RESEND_SECONDS;
     this.changedEntrances = new Set();
     this.changedLoot = new Set();
+    this.restocked = new Set();
+    this.outFx = [];
     if (this.outBites.length) snap.b = this.outBites;
     if (this.outKills.size) snap.k = [...this.outKills.entries()];
     this.net?.sendSnapshot(snap);
@@ -913,6 +1225,55 @@ export class ZombieMode {
     this.sinceSnapshot = 0;
     this.outBites = [];
     this.outKills = new Map();
+  }
+
+  /** Wire flag for an active ability (0 = none). */
+  private static abilityFlag(z: Zombie): AbilityFlag {
+    if (!isSpecial(z)) return 'none';
+    const a = z.ability;
+    if (a.kind === 'charge') return a.phase === 'ready' ? 'none' : a.phase;
+    if (a.kind === 'bloat') return a.fuse !== null && !a.burst ? 'fuse' : 'none';
+    if (a.kind === 'roar') return a.roaring > 0 ? 'roar' : 'none';
+    return 'none';
+  }
+
+  private zombieRow(z: Zombie): ZombieRow {
+    const kind = ZOMBIE_KINDS.indexOf(zombieKind(z));
+    const flag = ABILITY_FLAGS.indexOf(ZombieMode.abilityFlag(z));
+    let gx = z.goalX;
+    let gy = z.goalY;
+    // A charge ignores the flow field: send where the dash is heading so clients can extrapolate it
+    if (isSpecial(z) && z.ability.kind === 'charge' && z.ability.phase === 'charging') {
+      const reach = CHARGER.speed * Math.max(0, z.ability.timer);
+      gx = z.x + z.ability.dirX * reach;
+      gy = z.y + z.ability.dirY * reach;
+    }
+    const row: ZombieRow = [z.id, Math.round(z.x), Math.round(z.y), Math.round(gx), Math.round(gy), ZOMBIE_STATES.indexOf(z.state), Math.ceil(z.hp), z.variant];
+    if (kind > 0 || flag > 0) row.push(kind, flag);
+    return row;
+  }
+
+  /** Mirrors a wire ability flag into a replica's ability state (drawing reads the same fields as the host). */
+  private static applyFlag(z: Zombie, flag: AbilityFlag) {
+    if (!isSpecial(z)) return;
+    const a = z.ability;
+    z.locked = flag !== 'none';
+    if (a.kind === 'charge') a.phase = flag === 'windup' || flag === 'charging' || flag === 'recover' ? flag : 'ready';
+    else if (a.kind === 'bloat') a.fuse = flag === 'fuse' ? 0.3 : null;
+    else if (a.kind === 'roar') a.roaring = flag === 'roar' ? 1 : 0;
+  }
+
+  /** Effects from the host: VFX for everyone; impacts / bursts / gas land on whoever they hit. */
+  private applyFx(list: ZombieFx[]) {
+    const selfId = this.net?.selfId;
+    for (const f of list) {
+      this.fx.push({ ...f, age: 0 });
+      if (f.k === 'i' && f.id === selfId) this.takeDamage(f.d ?? CHARGER.impactDamage, ZombieMode.knockdown());
+      if (f.k === 'b') {
+        this.director.addHazard(f.x, f.y);
+        this.applyBurstToSelf(f.x, f.y);
+      }
+    }
   }
 
   /** Replica: replace the horde with the host's view and settle bites/kills addressed to us. */
@@ -928,8 +1289,10 @@ export class ZombieMode {
     const existing = new Map(this.sim.zombies.map((z) => [z.id, z]));
     const next: Zombie[] = [];
     const seen = new Set<number>();
-    for (const [id, x, y, goalX, goalY, stateIdx, hp, variant] of snap.z) {
+    for (const [id, x, y, goalX, goalY, stateIdx, hp, variant, kindIdx = 0, flagIdx = 0] of snap.z) {
       const state = ZOMBIE_STATES[stateIdx] ?? 'idle';
+      const kind = ZOMBIE_KINDS[kindIdx] ?? 'walker';
+      const flag = ABILITY_FLAGS[flagIdx] ?? 'none';
       let z = existing.get(id);
       if (!z) {
         z = {
@@ -940,12 +1303,15 @@ export class ZombieMode {
       } else if (hp < z.hp) {
         z.sinceHit = 0;
       }
+      if (kind !== 'walker' && zombieKind(z) !== kind) SPECIAL_BEHAVIORS[kind].init(z);
+      ZombieMode.applyFlag(z, flag);
       z.hp = hp;
       z.state = state;
       z.goalX = goalX;
       z.goalY = goalY;
       z.variant = variant;
-      this.tracks.set(id, { x, y, goalX, goalY, speed: NET_SPEED[stateIdx] ?? 0 });
+      const speed = flag === 'charging' ? CHARGER.speed : z.locked ? 0 : (NET_SPEED[stateIdx] ?? 0) * (z.speedMul ?? 1);
+      this.tracks.set(id, { x, y, goalX, goalY, speed });
       seen.add(id);
       next.push(z);
     }
@@ -965,7 +1331,11 @@ export class ZombieMode {
       this.vision.invalidate();
     }
 
-    for (const id of snap.t ?? []) this.taken.add(id);
+    if (snap.tf) this.taken = new Set(snap.t ?? []);
+    else for (const id of snap.t ?? []) this.taken.add(id);
+    for (const id of snap.r ?? []) this.taken.delete(id);
+    if (typeof snap.el === 'number') this.elapsed = snap.el;
+    if (snap.x?.length) this.applyFx(snap.x);
 
     const selfId = this.net.selfId;
     for (const [target, dmg] of snap.b ?? []) if (target === selfId) this.takeDamage(dmg);
@@ -1021,14 +1391,39 @@ export class ZombieMode {
       weapon: this.weaponHud(),
       owned: WEAPON_ORDER.filter((w) => this.owned.has(w)),
       toast: this.toast?.text ?? null,
+      hunger: Math.ceil(this.vitals.hunger),
+      hydration: Math.ceil(this.vitals.hydration),
+      stamina: Math.ceil(this.vitals.stamina),
+      exhausted: this.vitals.exhausted,
+      sprinting: this.sprinting,
+      sprintLatched: this.sprintLatched,
+      effects: [...new Set(this.vitals.effects.map((e) => e.kind))].filter((k) => k !== 'regen' || this.vitals.health < PLAYER_MAX_HP),
+      supplies: this.supplyHud(),
+      bagFill: Math.min(1, Math.max(this.bag.items.length / this.bag.slots, bagWeight(this.bag) / this.bag.maxWeight)),
+      threat: Math.floor(this.difficulty.level),
+      specials: [
+        ...new Set(
+          this.sim.zombies
+            .filter((z) => isSpecial(z) && (z.state === 'chase' || z.state === 'attack' || z.locked))
+            .map((z) => zombieKind(z) as SpecialZombieType)
+        ),
+      ],
+      safe: this.safe,
     };
     const ent = hud.entrance;
     const wk = `${hud.weapon.id}${hud.weapon.mag}/${hud.weapon.reserve}/${Math.round(hud.weapon.reloading * 10)}|${hud.owned.join(',')}|${hud.toast ?? ''}`;
     const entKey = ent ? `${ent.kind}${ent.state}${ent.planks}${Math.round(ent.progress * 10)}` : '-';
-    const key = `${hud.hp}|${hud.alive}|${hud.kills}|${hud.chasing}|${hud.dead}|${entKey}|${wk}`;
+    const vk = `${hud.hunger}|${hud.hydration}|${Math.round(hud.stamina / 2)}|${hud.exhausted}|${hud.sprinting}|${hud.sprintLatched}|${hud.effects.join(',')}|${hud.supplies.map((s) => s.id + s.qty).join(',')}|${hud.threat}|${hud.specials.join(',')}|${hud.safe}`;
+    const key = `${hud.hp}|${hud.alive}|${hud.kills}|${hud.chasing}|${hud.dead}|${entKey}|${wk}|${vk}`;
     if (key === this.hudKey) return;
     this.hudKey = key;
     this.onHudChanged?.(hud);
+  }
+
+  private supplyHud(): SupplyHud[] {
+    const by = new Map<ConsumableId, number>();
+    for (const it of this.bag.items) by.set(it.def as ConsumableId, (by.get(it.def as ConsumableId) ?? 0) + it.qty);
+    return [...by].map(([id, qty]) => ({ id, qty, name: ITEM_DEFS[id].name, icon: ITEM_DEFS[id].icon }));
   }
 
   private weaponHud(): WeaponHud {
@@ -1071,8 +1466,17 @@ export class ZombieMode {
   private drawZombie(ctx: CanvasRenderingContext2D, z: Zombie, sensed: boolean) {
     ctx.save();
     // Sprite box is 32 wide with feet ~28px down (same anchor as players)
+    const special = isSpecial(z) ? SPECIAL_LOOKS[z.kind as SpecialZombieType] : null;
     const lurch = z.moving ? Math.sin(this.animTime * 6 + z.id) * 1.5 : 0;
-    ctx.translate(Math.floor(z.x - 16 + lurch), Math.floor(z.y - 30));
+    if (special) {
+      // Scale around the feet so big specials still stand on their tile
+      ctx.translate(Math.floor(z.x + lurch), Math.floor(z.y + 2));
+      ctx.scale(special.scale, special.scale);
+      ctx.translate(-16, -32);
+    } else {
+      ctx.translate(Math.floor(z.x - 16 + lurch), Math.floor(z.y - 30));
+    }
+    if (special && !sensed) this.drawAbilityTell(ctx, z);
     if (sensed) {
       ctx.globalAlpha = 0.7;
       ctx.filter = 'brightness(0.25) saturate(0.4)';
@@ -1085,16 +1489,19 @@ export class ZombieMode {
 
     const frame = z.moving ? Math.floor(this.animTime * 4 + z.id) % 4 : 0;
     // Red hit flash (ctx.filter is ignored where unsupported, e.g. older Safari)
+    if (special && !sensed) ctx.filter = special.filter;
     if (z.sinceHit < 0.15 && !sensed) ctx.filter = 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.2)';
-    renderPixelAvatar(ctx, ZOMBIE_LOOKS[z.variant % ZOMBIE_LOOKS.length], ZOMBIE_SPRITE, toDirection(z.facing), frame);
+    const look = special ? special.look : ZOMBIE_LOOKS[z.variant % ZOMBIE_LOOKS.length];
+    renderPixelAvatar(ctx, look, ZOMBIE_SPRITE, toDirection(z.facing), frame);
     ctx.filter = 'none';
 
-    // Health pip bar once damaged
-    if (z.hp < 100 && !sensed) {
+    // Health pip bar once damaged (specials always show theirs)
+    const maxHp = isSpecial(z) ? z.maxHp : ZOMBIE.maxHp;
+    if ((z.hp < maxHp || special) && !sensed) {
       ctx.fillStyle = '#111111';
       ctx.fillRect(6, -4, 20, 4);
-      ctx.fillStyle = '#EF4444';
-      ctx.fillRect(7, -3, Math.max(0, (18 * z.hp) / 100), 2);
+      ctx.fillStyle = special ? '#F59E0B' : '#EF4444';
+      ctx.fillRect(7, -3, Math.max(0, (18 * z.hp) / maxHp), 2);
     }
 
     // Alert marker while chasing
@@ -1105,6 +1512,29 @@ export class ZombieMode {
       ctx.fillText('!', 16, -8);
     }
     ctx.restore();
+  }
+
+  /** Telegraphs (sprite-local coords): charger windup glow, bloater swelling, dreadnought roar. */
+  private drawAbilityTell(ctx: CanvasRenderingContext2D, z: Zombie) {
+    if (!isSpecial(z)) return;
+    const a = z.ability;
+    const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 18);
+    if (a.kind === 'charge' && (a.phase === 'windup' || a.phase === 'charging')) {
+      ctx.fillStyle = `rgba(239, 68, 68, ${0.25 + 0.35 * pulse})`;
+      ctx.beginPath();
+      ctx.ellipse(16, 30, 14, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (a.kind === 'charge' && a.phase === 'recover') {
+      ctx.font = 'bold 9px "Plus Jakarta Sans", monospace, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FDE047';
+      ctx.fillText('✦✦', 16, -10);
+    } else if (a.kind === 'bloat' && a.fuse !== null) {
+      ctx.fillStyle = `rgba(132, 204, 22, ${0.3 + 0.4 * pulse})`;
+      ctx.beginPath();
+      ctx.arc(16, 18, 16 + pulse * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private drawSwing(ctx: CanvasRenderingContext2D) {
@@ -1121,7 +1551,20 @@ export class ZombieMode {
 
   /** World-space fog (call after entities, camera transform applied). */
   renderWorld(ctx: CanvasRenderingContext2D) {
+    // Gas clouds sit under the fog (you only see the parts you can see)
+    for (const h of this.director.hazards) {
+      const fade = Math.min(1, h.remaining / 2);
+      const wobble = 1 + 0.05 * Math.sin(this.animTime * 2 + h.id);
+      const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.radius * wobble);
+      g.addColorStop(0, `rgba(132, 204, 22, ${0.45 * fade})`);
+      g.addColorStop(1, 'rgba(101, 163, 13, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.radius * wobble, 0, Math.PI * 2);
+      ctx.fill();
+    }
     this.vision.render(ctx);
+    this.drawFx(ctx);
     for (const z of this.sensed) this.drawZombie(ctx, z, true);
     // Tracers + muzzle flash read through the fog (you see your own gunfire)
     if (this.tracers.length) {
@@ -1149,6 +1592,40 @@ export class ZombieMode {
     }
   }
 
+  /** Special-infected one-shots: impact burst, bloater pop, roar shockwave, breach dust. */
+  private drawFx(ctx: CanvasRenderingContext2D) {
+    if (!this.fx.length) return;
+    ctx.save();
+    for (const f of this.fx) {
+      const t = f.age / FX_SECONDS[f.k];
+      ctx.globalAlpha = 1 - t;
+      if (f.k === 'r') {
+        // Roar: two expanding rings out to the rally radius
+        ctx.strokeStyle = '#F59E0B';
+        ctx.lineWidth = 3;
+        for (const lag of [0, 0.25]) {
+          const r = Math.max(0, t - lag) * 30 * this.vision.grid.tileSize;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (f.k === 'b') {
+        ctx.fillStyle = '#84CC16';
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, (0.3 + t) * BLOATER.burstRadiusTiles * this.vision.grid.tileSize, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = f.k === 'i' ? '#EF4444' : '#A8A29E';
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          const r = 6 + t * 18;
+          ctx.fillRect(f.x + Math.cos(a) * r - 2, f.y - 8 + Math.sin(a) * r - 2, 4, 4);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
   /** Pixel-art pickup: gun silhouette or ammo box, with a pulsing glow so loot reads at a glance. */
   private drawLoot(ctx: CanvasRenderingContext2D, l: LootSpawn) {
     const x = Math.round(l.x);
@@ -1163,12 +1640,17 @@ export class ZombieMode {
       ctx.fillStyle = c;
       ctx.fillRect(x + dx, y + dy, w, h);
     };
-    if (l.item.kind === 'ammo') {
+    if (l.item.kind === 'supply') {
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ITEM_DEFS[l.item.supply].icon, x, y - 2);
+    } else if (l.item.kind === 'ammo') {
       px(-6, -6, 12, 8, '#3F6212');
       px(-6, -6, 12, 2, '#65A30D');
       px(-4, -3, 8, 2, '#FDE047');
       px(-6, 1, 12, 1, '#1A2E05');
-    } else {
+    } else if (l.item.kind === 'weapon') {
       const long = l.item.weapon !== 'pistol';
       const accent = l.item.weapon === 'ak47' ? '#92400E' : l.item.weapon === 'shotgun' ? '#78350F' : '#3F3F46';
       if (long) {
@@ -1185,8 +1667,25 @@ export class ZombieMode {
     ctx.restore();
   }
 
-  /** Screen-space overlays: hurt vignette + death fade. */
+  /** Screen-space overlays: gas haze, hurt vignette, knockdown, death fade. */
   renderScreen(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    if (this.vitals.effects.some((e) => e.kind === 'blinded')) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(77, 124, 15, 0.28)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+    if (!this.canAct && this.deadTimer <= 0) {
+      ctx.save();
+      ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FDE047';
+      ctx.strokeStyle = '#18181B';
+      ctx.lineWidth = 4;
+      ctx.strokeText('KNOCKED DOWN', w / 2, h * 0.32);
+      ctx.fillText('KNOCKED DOWN', w / 2, h * 0.32);
+      ctx.restore();
+    }
     const lowHp = this.hp < 35 ? (35 - this.hp) / 35 : 0;
     const strength = Math.max(this.hurtFlash, lowHp * 0.6);
     if (strength > 0.01) {
@@ -1210,7 +1709,9 @@ export class ZombieMode {
   dispose() {
     this.vision.dispose();
     this.sim.clear();
+    this.director.clear();
     this.tracks.clear();
+    this.fx = [];
     if (this.net) {
       this.net.onSnapshot = undefined;
       this.net.onStrike = undefined;
@@ -1220,3 +1721,4 @@ export class ZombieMode {
     this.onHudChanged = undefined;
   }
 }
+

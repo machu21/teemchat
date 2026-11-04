@@ -43,6 +43,10 @@ export interface Zombie {
   entranceTile?: number;
   /** Horde leader's id (own id for the leader); members wander after the leader. */
   leader?: number;
+  /** An ability (survival/specials.ts) owns this zombie's movement: the sim skips its AI and movement. */
+  locked?: boolean;
+  /** Per-zombie speed multiplier (special type × difficulty). */
+  speedMul?: number;
 }
 
 export interface SimTarget {
@@ -151,6 +155,8 @@ export class ZombieSim {
   private flowAge = Infinity;
   /** Tile indexes of entrances changed by zombies since the last drain (for network sync). */
   readonly changedEntrances: Set<number> = new Set();
+  /** Sight / hearing radius multiplier (difficulty). */
+  aggroMul = 1;
 
   /**
    * @param spawnBounds world-px rect zombies may spawn/wander in (keeps them off the upper-floor band)
@@ -189,6 +195,13 @@ export class ZombieSim {
       made++;
     }
     return made;
+  }
+
+  /** Adds one zombie at (x, y) with a fresh id (specials are built on top of this). */
+  add(x: number, y: number): Zombie {
+    const z = this.makeZombie(x, y);
+    this.zombies.push(z);
+    return z;
   }
 
   private makeZombie(x: number, y: number): Zombie {
@@ -392,7 +405,7 @@ export class ZombieSim {
     const ts = this.grid.tileSize;
     const d = Math.hypot(t.x - z.x, t.y - z.y) / ts;
     if (d <= ZOMBIE.closeSenseTiles) return true;
-    if (d > ZOMBIE.sightTiles) return false;
+    if (d > ZOMBIE.sightTiles * this.aggroMul) return false;
     if (Math.abs(wrap(Math.atan2(t.y - z.y, t.x - z.x) - z.facing)) > ZOMBIE.sightCone / 2) return false;
     return wallsBetween(this.grid, z.x, z.y, t.x, t.y, 1) === 0;
   }
@@ -400,11 +413,12 @@ export class ZombieSim {
   /** Effective hearing: radius halves for each wall between noise and zombie. */
   private hears(z: Zombie, n: NoiseEvent): boolean {
     const d = Math.hypot(n.x - z.x, n.y - z.y) / this.grid.tileSize;
-    if (d > n.radius) return false;
+    const radius = n.radius * this.aggroMul;
+    if (d > radius) return false;
     const walls = wallsBetween(this.grid, n.x, n.y, z.x, z.y, 3);
     // Quiet sounds die behind a wall; gunshots carry through buildings
     const damping = n.radius >= LOUD_NOISE_RADIUS ? 0.75 : 0.5;
-    return d <= n.radius * Math.pow(damping, walls);
+    return d <= radius * Math.pow(damping, walls);
   }
 
   /**
@@ -431,6 +445,10 @@ export class ZombieSim {
           z.goalX = z.x;
           z.goalY = z.y;
         }
+        continue;
+      }
+      if (z.locked) {
+        z.moving = false;
         continue;
       }
 
@@ -565,7 +583,7 @@ export class ZombieSim {
         }
       }
 
-      this.move(z, speed, dt);
+      this.move(z, speed * (z.speedMul ?? 1), dt);
     }
 
     this.separate();
@@ -653,14 +671,23 @@ export class ZombieSim {
   /**
    * Melee arc from (x, y) toward `facing`. Damages every zombie inside
    * `range` px and `arc` radians; removes the dead. Returns hits + kills.
+   * `scale` adjusts damage per zombie (armour).
    */
-  strike(x: number, y: number, facing: number, range: number, arc: number, damage: number): { hits: number; kills: number } {
+  strike(
+    x: number,
+    y: number,
+    facing: number,
+    range: number,
+    arc: number,
+    damage: number,
+    scale?: (z: Zombie) => number
+  ): { hits: number; kills: number } {
     let hits = 0;
     for (const z of this.zombies) {
       const d = Math.hypot(z.x - x, z.y - y);
       if (d > range) continue;
       if (d > 6 && Math.abs(wrap(Math.atan2(z.y - y, z.x - x) - facing)) > arc / 2) continue;
-      z.hp -= damage;
+      z.hp -= scale ? damage * scale(z) : damage;
       z.sinceHit = 0;
       // Knockback
       if (d > 0) {

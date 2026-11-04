@@ -25,12 +25,14 @@ import {
 } from './map/buildings';
 import { WorldSyncService } from '@/lib/services/worldSync';
 import { CompanionModel } from '@/lib/models/chat';
+import type { CompanionEmote, CompanionMood } from '@/lib/companion/types';
 import { SpaceModel } from '@/lib/models/space';
 import { SpaceService } from '@/lib/services/spaces';
 import { ZombieHud, ZombieMode } from './zombie/zombieMode';
 import { DoorActionType, ZombieSyncService } from '@/lib/services/zombieSync';
 import { WEAPONS, WEAPON_ORDER, type WeaponId } from './zombie/weapons';
 import type { Entrance } from './zombie/entrances';
+import type { ConsumableId } from './zombie/survival/types';
 
 export interface DoorPrompt {
   buildingId: string;
@@ -87,6 +89,8 @@ export class WorldGame {
   player: PlayerEntity;
   remoteAvatars: Map<string, RemotePlayerEntity> = new Map();
   companion: CompanionEntity | null = null;
+  /** Other players' companions (passive, render-only). Keyed like remoteAvatars. */
+  remoteCompanions: Map<string, CompanionEntity> = new Map();
   furniture: FurnitureEntity[] = [];
 
   private preRenderedMap: HTMLCanvasElement | null = null;
@@ -164,6 +168,10 @@ export class WorldGame {
   onZombieHud?: (hud: ZombieHud | null) => void;
 
   onCompanionTap?: () => void;
+  /** Companion woke up because the owner moved again after being AFK. */
+  onCompanionWake?: () => void;
+  /** Companion fell asleep (owner AFK). */
+  onCompanionSleep?: () => void;
   onDoorPromptChanged?: (prompt: DoorPrompt | null) => void;
   /** Called every frame while a door prompt is visible, with its screen-space anchor. */
   onDoorPromptMove?: (screenX: number, screenY: number) => void;
@@ -377,6 +385,16 @@ export class WorldGame {
     return !!this.zombieMode?.selectWeapon(id);
   }
 
+  /** Sprint toggle for touch (desktop holds Shift). Returns the new state. */
+  zombieToggleSprint(): boolean {
+    return !!this.zombieMode?.toggleSprint();
+  }
+
+  /** Eat / drink / use a supply (C picks what you need most). */
+  zombieUseSupply(id?: ConsumableId): boolean {
+    return !!this.zombieMode?.useSupply(id);
+  }
+
   zombieCycleWeapon(dir: 1 | -1 = 1) {
     this.zombieMode?.cycleWeapon(dir);
   }
@@ -456,11 +474,30 @@ export class WorldGame {
   }
 
   setCompanion(comp: CompanionModel | null) {
-    if (comp) {
-      this.companion = new CompanionEntity(this.player.x - 24, this.player.y - 16, comp);
-    } else {
+    if (!comp) {
       this.companion = null;
+      return;
     }
+    if (this.companion && this.companion.companion.id === comp.id) {
+      // Same companion with new name / mood / species: keep position and state
+      this.companion.setModel(comp);
+      return;
+    }
+    this.companion = new CompanionEntity(this.player.x - 24, this.player.y - 16, comp);
+    this.companion.onWake = () => this.onCompanionWake?.();
+    this.companion.onSleep = () => this.onCompanionSleep?.();
+  }
+
+  /** Show a companion speech bubble / emote (no-op without a companion). */
+  companionSay(text: string, emote?: CompanionEmote, mood?: CompanionMood, ms?: number) {
+    if (!this.companion) return;
+    if (text) this.companion.say(text, ms);
+    this.companion.react(emote, mood);
+  }
+
+  /** Have the companion lead the player to a world position. */
+  companionGuideTo(x: number, y: number, name: string, onArrive?: () => void) {
+    this.companion?.guideTo(x, y, name, onArrive);
   }
 
   setJoystickInput(x: number, y: number) {
@@ -504,6 +541,7 @@ export class WorldGame {
     // 1. Calculate Movement Vector
     let dx = 0;
     let dy = 0;
+    this.zombieMode?.setSprint(this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight'));
     const speed = (this.player.isSwimming ? 110 : 160) * (this.zombieMode?.moveMultiplier() ?? 1);
     // Mouse aim goes stale when the mouse rests: fall back to aiming where you walk
     if (this.zombieMode && this.lastAimAt && performance.now() - this.lastAimAt > AIM_IDLE_MS) {
@@ -675,6 +713,31 @@ export class WorldGame {
         }
         avatar.update(dt);
 
+        // Passive companion that follows this remote player
+        if (state.companion) {
+          let rc = this.remoteCompanions.get(id);
+          const model: CompanionModel = {
+            id: `remote-${id}`,
+            userId: state.userId || id,
+            name: state.companion.name,
+            persona: '',
+            companionType: state.companion.species,
+            species: state.companion.species,
+            avatarStyle: 'default',
+            learnedContext: {},
+            isActive: true,
+          };
+          if (!rc) {
+            rc = new CompanionEntity(avatar.x + 28, avatar.y + 6, model, { passive: true });
+            this.remoteCompanions.set(id, rc);
+          } else if (rc.companion.name !== model.name || rc.species !== model.species) {
+            rc.setModel(model);
+          }
+          rc.update(dt, avatar.x, avatar.y);
+        } else if (this.remoteCompanions.has(id)) {
+          this.remoteCompanions.delete(id);
+        }
+
         const dist = Math.hypot(avatar.x - this.player.x, avatar.y - this.player.y);
         peerDistances.set(id, dist);
       }
@@ -682,6 +745,7 @@ export class WorldGame {
       for (const id of this.remoteAvatars.keys()) {
         if (!peers.has(id)) {
           this.remoteAvatars.delete(id);
+          this.remoteCompanions.delete(id);
         }
       }
 
@@ -1034,6 +1098,13 @@ export class WorldGame {
       }
     }
 
+    // Other players' companions
+    for (const rc of this.remoteCompanions.values()) {
+      if (rc.x + 40 >= viewLeft && rc.x - 40 <= viewRight && rc.y + 40 >= viewTop && rc.y - 40 <= viewBottom) {
+        renderList.push({ y: rc.y + 20, draw: () => rc.render(this.ctx) });
+      }
+    }
+
     // Companion
     if (this.companion) {
       renderList.push({ y: this.companion.y + 20, draw: () => this.companion?.render(this.ctx) });
@@ -1305,6 +1376,11 @@ export class WorldGame {
           if (e.code === 'KeyQ' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.cycleWeapon(e.shiftKey ? -1 : 1);
+            return;
+          }
+          if (e.code === 'KeyC' && !e.repeat) {
+            e.preventDefault();
+            this.zombieMode.useSupply();
             return;
           }
           const slot = /^Digit([1-6])$/.exec(e.code);

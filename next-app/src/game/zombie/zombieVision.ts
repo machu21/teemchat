@@ -50,6 +50,15 @@ export class ZombieVision {
     this.aim = angle;
   }
 
+  /** View-radius multiplier (toxic gas shrinks it). Quantised so it doesn't recompute every frame. */
+  setViewScale(mul: number) {
+    const q = Math.round(Math.max(0.2, Math.min(1, mul)) * 10) / 10;
+    if (q === this.viewScale) return;
+    this.viewScale = q;
+    this.invalidate();
+  }
+  private viewScale = 1;
+
   /** Forces a recompute next update (a door opened/closed, a window was boarded…). */
   invalidate() {
     this.computedTile = -1;
@@ -73,7 +82,7 @@ export class ZombieVision {
     this.computedInside = insideBuildingId;
     this.fov = computeFov(
       this.grid,
-      { originX: feetX, originY: feetY, facing: this.facing, ...DEFAULT_FOV },
+      { originX: feetX, originY: feetY, facing: this.facing, ...DEFAULT_FOV, viewRadius: DEFAULT_FOV.viewRadius * this.viewScale },
       this.fov ?? undefined
     );
     this.revealRoofs(insideBuildingId);

@@ -36,6 +36,9 @@ vi.mock('@/lib/rateLimit', () => import('../../src/lib/rateLimit'));
 vi.mock('@/lib/security/disposableEmails', () => import('../../src/lib/security/disposableEmails'));
 vi.mock('@/lib/security/guestIdentity', () => import('../../src/lib/security/guestIdentity'));
 vi.mock('@/lib/companionAuth', () => import('../../src/lib/companionAuth'));
+vi.mock('@/lib/companion/prompt', () => import('../../src/lib/companion/prompt'));
+vi.mock('@/lib/companion/normalize', () => import('../../src/lib/companion/normalize'));
+vi.mock('@/lib/companion/server', () => import('../../src/lib/companion/server'));
 vi.mock('@/lib/utils/screenshot', () => import('../../src/lib/utils/screenshot'));
 vi.mock('@/lib/models/space', () => import('../../src/lib/models/space'));
 

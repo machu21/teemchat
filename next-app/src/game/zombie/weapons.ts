@@ -1,4 +1,5 @@
 import { TILE_ENTRANCE, TILE_OPAQUE, TileGrid, inBounds, tileIndex } from './grid';
+import type { ConsumableId } from './survival/types';
 
 // ============================================================
 // ZOMBIE MODE — WEAPONS (pure, DOM-free)
@@ -167,12 +168,18 @@ export function shotAngles(w: WeaponSpec, aim: number, rng: () => number): numbe
 
 // ---------------------------------------------------------------- loot
 
-export type LootItem = { kind: 'weapon'; weapon: Exclude<WeaponId, 'axe'> } | { kind: 'ammo'; ammo: AmmoType };
+export type LootItem =
+  | { kind: 'weapon'; weapon: Exclude<WeaponId, 'axe'> }
+  | { kind: 'ammo'; ammo: AmmoType }
+  /** Food, drink, stimulants and bandages (survival/inventory.ts ITEM_DEFS). */
+  | { kind: 'supply'; supply: ConsumableId };
 
 export interface LootSpawn {
   /** Stable id (index in the map's loot list). */
   id: number;
   item: LootItem;
+  /** Seconds until a taken item restocks (stores); undefined = one-time. */
+  respawn?: number;
   /** World px (centre of the item). */
   x: number;
   y: number;

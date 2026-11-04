@@ -5,7 +5,7 @@ import { authenticateCompanionRequest, checkCompanionQuota } from '@/lib/compani
 import { normalizePlatform, parseScreenshotDataUrl } from '@/lib/utils/screenshot';
 
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
 const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
@@ -103,7 +103,7 @@ SAFETY RULES (always follow):
       config: {
         systemInstruction,
         temperature: 0.4,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 4096,
       },
     });
 

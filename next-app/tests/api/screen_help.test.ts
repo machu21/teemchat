@@ -134,7 +134,7 @@ describe('POST /api/companion/screen-help', () => {
           ]),
           config: expect.objectContaining({
             temperature: 0.4,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 4096,
             systemInstruction: expect.stringContaining("You are 'Pixel Techie'"),
           }),
         })

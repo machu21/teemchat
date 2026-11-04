@@ -1,3 +1,5 @@
+import type { CompanionMood, CompanionSpecies } from '@/lib/companion/types';
+
 export interface ChatMessageModel {
   id: string;
   roomId: string;
@@ -18,6 +20,10 @@ export interface CompanionModel {
   avatarStyle: string;
   learnedContext: Record<string, unknown>;
   isActive: boolean;
+  /** Normalized sprite species (cat / robot / dog / wisp) */
+  species?: CompanionSpecies;
+  mood?: CompanionMood;
+  bondXp?: number;
 }
 
 export interface CompanionMemoryModel {

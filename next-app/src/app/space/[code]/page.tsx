@@ -14,7 +14,7 @@ import { WorldSyncService } from '@/lib/services/worldSync';
 import { LiveKitService, VideoFeedModel, attachTrackToElement } from '@/lib/services/livekit';
 import { ChatService } from '@/lib/services/chat';
 import { PlaylistService } from '@/lib/services/playlist';
-import { ChatMessageModel, CompanionModel } from '@/lib/models/chat';
+import { ChatMessageModel } from '@/lib/models/chat';
 import { removeRealtimeChannel } from '@/lib/supabase';
 import { GameCanvas } from '@/game/GameCanvas';
 import { FurnitureType } from '@/game/entities/furniture';
@@ -44,7 +44,7 @@ import {
   BotIcon,
 } from '@/components/icons/DockIcons';
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
-import { useCompanionChat, DEFAULT_COMPANION } from '@/lib/hooks/useCompanionChat';
+import { useSpaceCompanion } from '@/lib/hooks/useSpaceCompanion';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -80,7 +80,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     return livekitRef.current;
   }, []);
 
-  const [companion] = useState<CompanionModel | null>(() => DEFAULT_COMPANION);
   const [currentZone, setCurrentZone] = useState('Verdant Village');
 
   // Media toggles
@@ -108,24 +107,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [chatInput, setChatInput] = useState('');
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const {
-    messages: companionMessages,
-    isThinking: isAiThinking,
-    sendMessage: sendCompanionMessage,
-    screenHelp,
-  } = useCompanionChat({ companion, userName: session?.displayName, currentZone });
-  const {
-    supported: screenHelpSupported,
-    active: screenHelpActive,
-    starting: screenHelpStarting,
-    start: startScreenHelp,
-    stop: stopScreenHelp,
-  } = screenHelp;
-
-  // Closing the chat panel hides the live indicator, so stop sharing with it
-  useEffect(() => {
-    if (!chatOpen) stopScreenHelp();
-  }, [chatOpen, stopScreenHelp]);
 
   // Unread Room Chat Notification & Banner state
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -303,6 +284,71 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const isSelectedPlayerFriend = Boolean(
     selectedPlayer && socialFriends.some((f) => f.userId === selectedPlayer.userId)
   );
+
+  // Living AI companion. Guests (guest_* accounts) don't get one; the API enforces this too.
+  const companionEnabled = Boolean(session) && !session?.isGuest;
+  const {
+    companion,
+    messages: companionMessages,
+    isThinking: isAiThinking,
+    sendMessage: sendCompanionMessage,
+    screenHelp,
+    canvasProps: companionCanvasProps,
+    tourEvent: companionTourEvent,
+    setTyping: setCompanionTyping,
+    onTap: companionOnTap,
+    handleProximity: companionHandleProximity,
+  } = useSpaceCompanion({
+    enabled: companionEnabled,
+    userId: session?.id,
+    userName: session?.displayName,
+    syncService,
+    zones: activeZones,
+    currentZone,
+    mapName: mapConfig.name,
+    mode: zombieMode ? 'zombie' : 'social',
+    activity: zombieMode
+      ? 'zombie_mode'
+      : isMicOn
+        ? 'in_voice'
+        : playlistState.isPlaying
+          ? 'listening_music'
+          : 'exploring',
+    openMap: () => setMapTeleportModalOpen(true),
+    openChat: () => {
+      setActiveChannel('companion');
+      setChatOpen(true);
+    },
+  });
+  const {
+    supported: screenHelpSupported,
+    active: screenHelpActive,
+    starting: screenHelpStarting,
+    start: startScreenHelp,
+    stop: stopScreenHelp,
+  } = screenHelp;
+
+  // Closing the chat panel hides the live indicator, so stop sharing with it
+  useEffect(() => {
+    if (!chatOpen) stopScreenHelp();
+  }, [chatOpen, stopScreenHelp]);
+
+  // Companion tour progress + quiet while the owner is typing to it
+  useEffect(() => {
+    if (chatOpen) companionTourEvent('chat_opened');
+  }, [chatOpen, companionTourEvent]);
+  useEffect(() => {
+    if (mapTeleportModalOpen) companionTourEvent('map_opened');
+  }, [mapTeleportModalOpen, companionTourEvent]);
+  useEffect(() => {
+    if (playlistModalOpen) companionTourEvent('music_opened');
+  }, [playlistModalOpen, companionTourEvent]);
+  useEffect(() => {
+    if (selectedPlayer) companionTourEvent('player_tapped');
+  }, [selectedPlayer, companionTourEvent]);
+  useEffect(() => {
+    setCompanionTyping(chatOpen && activeChannel === 'companion');
+  }, [chatOpen, activeChannel, setCompanionTyping]);
   const [incomingInGameReq, setIncomingInGameReq] = useState<{
     requestId: string;
     senderId: string;
@@ -757,15 +803,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   const handleProximityChanged = useCallback((distances: Map<string, number>) => {
     getLiveKit().updateProximityAudio(distances);
-  }, [getLiveKit]);
+    companionHandleProximity(distances);
+  }, [getLiveKit, companionHandleProximity]);
 
-  // Guests (guest_* accounts) don't get an AI companion; the API enforces this too.
-  const companionEnabled = Boolean(session) && !session?.isGuest;
-
-  const handleCompanionTap = useCallback(() => {
-    setActiveChannel('companion');
-    setChatOpen(true);
-  }, []);
+  const handleCompanionTap = companionOnTap;
 
   if (!session || !space || !syncService) {
     return (
@@ -853,6 +894,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           }}
           onProximityChanged={handleProximityChanged}
           onZoneChanged={setCurrentZone}
+          {...(companionEnabled ? companionCanvasProps : {})}
           zombieMode={zombieMode}
         />
       </div>
@@ -1116,7 +1158,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   ))
                 )
               ) : companionMessages.length === 0 ? (
-                <div className={styles.emptyNotice}>Say hello to your personal companion! 🤖</div>
+                <div className={styles.emptyNotice}>
+                  Say hello to {companion?.name || 'your companion'}! Ask it anything, or say &quot;give me a tour&quot;.
+                </div>
               ) : (
                 companionMessages.map((m, idx) => (
                   <div
@@ -1126,6 +1170,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     }`}
                   >
                     <strong>{m.role === 'user' ? 'You' : companion?.name || 'Companion'}:</strong> {m.content}
+                    {m.chips?.map((chip) => (
+                      <span key={chip} className={styles.companionChip}>
+                        {chip}
+                      </span>
+                    ))}
                     {m.screenshot && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={m.screenshot} alt="Screenshot sent to companion" className={styles.screenshotThumb} />
