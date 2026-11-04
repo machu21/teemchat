@@ -62,6 +62,10 @@ export async function getOrFetchGuestIdentity(): Promise<GuestIdentity> {
     }
 
     const res = await fetch(`/api/auth/guest-identity?instance=${encodeURIComponent(instance)}`);
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After') || '60';
+      console.warn(`Guest creation rate limit reached. Retry after ${retryAfter} seconds.`);
+    }
     if (res.ok) {
       const data = await res.json();
       if (data && data.username && data.displayName) {

@@ -102,6 +102,25 @@ describe('RateLimiter engine', () => {
     limiter.reset();
     expect(limiter.size()).toBe(0);
   });
+
+  it('resets a specific key without clearing other keys via resetKey', () => {
+    const config = { max: 3, windowMs: 5000 };
+    limiter.check('client-target', config, 1000);
+    limiter.check('client-other', config, 1000);
+
+    expect(limiter.size()).toBe(2);
+
+    limiter.resetKey('client-target');
+
+    expect(limiter.size()).toBe(1);
+    // client-target should now start with a fresh window
+    const resTarget = limiter.check('client-target', config, 1200);
+    expect(resTarget.remaining).toBe(2);
+
+    // client-other was not affected
+    const resOther = limiter.check('client-other', config, 1200);
+    expect(resOther.remaining).toBe(1);
+  });
 });
 
 describe('checkRateLimit helper', () => {
@@ -109,6 +128,17 @@ describe('checkRateLimit helper', () => {
     const res = checkRateLimit('unique-key-' + Date.now(), RATE_LIMITS.DEFAULT_API);
     expect(res.limit).toBe(60);
     expect(res.success).toBe(true);
+  });
+
+  it('provides correct configuration for auth login limits', () => {
+    expect(RATE_LIMITS.AUTH_LOGIN.max).toBe(10);
+    expect(RATE_LIMITS.AUTH_LOGIN.windowMs).toBe(15 * 60 * 1000);
+
+    expect(RATE_LIMITS.AUTH_LOGIN_ACCOUNT.max).toBe(5);
+    expect(RATE_LIMITS.AUTH_LOGIN_ACCOUNT.windowMs).toBe(15 * 60 * 1000);
+
+    expect(RATE_LIMITS.GUEST_CREATE.max).toBe(10);
+    expect(RATE_LIMITS.GUEST_CREATE.windowMs).toBe(15 * 60 * 1000);
   });
 });
 

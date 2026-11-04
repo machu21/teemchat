@@ -19,6 +19,218 @@
   image-rendering: crisp-edges;
 }
 
+/* ── World-space Enter / Exit Door Prompt ────────────────────── */
+.doorPromptAnchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.doorPrompt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 10px 4px 4px;
+  white-space: nowrap;
+  font-family: 'Plus Jakarta Sans', inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  animation: doorPromptIn 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.doorPromptAbove {
+  translate: -50% calc(-100% - 8px);
+}
+
+.doorPromptBelow {
+  translate: -50% 8px;
+}
+
+/* Pointer notch toward the door */
+.doorPrompt::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.doorPromptAbove::after {
+  bottom: -6px;
+  border-top: none;
+  border-left: none;
+}
+
+.doorPromptBelow::after {
+  top: -6px;
+  border-bottom: none;
+  border-right: none;
+}
+
+.doorPrompt:active {
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+.doorPrompt:focus-visible {
+  outline: 3px solid var(--primary, #6D28D9);
+  outline-offset: 2px;
+}
+
+.doorPromptKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #ffffff;
+  background-color: var(--door-color, #6D28D9);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+}
+
+.doorPromptLabel {
+  line-height: 1.1;
+}
+
+.doorPromptCount {
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  background-color: var(--card-inner, #f4f4f5);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 999px;
+}
+
+@keyframes doorPromptIn {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* Touch devices: the chip itself is the tap target, no keyboard hint */
+@media (hover: none), (pointer: coarse) {
+  .doorPrompt {
+    min-height: 44px;
+    padding-left: 12px;
+  }
+
+  .doorPromptKey {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .doorPrompt {
+    font-size: 0.72rem;
+  }
+}
+
+/* ── Floor Selector (multi-storey interiors) ─────────────────── */
+.floorSelector {
+  position: absolute;
+  top: 50%;
+  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(-50%);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  overflow: hidden;
+}
+
+.floorBtn {
+  position: relative;
+  width: 48px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.1s ease;
+}
+
+.floorBtn + .floorBtn {
+  border-top: 2px solid var(--card-border, #18181b);
+}
+
+.floorBtnActive {
+  color: #ffffff;
+  background-color: var(--door-color, #6D28D9);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.25);
+  cursor: default;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .floorBtn:not(.floorBtnActive):hover {
+    background-color: var(--card-inner, #f4f4f5);
+  }
+}
+
+.floorBtn:focus-visible {
+  outline: 3px solid var(--primary, #6D28D9);
+  outline-offset: -3px;
+}
+
+.floorLabel {
+  line-height: 1;
+}
+
+.floorCount {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 0.6rem;
+  line-height: 10px;
+  color: var(--text-main, #18181b);
+  background-color: #FDE047;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 999px;
+}
+
 /* ── Retro Game Boy Virtual Joystick / D-Pad ─────────────────── */
 .joystickZone {
   position: absolute;
@@ -277,8 +489,14 @@
   .joystickThumb,
   .actionBtn,
   .zoomBtn,
-  .zoomLevelBtn {
+  .zoomLevelBtn,
+  .doorPrompt,
+  .floorBtn {
     transition: none;
+  }
+
+  .doorPrompt {
+    animation: none;
   }
 
   .joystickZone.active {
@@ -286,3 +504,361 @@
   }
 }
 
+
+/* ── Zombie Mode HUD ───────────────────────────────────────── */
+.zombieHud {
+  position: absolute;
+  top: max(64px, env(safe-area-inset-top, 0px) + 56px);
+  left: max(16px, env(safe-area-inset-left, 0px) + 8px);
+  z-index: 45;
+  width: 200px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Plus Jakarta Sans', inherit;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  pointer-events: none;
+}
+
+.zombieHudTitle {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zombieHpTrack {
+  position: relative;
+  height: 18px;
+  background-color: #3f3f46;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.zombieHpFill {
+  height: 100%;
+  background-color: #10b981;
+  transition: width 160ms ease-out;
+}
+
+.zombieHpLow {
+  background-color: #ef4444;
+}
+
+.zombieHpText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #18181b;
+}
+
+.zombieStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.zombieChasing {
+  color: #dc2626;
+}
+
+.zombieHint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted, #71717a);
+}
+
+.zombieHint kbd {
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border: 1.5px solid var(--card-border, #18181b);
+  border-radius: 4px;
+}
+
+.zombieDead {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.zombieAttackBtn {
+  position: absolute;
+  bottom: max(108px, env(safe-area-inset-bottom, 24px) + 92px);
+  right: max(84px, env(safe-area-inset-right, 16px) + 72px);
+  z-index: 45;
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  background-color: #fde047;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 50%;
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.zombieAttackBtn:active {
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+@media (max-width: 640px) {
+  .zombieHud {
+    width: 168px;
+    padding: 8px 10px;
+  }
+
+  .zombieHint {
+    display: none;
+  }
+
+  .zombieAttackBtn {
+    bottom: calc(156px + env(safe-area-inset-bottom, 0px));
+    right: max(68px, env(safe-area-inset-right, 0px) + 56px);
+  }
+}
+
+/* Door / window context chip (Zombie Survival) */
+.entranceChip {
+  position: absolute;
+  left: 50%;
+  bottom: max(108px, env(safe-area-inset-bottom, 24px) + 92px);
+  z-index: 46;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100% - 32px);
+  padding: 6px 8px;
+  transform: translateX(-50%);
+  font-family: 'Plus Jakarta Sans', inherit;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+}
+
+.entranceLabel {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.entranceBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #18181b;
+  background-color: #fde047;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border, #18181b);
+}
+
+.entranceBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+.entranceBtn kbd {
+  font-family: inherit;
+  font-size: 0.65rem;
+  padding: 0 3px;
+  border: 1.5px solid #18181b;
+  border-radius: 4px;
+}
+
+.entranceProgress {
+  flex-basis: 100%;
+  height: 6px;
+  overflow: hidden;
+  background-color: #3f3f46;
+  border: 1.5px solid var(--card-border, #18181b);
+  border-radius: 4px;
+}
+
+.entranceProgress span {
+  display: block;
+  height: 100%;
+  background-color: #10b981;
+}
+
+@media (max-width: 640px) {
+  .entranceChip {
+    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.zombieJumpBtn {
+  position: absolute;
+  bottom: max(108px, env(safe-area-inset-bottom, 24px) + 92px);
+  right: max(150px, env(safe-area-inset-right, 16px) + 138px);
+  z-index: 45;
+  width: 48px;
+  height: 48px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #18181b;
+  background-color: #a7f3d0;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 50%;
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.zombieJumpBtn:active {
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+@media (max-width: 640px) {
+  .zombieJumpBtn {
+    bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+    right: max(132px, env(safe-area-inset-right, 0px) + 120px);
+  }
+}
+
+/* Weapon bar (Zombie Survival) */
+.weaponBar {
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left, 0px) + 8px);
+  bottom: max(108px, env(safe-area-inset-bottom, 24px) + 92px);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 190px;
+  padding: 8px 10px;
+  font-family: 'Plus Jakarta Sans', inherit;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+}
+
+.weaponCurrent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weaponIcon {
+  font-size: 1.2rem;
+}
+
+.weaponName {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.weaponAmmo {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.weaponReload,
+.weaponSlot {
+  min-width: 32px;
+  height: 32px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #18181b;
+  background-color: #fde047;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border, #18181b);
+}
+
+.weaponSlot {
+  font-size: 1rem;
+  background-color: var(--card-inner, #f3f4f6);
+}
+
+.weaponSlotActive {
+  background-color: #fde047;
+}
+
+.weaponReload:active,
+.weaponSlot:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+.weaponSlots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.weaponReloadBar {
+  height: 6px;
+  overflow: hidden;
+  background-color: #3f3f46;
+  border: 1.5px solid var(--card-border, #18181b);
+  border-radius: 4px;
+}
+
+.weaponReloadBar span {
+  display: block;
+  height: 100%;
+  background-color: #f59e0b;
+}
+
+.zombieToast {
+  position: absolute;
+  top: max(64px, env(safe-area-inset-top, 0px) + 56px);
+  left: 50%;
+  z-index: 46;
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  font-family: 'Plus Jakarta Sans', inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #18181b;
+  background-color: #fde047;
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .weaponBar {
+    min-width: 0;
+    max-width: calc(100% - 200px);
+    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .weaponName {
+    display: none;
+  }
+}

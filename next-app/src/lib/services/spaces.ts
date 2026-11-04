@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { SpaceModel, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
+import { SpaceModel, SpaceMode, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
 import { UserSession } from '../models/user';
 import { InviteLinkService } from './invite';
 import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
@@ -8,6 +8,43 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 
 // Only characters that are safe to interpolate into a PostgREST `.or()` filter string
 const SAFE_LOOKUP_REGEX = /^[a-zA-Z0-9 _-]+$/;
+
+/** Map theme every Zombie Survival space is locked to. */
+export const ZOMBIE_MAP_THEME = 'zombie_city';
+/** Category stamped on Zombie Survival spaces. */
+export const ZOMBIE_SPACE_CATEGORY = 'survival';
+
+function normalizeSpaceMode(value: unknown): SpaceMode {
+  return value === 'zombie' ? 'zombie' : 'social';
+}
+
+type SpaceRow = Record<string, unknown>;
+
+/**
+ * Maps a `public.spaces` row (or a resolve_space_invite result) to a SpaceModel.
+ * `isTemporary` overrides the row's own `is_temporary` flag when given.
+ */
+export function mapSpaceRow(row: SpaceRow, options: { isTemporary?: boolean } = {}): SpaceModel {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    slug: row.slug as string,
+    description: (row.description as string | null | undefined) ?? null,
+    category: (row.category as string) || 'Gaming',
+    visibility: (row.visibility as string) || 'public',
+    tier: (row.tier as SpaceTierType) || 'free',
+    mapTheme: (row.map_theme as string) || 'village',
+    mode: normalizeSpaceMode(row.mode ?? 'social'),
+    joinCode: row.join_code as string | null | undefined,
+    ownerId: row.owner_id as string | null | undefined,
+    maxCapacity: (row.max_capacity as number) || 15,
+    memberCount: (row.member_count as number) || 1,
+    paletteIndex: (row.palette_index as number) || 0,
+    isActive: (row.is_active as boolean | null | undefined) ?? true,
+    isTemporary: options.isTemporary ?? Boolean(row.is_temporary),
+    createdAt: row.created_at as string | null | undefined,
+  };
+}
 
 // In-memory guest temp map tracker (mirrored to localStorage so it survives reloads)
 let guestTemporaryMap: SpaceModel | null = null;
@@ -68,24 +105,7 @@ export const SpaceService = {
         return [];
       }
 
-      return data.map((item) => ({
-        id: item.id,
-        name: item.name,
-        slug: item.slug,
-        description: item.description,
-        category: item.category || 'Gaming',
-        visibility: item.visibility || 'public',
-        tier: (item.tier as SpaceTierType) || 'free',
-        mapTheme: item.map_theme || 'village',
-        joinCode: item.join_code,
-        ownerId: item.owner_id,
-        maxCapacity: item.max_capacity || 15,
-        memberCount: item.member_count || 1,
-        paletteIndex: item.palette_index || 0,
-        isActive: item.is_active ?? true,
-        isTemporary: Boolean((item as Record<string, unknown>).is_temporary),
-        createdAt: item.created_at,
-      }));
+      return data.map((item) => mapSpaceRow(item));
     } catch (e) {
       console.error('Error fetching spaces:', e);
       return [];
@@ -100,12 +120,25 @@ export const SpaceService = {
       category?: string;
       visibility?: string;
       mapTheme?: string;
+      mode?: SpaceMode;
     },
     session: UserSession | null
   ): Promise<SpaceModel> {
     const isGuest = session?.isGuest ?? true;
     const isPaid = session?.isPaid ?? false;
     const currentUserId = session?.id;
+    const visibility = params.visibility === 'private' ? 'private' : 'public';
+    // Private spaces get a random join code (set_space_join_code trigger) so the
+    // guessable slug never works as an invite.
+    const joinCode = visibility === 'private' ? null : params.slug;
+    // Survival spaces always run on the zombie city map.
+    const mode = normalizeSpaceMode(params.mode);
+    const isSurvival = mode === 'zombie';
+    const mapTheme = isSurvival ? ZOMBIE_MAP_THEME : params.mapTheme || 'village';
+    const category = isSurvival ? ZOMBIE_SPACE_CATEGORY : params.category || 'Gaming';
+    // Only send `mode` for survival spaces so social spaces still insert on databases
+    // that have not run the 20261104_space_mode migration yet (the column defaults to 'social').
+    const modeColumn: { mode?: SpaceMode } = isSurvival ? { mode } : {};
 
     if (isGuest) {
       if (hydrateGuestTemporaryMap(session)) {
@@ -119,36 +152,20 @@ export const SpaceService = {
           name: params.name,
           slug: params.slug,
           description: params.description,
-          category: params.category || 'Gaming',
-          visibility: 'public',
+          category,
+          visibility,
           tier: 'free',
           max_capacity: 50,
           owner_id: currentUserId && UUID_REGEX.test(currentUserId) ? currentUserId : null,
           member_count: 1,
           is_active: true,
-          map_theme: params.mapTheme || 'village',
-          join_code: params.slug,
+          map_theme: mapTheme,
+          ...modeColumn,
+          join_code: joinCode,
         };
         const { data, error } = await supabase.from('spaces').insert(payload).select().single();
         if (!error && data) {
-          const tempSpace: SpaceModel = {
-            id: data.id,
-            name: data.name,
-            slug: data.slug,
-            description: data.description,
-            category: data.category,
-            visibility: data.visibility,
-            tier: data.tier as SpaceTierType,
-            mapTheme: data.map_theme,
-            joinCode: data.join_code,
-            ownerId: data.owner_id,
-            maxCapacity: data.max_capacity,
-            memberCount: data.member_count,
-            paletteIndex: data.palette_index || 0,
-            isActive: data.is_active,
-            isTemporary: true,
-            createdAt: data.created_at,
-          };
+          const tempSpace: SpaceModel = mapSpaceRow(data, { isTemporary: true });
           guestTemporaryMap = tempSpace;
           try {
             if (typeof window !== 'undefined') {
@@ -167,10 +184,11 @@ export const SpaceService = {
         name: params.name,
         slug: params.slug,
         description: params.description,
-        category: params.category || 'Gaming',
-        visibility: 'public',
+        category,
+        visibility,
         tier: 'free',
-        mapTheme: params.mapTheme || 'village',
+        mapTheme,
+        mode,
         joinCode: params.slug,
         maxCapacity: 50,
         ownerId: currentUserId || 'guest',
@@ -206,11 +224,12 @@ export const SpaceService = {
       name: params.name,
       slug: params.slug,
       description: params.description,
-      category: params.category || 'Gaming',
-      visibility: params.visibility || 'public',
+      category,
+      visibility,
       tier: 'free',
-      map_theme: params.mapTheme || 'village',
-      join_code: params.slug,
+      map_theme: mapTheme,
+      ...modeColumn,
+      join_code: joinCode,
       owner_id: currentUserId,
       max_capacity: 50,
       member_count: 1,
@@ -222,24 +241,7 @@ export const SpaceService = {
       throw new Error(error.message);
     }
 
-    return {
-      id: data.id,
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      category: data.category,
-      visibility: data.visibility,
-      tier: data.tier as SpaceTierType,
-      mapTheme: data.map_theme,
-      joinCode: data.join_code,
-      ownerId: data.owner_id,
-      maxCapacity: data.max_capacity,
-      memberCount: data.member_count,
-      paletteIndex: data.palette_index || 0,
-      isActive: data.is_active,
-      isTemporary: false,
-      createdAt: data.created_at,
-    };
+    return mapSpaceRow(data, { isTemporary: false });
   },
 
   async updateSpace(
@@ -253,6 +255,13 @@ export const SpaceService = {
       maxCapacity: number;
     }>
   ): Promise<boolean> {
+    // Survival spaces are locked to the zombie city map: drop any theme change.
+    if (updates.mapTheme !== undefined && (await SpaceService.isSurvivalSpace(spaceId))) {
+      const { mapTheme: _ignoredTheme, ...rest } = updates;
+      void _ignoredTheme;
+      updates = rest;
+    }
+
     // 1. If it's a guest temporary map
     if (guestTemporaryMap && guestTemporaryMap.id === spaceId) {
       guestTemporaryMap = {
@@ -302,6 +311,28 @@ export const SpaceService = {
     }
 
     return true;
+  },
+
+  /** True when the space is a Zombie Survival space (checks the guest map, then the DB). */
+  async isSurvivalSpace(spaceId: string): Promise<boolean> {
+    if (guestTemporaryMap && guestTemporaryMap.id === spaceId) return guestTemporaryMap.mode === 'zombie';
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('teem_guest_temp_map');
+        if (stored) {
+          const parsed = JSON.parse(stored) as SpaceModel;
+          if (parsed.id === spaceId) return parsed.mode === 'zombie';
+        }
+      } catch {}
+    }
+    if (!UUID_REGEX.test(spaceId)) return false;
+    try {
+      const { data, error } = await supabase.from('spaces').select('mode').eq('id', spaceId).maybeSingle();
+      if (error || !data) return false;
+      return (data as SpaceRow).mode === 'zombie';
+    } catch {
+      return false;
+    }
   },
 
   isSpaceOwner(space: SpaceModel, session: UserSession | null): boolean {
@@ -366,7 +397,9 @@ export const SpaceService = {
         if (guestMap.id && guestMap.id.startsWith('guest-temp-')) {
           guestMap.id = `room-${guestMap.slug.toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
         }
-        if (requestedTheme && requestedTheme in MAP_REGISTRY) {
+        // Older stored maps predate `mode`; survival maps never change theme.
+        guestMap.mode = normalizeSpaceMode(guestMap.mode);
+        if (requestedTheme && requestedTheme in MAP_REGISTRY && guestMap.mode !== 'zombie') {
           guestMap.mapTheme = requestedTheme;
         }
         if (requestedName) {
@@ -394,6 +427,7 @@ export const SpaceService = {
         visibility: 'public',
         tier: 'free',
         mapTheme: themeKey,
+        mode: themeKey === ZOMBIE_MAP_THEME ? 'zombie' : 'social',
         joinCode: themeKey,
         ownerId: null,
         maxCapacity: 50,
@@ -411,24 +445,7 @@ export const SpaceService = {
       if (rpcRes) {
         const item = Array.isArray(rpcRes) ? rpcRes[0] : rpcRes;
         if (item) {
-          return {
-            id: item.id,
-            name: item.name,
-            slug: item.slug,
-            description: item.description,
-            category: item.category || 'Gaming',
-            visibility: item.visibility || 'public',
-            tier: (item.tier as SpaceTierType) || 'free',
-            mapTheme: item.map_theme || 'village',
-            joinCode: item.join_code,
-            ownerId: item.owner_id,
-            maxCapacity: item.max_capacity || 15,
-            memberCount: item.member_count || 1,
-            paletteIndex: item.palette_index || 0,
-            isActive: item.is_active ?? true,
-            isTemporary: false,
-            createdAt: item.created_at,
-          };
+          return mapSpaceRow(item, { isTemporary: false });
         }
       }
     } catch {}
@@ -445,24 +462,7 @@ export const SpaceService = {
         .maybeSingle();
 
       if (bySlugOrCode) {
-        return {
-          id: bySlugOrCode.id,
-          name: bySlugOrCode.name,
-          slug: bySlugOrCode.slug,
-          description: bySlugOrCode.description,
-          category: bySlugOrCode.category || 'Gaming',
-          visibility: bySlugOrCode.visibility || 'public',
-          tier: (bySlugOrCode.tier as SpaceTierType) || 'free',
-          mapTheme: bySlugOrCode.map_theme || 'village',
-          joinCode: bySlugOrCode.join_code,
-          ownerId: bySlugOrCode.owner_id,
-          maxCapacity: bySlugOrCode.max_capacity || 15,
-          memberCount: bySlugOrCode.member_count || 1,
-          paletteIndex: bySlugOrCode.palette_index || 0,
-          isActive: bySlugOrCode.is_active ?? true,
-          isTemporary: false,
-          createdAt: bySlugOrCode.created_at,
-        };
+        return mapSpaceRow(bySlugOrCode, { isTemporary: false });
       }
     } catch {}
 
@@ -473,24 +473,7 @@ export const SpaceService = {
       try {
         const { data: byId } = await supabase.from('spaces').select('*').eq('id', q).maybeSingle();
         if (byId) {
-          return {
-            id: byId.id,
-            name: byId.name,
-            slug: byId.slug,
-            description: byId.description,
-            category: byId.category || 'Gaming',
-            visibility: byId.visibility || 'public',
-            tier: (byId.tier as SpaceTierType) || 'free',
-            mapTheme: byId.map_theme || 'village',
-            joinCode: byId.join_code,
-            ownerId: byId.owner_id,
-            maxCapacity: byId.max_capacity || 15,
-            memberCount: byId.member_count || 1,
-            paletteIndex: byId.palette_index || 0,
-            isActive: byId.is_active ?? true,
-            isTemporary: false,
-            createdAt: byId.created_at,
-          };
+          return mapSpaceRow(byId, { isTemporary: false });
         }
       } catch {}
     }
@@ -513,6 +496,7 @@ export const SpaceService = {
         visibility: 'public',
         tier: 'free',
         mapTheme: effectiveThemeKey,
+        mode: effectiveThemeKey === ZOMBIE_MAP_THEME ? 'zombie' : 'social',
         joinCode: q,
         ownerId: null,
         maxCapacity: 50,

@@ -60,6 +60,9 @@ export class PlayerEntity {
     }
   }
 
+  /** Visual lift (px) while jumping in Zombie Survival; 0 on the ground. */
+  jumpHeight: number = 0;
+
   render(ctx: CanvasRenderingContext2D) {
     // 1. Draw Tap Target Destination marker if active
     if (this.targetDestination) {
@@ -109,8 +112,10 @@ export class PlayerEntity {
       ctx.fill();
     }
 
-    // 3. Render Pixel Chibi Avatar with Walk Cycle & Direction
-    const walkFrame = this.isMoving ? Math.floor(this.animTimer) % 4 : 0;
+    // 3. Render Pixel Chibi Avatar with Walk Cycle & Direction (lifted while jumping; shadow stays)
+    const walkFrame = this.isMoving && this.jumpHeight === 0 ? Math.floor(this.animTimer) % 4 : 0;
+    ctx.save();
+    ctx.translate(0, -Math.round(this.jumpHeight));
     renderPixelAvatar(
       ctx,
       this.avatarConfig,
@@ -119,6 +124,7 @@ export class PlayerEntity {
       walkFrame,
       this.isSitting
     );
+    ctx.restore();
 
     // Swimming mask (cut off lower legs in water)
     if (this.isSwimming) {

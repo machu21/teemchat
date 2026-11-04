@@ -40,6 +40,8 @@ export const spaceTiers: Record<SpaceTierType, SpaceTierInfo> = {
   },
 };
 
+export type SpaceMode = 'social' | 'zombie';
+
 export interface SpaceModel {
   id: string;
   name: string;
@@ -49,6 +51,8 @@ export interface SpaceModel {
   visibility: string;
   tier: SpaceTierType;
   mapTheme: string;
+  /** 'social' hangout space or 'zombie' survival space (always on the zombie_city map). */
+  mode: SpaceMode;
   joinCode?: string | null;
   ownerId?: string | null;
   maxCapacity: number;
@@ -69,6 +73,7 @@ export function defaultHQ(): SpaceModel {
     visibility: 'public',
     tier: 'free',
     mapTheme: 'village',
+    mode: 'social',
     maxCapacity: 15,
     memberCount: 1,
     paletteIndex: 0,

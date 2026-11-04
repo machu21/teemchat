@@ -426,3 +426,290 @@ export const MinimizeIcon: React.FC<DockIconProps> = ({
     <path d="m14 10 7-7" />
   </svg>
 );
+
+/**
+ * Phone / Voice Call Icon
+ */
+export const PhoneIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+/**
+ * Close / X Icon
+ */
+export const CloseIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+
+/**
+ * Arrow Left / Back Icon
+ */
+export const ArrowLeftIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="m12 19-7-7 7-7" />
+    <path d="M19 12H5" />
+  </svg>
+);
+
+/**
+ * Plus / Add Icon
+ */
+export const PlusIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M12 5v14" />
+    <path d="M5 12h14" />
+  </svg>
+);
+
+/**
+ * Users / Group Icon
+ */
+export const UsersIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+/**
+ * User Check / Friends Icon
+ */
+export const UserCheckIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="m16 11 2 2 4-4" />
+  </svg>
+);
+
+/**
+ * Monitor / Screen Help Icon
+ */
+export const MonitorIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <rect width="20" height="14" x="2" y="3" rx="2" />
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+  </svg>
+);
+
+/**
+ * Lock Icon (Private)
+ */
+export const LockIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <rect width="18" height="11" x="3" y="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+/**
+ * Globe Icon (Public)
+ */
+export const GlobeIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
+/**
+ * Zombie / Survival Mode Icon (hand reaching up)
+ */
+export const ZombieIcon: React.FC<DockIconProps> = ({
+  size = 20,
+  color = 'currentColor',
+  strokeWidth = 2,
+  className = '',
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path d="M8 21v-7l-2-3V5.5a1.5 1.5 0 0 1 3 0V9" />
+    <path d="M9 9V3.5a1.5 1.5 0 0 1 3 0V9" />
+    <path d="M12 9V4.5a1.5 1.5 0 0 1 3 0V10" />
+    <path d="M15 10V7.5a1.5 1.5 0 0 1 3 0V14l-2 3v4" />
+    <path d="M3 21h18" />
+  </svg>
+);

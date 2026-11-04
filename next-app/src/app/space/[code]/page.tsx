@@ -14,7 +14,6 @@ import { WorldSyncService } from '@/lib/services/worldSync';
 import { LiveKitService, VideoFeedModel, attachTrackToElement } from '@/lib/services/livekit';
 import { ChatService } from '@/lib/services/chat';
 import { PlaylistService } from '@/lib/services/playlist';
-import { TtsService } from '@/lib/services/tts';
 import { ChatMessageModel, CompanionModel } from '@/lib/models/chat';
 import { removeRealtimeChannel } from '@/lib/supabase';
 import { GameCanvas } from '@/game/GameCanvas';
@@ -44,6 +43,8 @@ import {
   RocketIcon,
   BotIcon,
 } from '@/components/icons/DockIcons';
+import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
+import { useCompanionChat, DEFAULT_COMPANION } from '@/lib/hooks/useCompanionChat';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -57,12 +58,18 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const initialTargetZone = searchParams?.get('zone') || null;
   const urlTheme = searchParams?.get('theme') || undefined;
   const urlName = searchParams?.get('name') || undefined;
+  // Dev-only override: ?mode=zombie forces survival mode on any space for testing.
+  const devZombieOverride =
+    process.env.NODE_ENV !== 'production' && searchParams?.get('mode') === 'zombie';
   const resolvedParams = use(params);
   const spaceCode = resolvedParams.code;
 
   const { session, initSession } = useSessionStore();
 
   const [space, setSpace] = useState<SpaceModel | null>(null);
+  // Zombie Survival spaces always run zombie mode on the zombie_city map.
+  const isSurvivalSpace = space?.mode === 'zombie';
+  const zombieMode = isSurvivalSpace || devZombieOverride;
   const [syncService, setSyncService] = useState<WorldSyncService | null>(null);
 
   const livekitRef = useRef<LiveKitService | null>(null);
@@ -73,16 +80,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     return livekitRef.current;
   }, []);
 
-  const [companion] = useState<CompanionModel | null>(() => ({
-    id: 'companion-pixel-cat',
-    userId: 'system',
-    name: 'Pixel Cat',
-    persona: 'Playful pixel buddy exploring the TeemChat virtual world with you.',
-    companionType: 'cat',
-    avatarStyle: 'orange_tabby',
-    learnedContext: {},
-    isActive: true,
-  }));
+  const [companion] = useState<CompanionModel | null>(() => DEFAULT_COMPANION);
   const [currentZone, setCurrentZone] = useState('Verdant Village');
 
   // Media toggles
@@ -107,10 +105,27 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [chatOpen, setChatOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<'room' | 'companion'>('room');
   const [roomMessages, setRoomMessages] = useState<ChatMessageModel[]>([]);
-  const [companionMessages, setCompanionMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [chatInput, setChatInput] = useState('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    messages: companionMessages,
+    isThinking: isAiThinking,
+    sendMessage: sendCompanionMessage,
+    screenHelp,
+  } = useCompanionChat({ companion, userName: session?.displayName, currentZone });
+  const {
+    supported: screenHelpSupported,
+    active: screenHelpActive,
+    starting: screenHelpStarting,
+    start: startScreenHelp,
+    stop: stopScreenHelp,
+  } = screenHelp;
+
+  // Closing the chat panel hides the live indicator, so stop sharing with it
+  useEffect(() => {
+    if (!chatOpen) stopScreenHelp();
+  }, [chatOpen, stopScreenHelp]);
 
   // Unread Room Chat Notification & Banner state
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -244,7 +259,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const activeZones = useMemo(() => getZonesForMap(space?.mapTheme), [space?.mapTheme]);
 
   const handleSelectMapTheme = useCallback(async (newThemeId: string) => {
-    if (!space) return;
+    if (!space || space.mode === 'zombie') return;
     try {
       const cfg = MAP_REGISTRY[newThemeId as keyof typeof MAP_REGISTRY] || MAP_REGISTRY.village;
       await SpaceService.updateSpace(space.id, { mapTheme: newThemeId });
@@ -348,6 +363,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               visibility: 'public',
               tier: 'free',
               mapTheme: matchedTheme,
+              mode: 'social',
               joinCode: raw,
               ownerId: null,
               maxCapacity: 50,
@@ -365,6 +381,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         setSpace(defaultHQ());
       });
   }, [spaceCode, initSession, urlName, urlTheme]);
+
+  // Invited users of a private space become members (chat, rooms and world objects
+  // are member-only there). The RPC is a no-op for codes that aren't invites.
+  const sessionUserId = session?.id;
+  const spaceVisibility = space?.visibility;
+  const spaceOwnerId = space?.ownerId;
+  useEffect(() => {
+    if (!sessionUserId || spaceVisibility !== 'private' || spaceOwnerId === sessionUserId) return;
+    SpaceService.joinSpaceViaInvite(spaceCode);
+  }, [sessionUserId, spaceVisibility, spaceOwnerId, spaceCode]);
 
   // If the session ends while inside (e.g. signed out in another tab), leave the space
   // instead of stalling on the loading screen with a disconnected avatar.
@@ -562,6 +588,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     };
 
     sync.onMapThemeChanged = (newTheme) => {
+      // Survival spaces are locked to the zombie city map.
+      if (space.mode === 'zombie') return;
       // Persisted spaces: the owner saves the theme before broadcasting, and RLS blocks anyone
       // else from saving it, so apply the stored value rather than the claimed one.
       if (!UUID_REGEX.test(space.id)) {
@@ -638,13 +666,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       (delId) => setRoomMessages((prev) => prev.filter((m) => m.id !== delId))
     );
 
-    // Initial playlist load
-    PlaylistService.loadPlaylist(space.id).catch((err) => {
-      console.warn('Playlist load notice:', err);
-    });
-
     return () => {
-      PlaylistService.reset();
       sync.disconnect();
       livekit.leaveSpaceRoom().catch(() => {});
       if (roomSub) {
@@ -653,8 +675,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     };
   }, [session, space, spaceCode, getLiveKit, showMediaStatus]);
 
-  // Load the friends list so the player card can show "✓ Friends"
+  // Playlist lifecycle is keyed on ids, not the session/space objects: auth token refreshes
+  // and map-theme changes replace those objects, and resetting then would cut the music.
   const sessionId = session?.id;
+  const playlistSpaceId = space?.id;
+  useEffect(() => {
+    if (!sessionId || !playlistSpaceId) return;
+    PlaylistService.loadPlaylist(playlistSpaceId).catch((err) => {
+      console.warn('Playlist load notice:', err);
+    });
+    return () => {
+      PlaylistService.reset();
+    };
+  }, [sessionId, playlistSpaceId]);
+
+  // Load the friends list so the player card can show "✓ Friends"
   useEffect(() => {
     if (!sessionId) return;
     useSocialStore.getState().refreshFriends(sessionId).catch(() => {});
@@ -716,51 +751,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       }
     } else {
       // AI Companion Chat Pipeline
-      setCompanionMessages((prev) => [...prev, { role: 'user', content: text }]);
-      setIsAiThinking(true);
-
-      try {
-        const { data: { session: authSession } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
-        const res = await fetch('/api/companion/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authSession?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            companion,
-            userName: session.displayName,
-            currentZone,
-            userMessage: text,
-            recentHistory: companionMessages,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const reason =
-            res.status === 401 || res.status === 403
-              ? 'Sign in with an account to chat with your companion.'
-              : data.message || data.error || 'Companion is unavailable right now. Try again shortly.';
-          setCompanionMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${reason}` }]);
-          return;
-        }
-
-        const reply = data.response || "I'm right with you!";
-        setCompanionMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-
-        if (TtsService.autoSpeak) {
-          TtsService.speak(reply);
-        }
-      } catch (err) {
-        console.error('Error in AI companion chat:', err);
-        setCompanionMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: '⚠️ Could not reach your companion. Check your connection.' },
-        ]);
-      } finally {
-        setIsAiThinking(false);
-      }
+      await sendCompanionMessage(text);
     }
   };
 
@@ -862,6 +853,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           }}
           onProximityChanged={handleProximityChanged}
           onZoneChanged={setCurrentZone}
+          zombieMode={zombieMode}
         />
       </div>
 
@@ -887,7 +879,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </div>
 
         <div className={styles.hudRight}>
-          {isMapOwner && (
+          {isMapOwner && !isSurvivalSpace && (
             <NeoButton
               size="sm"
               variant="secondary"
@@ -1101,6 +1093,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               </button>
             </div>
 
+            {companionEnabled && screenHelpSupported && (screenHelpActive || activeChannel === 'companion') && (
+              <ScreenHelpBar
+                active={screenHelpActive}
+                starting={screenHelpStarting}
+                onStart={startScreenHelp}
+                onStop={stopScreenHelp}
+              />
+            )}
+
             <div ref={chatScrollRef} className={styles.messageStream}>
               {activeChannel === 'room' ? (
                 roomMessages.length === 0 ? (
@@ -1124,6 +1125,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     }`}
                   >
                     <strong>{m.role === 'user' ? 'You' : companion?.name || 'Companion'}:</strong> {m.content}
+                    {m.screenshot && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.screenshot} alt="Screenshot sent to companion" className={styles.screenshotThumb} />
+                    )}
                   </div>
                 ))
               )}
@@ -1683,7 +1688,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
       {/* Map Owner Live Theme Switcher Modal */}
       <NeoModal
-        isOpen={mapThemeModalOpen}
+        isOpen={mapThemeModalOpen && !isSurvivalSpace}
         onClose={() => setMapThemeModalOpen(false)}
         title="👑 Map Owner Studio: Select Realm Theme"
       >

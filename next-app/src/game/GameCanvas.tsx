@@ -2,14 +2,16 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './GameCanvas.module.css';
-import { WorldGame } from '@/game/WorldGame';
+import { WorldGame, DoorPrompt, FloorInfo } from '@/game/WorldGame';
 import { SpaceModel } from '@/lib/models/space';
 import { WorldSyncService } from '@/lib/services/worldSync';
 import { UserSession } from '@/lib/models/user';
 import { FurnitureType } from '@/game/entities/furniture';
 import { CompanionModel } from '@/lib/models/chat';
 import { getMapConfig } from '@/game/map/mapRegistry';
-import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM } from '@/game/camera';
+import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM, SURVIVAL_ZOOM_LIMITS } from '@/game/camera';
+import { ZombieHud } from '@/game/zombie/zombieMode';
+import { WEAPONS } from '@/game/zombie/weapons';
 
 import { AvatarConfig } from '@/lib/models/avatar';
 
@@ -34,6 +36,8 @@ interface GameCanvasProps {
   }) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
   onZoneChanged?: (zoneName: string) => void;
+  /** Zomboid-style vision cone + fog of war. */
+  zombieMode?: boolean;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -51,6 +55,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onRemotePlayerTap,
   onProximityChanged,
   onZoneChanged,
+  zombieMode = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -68,6 +73,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Camera zoom level state
   const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
   const lastZoomRef = useRef<number>(DEFAULT_ZOOM);
+
+  // Enter / Exit door prompt (state changes only on prompt change; position is written per frame via ref)
+  const [doorPrompt, setDoorPrompt] = useState<DoorPrompt | null>(null);
+  const doorPromptRef = useRef<HTMLDivElement | null>(null);
+  const [floorInfo, setFloorInfo] = useState<FloorInfo | null>(null);
+  const [zombieHud, setZombieHud] = useState<ZombieHud | null>(null);
 
   // 1. One-time Game Lifecycle Initialization (keyed ONLY by space.id and session.id)
   useEffect(() => {
@@ -143,6 +154,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       game.onZoneChanged = onZoneChanged;
     }
 
+    game.onDoorPromptChanged = (prompt) => setDoorPrompt(prompt);
+    game.onFloorChanged = (info) => setFloorInfo(info);
+    game.onZombieHud = (hud) => setZombieHud(hud);
+    game.onDoorPromptMove = (sx, sy) => {
+      const el = doorPromptRef.current;
+      if (el) el.style.transform = `translate(${Math.round(sx)}px, ${Math.round(sy)}px)`;
+    };
+
     game.onZoomChanged = (newZoom) => {
       lastZoomRef.current = newZoom;
       setZoom(newZoom);
@@ -157,6 +176,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     game.buildModeEnabled = buildMode;
     game.selectedFurniture = selectedFurniture;
+    game.setZombieMode(zombieMode);
 
     game.loadCloudObjects();
     game.start();
@@ -175,8 +195,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           // ignore storage errors
         }
       }
+      game.onDoorPromptChanged = undefined;
+      game.onDoorPromptMove = undefined;
+      game.onFloorChanged = undefined;
+      game.onZombieHud = undefined;
       game.dispose();
       gameRef.current = null;
+      setDoorPrompt(null);
+      setFloorInfo(null);
+      setZombieHud(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [space.id, space.mapTheme, session.id]); // Re-initialize if the space, map theme, or user changes!
@@ -224,6 +251,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current.selectedFurniture = selectedFurniture;
     }
   }, [buildMode, selectedFurniture]);
+
+  useEffect(() => {
+    gameRef.current?.setZombieMode(zombieMode);
+  }, [zombieMode]);
 
   useEffect(() => {
     if (gameRef.current) {
@@ -330,6 +361,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Quick Action Button (Game Boy 'A' button) on touchscreen
   const handleActionButton = () => {
     if (navigator.vibrate) navigator.vibrate(12);
+    if (gameRef.current?.activateDoor()) {
+      return;
+    }
     if (gameRef.current?.companion && onCompanionTap) {
       onCompanionTap();
     } else if (gameRef.current) {
@@ -357,6 +391,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   const zoomPercent = Math.round((zoom / DEFAULT_ZOOM) * 100);
+  // Survival locks zoom to 100–200 % (see Camera.setZoomLimits)
+  const zoomMin = zombieMode ? SURVIVAL_ZOOM_LIMITS.min : MIN_ZOOM;
+  const zoomMax = zombieMode ? SURVIVAL_ZOOM_LIMITS.max : MAX_ZOOM;
 
   return (
     <div ref={containerRef} className={styles.canvasContainer}>
@@ -365,13 +402,208 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         className={styles.gameCanvas}
       />
 
+      {/* World-space Enter / Exit prompt, anchored to the nearest door */}
+      <div ref={doorPromptRef} className={styles.doorPromptAnchor} aria-live="polite">
+        {doorPrompt && (
+          <button
+            key={`${doorPrompt.buildingId}-${doorPrompt.action}`}
+            type="button"
+            className={`${styles.doorPrompt} ${
+              doorPrompt.action === 'exit' ? styles.doorPromptBelow : styles.doorPromptAbove
+            }`}
+            style={{ '--door-color': doorPrompt.color } as React.CSSProperties}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => gameRef.current?.activateDoor()}
+          >
+            <kbd className={styles.doorPromptKey}>E</kbd>
+            <span className={styles.doorPromptLabel}>
+              {doorPrompt.action === 'enter' ? 'Enter' : 'Exit'} {doorPrompt.name}
+            </span>
+            {doorPrompt.occupants > 0 && (
+              <span className={styles.doorPromptCount} aria-label={`${doorPrompt.occupants} inside`}>
+                👥 {doorPrompt.occupants}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Floor selector (multi-storey buildings only) */}
+      {floorInfo && (
+        <nav
+          className={styles.floorSelector}
+          aria-label={`${floorInfo.buildingName} floors`}
+          style={{ '--door-color': floorInfo.color } as React.CSSProperties}
+        >
+          {floorInfo.floors.map((fl) => {
+            const isCurrent = fl.levelId === floorInfo.currentLevelId;
+            return (
+              <button
+                key={fl.levelId ?? 'ground'}
+                type="button"
+                className={`${styles.floorBtn} ${isCurrent ? styles.floorBtnActive : ''}`}
+                aria-current={isCurrent ? 'location' : undefined}
+                aria-label={`${fl.label}${isCurrent ? ' (you are here)' : ''}${
+                  fl.occupants > 0 ? `, ${fl.occupants} here` : ''
+                }`}
+                title={isCurrent ? 'You are here' : `Walk to the stairs for ${fl.label}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => gameRef.current?.goToFloor(fl.levelId)}
+              >
+                <span className={styles.floorLabel}>{fl.label}</span>
+                {fl.occupants > 0 && <span className={styles.floorCount}>{fl.occupants}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      {/* Zombie Mode HUD */}
+      {zombieMode && zombieHud && (
+        <>
+          <div className={styles.zombieHud} role="status" aria-live="polite">
+            <div className={styles.zombieHudTitle}>🧟 Survival</div>
+            <div
+              className={styles.zombieHpTrack}
+              role="meter"
+              aria-label="Health"
+              aria-valuemin={0}
+              aria-valuemax={zombieHud.maxHp}
+              aria-valuenow={zombieHud.hp}
+            >
+              <div
+                className={`${styles.zombieHpFill} ${zombieHud.hp < 35 ? styles.zombieHpLow : ''}`}
+                style={{ width: `${(zombieHud.hp / zombieHud.maxHp) * 100}%` }}
+              />
+              <span className={styles.zombieHpText}>{zombieHud.hp} HP</span>
+            </div>
+            <div className={styles.zombieStats}>
+              <span>☠ {zombieHud.kills}</span>
+              <span>🧟 {zombieHud.alive}</span>
+              {zombieHud.chasing > 0 && (
+                <span className={styles.zombieChasing}>⚠ {zombieHud.chasing} chasing</span>
+              )}
+            </div>
+            <div className={styles.zombieHint}>
+              <kbd>F</kbd> fire · <kbd>R</kbd> reload · <kbd>Q</kbd>/<kbd>1-6</kbd> weapon · <kbd>Space</kbd> jump
+            </div>
+            {zombieHud.dead && <div className={styles.zombieDead}>You were bitten…</div>}
+          </div>
+          {zombieHud.entrance && (
+            <div className={styles.entranceChip} role="group" aria-label="Door and window actions">
+              <span className={styles.entranceLabel}>
+                {zombieHud.entrance.kind === 'door' ? '🚪' : '🪟'}{' '}
+                {zombieHud.entrance.state === 'barricaded'
+                  ? `Boarded ${zombieHud.entrance.planks}/4`
+                  : zombieHud.entrance.state}
+              </span>
+              {(zombieHud.entrance.state === 'open' || zombieHud.entrance.state === 'closed') && (
+                <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('toggle')}>
+                  <kbd>E</kbd> {zombieHud.entrance.state === 'open' ? 'Close' : 'Open'}
+                </button>
+              )}
+              {zombieHud.entrance.kind === 'door' &&
+                (zombieHud.entrance.state === 'closed' || zombieHud.entrance.state === 'locked') && (
+                  <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('lockToggle')}>
+                    <kbd>L</kbd> {zombieHud.entrance.state === 'locked' ? 'Unlock' : 'Lock'}
+                  </button>
+                )}
+              {zombieHud.entrance.state !== 'open' &&
+                zombieHud.entrance.planks < 4 && (
+                  <button type="button" className={styles.entranceBtn} onClick={() => gameRef.current?.zombieDoorAction('addPlank')}>
+                    <kbd>B</kbd> Board up
+                  </button>
+                )}
+              {zombieHud.entrance.progress > 0 && (
+                <span className={styles.entranceProgress} aria-hidden="true">
+                  <span style={{ width: `${zombieHud.entrance.progress * 100}%` }} />
+                </span>
+              )}
+            </div>
+          )}
+          <div className={styles.weaponBar} role="group" aria-label="Weapons">
+            <div className={styles.weaponCurrent}>
+              <span className={styles.weaponIcon} aria-hidden="true">{zombieHud.weapon.icon}</span>
+              <span className={styles.weaponName}>{zombieHud.weapon.name}</span>
+              {zombieHud.weapon.mag !== null && (
+                <span className={styles.weaponAmmo} aria-label="Ammo">
+                  <strong>{zombieHud.weapon.mag}</strong>/{zombieHud.weapon.magSize} · {zombieHud.weapon.reserve}
+                </span>
+              )}
+              {zombieHud.weapon.mag !== null && (
+                <button
+                  type="button"
+                  className={styles.weaponReload}
+                  onClick={() => gameRef.current?.zombieReload()}
+                  aria-label="Reload"
+                  title="Reload (R)"
+                >
+                  R
+                </button>
+              )}
+            </div>
+            {zombieHud.weapon.reloading > 0 && (
+              <span className={styles.weaponReloadBar} aria-hidden="true">
+                <span style={{ width: `${zombieHud.weapon.reloading * 100}%` }} />
+              </span>
+            )}
+            {zombieHud.owned.length > 1 && (
+              <div className={styles.weaponSlots}>
+                {zombieHud.owned.map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className={`${styles.weaponSlot} ${w === zombieHud.weapon.id ? styles.weaponSlotActive : ''}`}
+                    onClick={() => gameRef.current?.zombieSelectWeapon(w)}
+                    aria-label={`Equip ${WEAPONS[w].name}`}
+                    aria-pressed={w === zombieHud.weapon.id}
+                    title={`${WEAPONS[w].name} (${WEAPONS[w].slot})`}
+                  >
+                    {WEAPONS[w].icon}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {zombieHud.toast && (
+            <div className={styles.zombieToast} role="status">
+              {zombieHud.toast}
+            </div>
+          )}
+          <button
+            type="button"
+            className={styles.zombieAttackBtn}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              gameRef.current?.zombieTrigger(true);
+            }}
+            onPointerUp={() => gameRef.current?.zombieTrigger(false)}
+            onPointerLeave={() => gameRef.current?.zombieTrigger(false)}
+            onPointerCancel={() => gameRef.current?.zombieTrigger(false)}
+            aria-label={zombieHud.weapon.mag === null ? 'Attack' : 'Fire'}
+            title={zombieHud.weapon.mag === null ? 'Attack (F)' : 'Fire (hold F)'}
+          >
+            {zombieHud.weapon.icon}
+          </button>
+          <button
+            type="button"
+            className={styles.zombieJumpBtn}
+            onClick={() => gameRef.current?.jump()}
+            aria-label="Jump"
+            title="Jump over fences and cars (Space)"
+          >
+            ⤴
+          </button>
+        </>
+      )}
+
       {/* Zoom Controls HUD */}
       <div className={styles.zoomControls} role="group" aria-label="Camera Zoom Controls">
         <button
           type="button"
           className={styles.zoomBtn}
           onClick={handleZoomIn}
-          disabled={zoom >= MAX_ZOOM}
+          disabled={zoom >= zoomMax}
           title="Zoom In (+ or Scroll Up)"
           aria-label="Zoom In"
         >
@@ -390,7 +622,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           type="button"
           className={styles.zoomBtn}
           onClick={handleZoomOut}
-          disabled={zoom <= MIN_ZOOM}
+          disabled={zoom <= zoomMin}
           title="Zoom Out (- or Scroll Down)"
           aria-label="Zoom Out"
         >
@@ -432,9 +664,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           type="button"
           className={styles.actionBtn}
           onClick={handleActionButton}
-          aria-label="Action Button"
+          aria-label={
+            doorPrompt
+              ? `${doorPrompt.action === 'enter' ? 'Enter' : 'Exit'} ${doorPrompt.name}`
+              : 'Action Button'
+          }
         >
-          A
+          {doorPrompt ? '🚪' : 'A'}
         </button>
       </div>
     </div>

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
-import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rateLimit';
+import { RATE_LIMITS } from '@/lib/rateLimit';
+import { authenticateCompanionRequest, checkCompanionQuota } from '@/lib/companionAuth';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
 const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -12,49 +10,9 @@ const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) {
-      return NextResponse.json({ error: 'Invalid user token' }, { status: 401 });
-    }
-
-    // Guest sessions don't get an AI companion. The email domain is set by provision_guest_account
-    // and is the authoritative signal; metadata flags are checked as a fallback.
-    const isGuest =
-      Boolean(user.is_anonymous) ||
-      Boolean(user.app_metadata?.is_guest) ||
-      Boolean(user.user_metadata?.is_guest) ||
-      Boolean(user.email?.endsWith('@guest.teemchat.local'));
-    if (isGuest) {
-      return NextResponse.json(
-        { error: 'Forbidden', message: 'Sign in with an account to chat with your companion.' },
-        { status: 403 }
-      );
-    }
-
-    const userRate = checkRateLimit(`user:ai:${user.id}`, RATE_LIMITS.USER_AI_CHAT);
-    if (!userRate.success) {
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded',
-          message: `You are sending messages too quickly. Please wait ${userRate.retryAfter} seconds before sending another message.`,
-          retryAfter: userRate.retryAfter,
-        },
-        {
-          status: 429,
-          headers: getRateLimitHeaders(userRate),
-        }
-      );
-    }
+    const auth = await authenticateCompanionRequest(req, 'user:ai', RATE_LIMITS.USER_AI_CHAT);
+    if (!auth.ok) return auth.response;
+    const { user, supabase } = auth;
 
     const body = await req.json();
     const {
@@ -70,22 +28,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Quota check via Supabase RPC
-    try {
-      const { data: usage } = await supabase.rpc('check_and_increment_ai_usage', {
-        p_daily_limit: 50,
+    const quota = await checkCompanionQuota(supabase);
+    if (!quota.allowed) {
+      return NextResponse.json({
+        response: quota.isTrial
+          ? "⚡ You've reached your free daily trial limit (5/5 messages). Upgrade your account for full access, or chat again tomorrow!"
+          : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
+        quotaExceeded: true,
       });
-
-      if (usage && typeof usage === 'object' && 'allowed' in usage && !usage.allowed) {
-        const isTrial = Boolean((usage as { is_trial?: boolean }).is_trial);
-        return NextResponse.json({
-          response: isTrial
-            ? "⚡ You've reached your free daily trial limit (5/5 messages). Upgrade your account for full access, or chat again tomorrow!"
-            : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
-          quotaExceeded: true,
-        });
-      }
-    } catch (e) {
-      console.warn('Quota check warning:', e);
     }
 
     // 2. Vector embedding + similarity search RAG

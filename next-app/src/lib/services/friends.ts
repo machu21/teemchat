@@ -241,20 +241,22 @@ export class FriendService {
 
       const friendMap = new Map(profiles.map((p) => [p.id, p]));
 
-      const results: FriendModel[] = data.map((row) => {
+      // A friend whose profile is gone (e.g. a deleted guest) is not listed.
+      const results: FriendModel[] = data.flatMap((row) => {
         const friendId = row.user_one === currentUserId ? row.user_two : row.user_one;
         const profile = friendMap.get(friendId);
+        if (!profile) return [];
 
-        return {
+        return [{
           id: row.id,
           userId: friendId,
-          username: profile?.username || 'friend',
-          displayName: profile?.display_name || profile?.username || 'Explorer',
-          status: (profile?.status as FriendModel['status']) || 'available',
-          statusMessage: profile?.status_message || undefined,
-          avatarConfig: profile?.avatar_config || defaultAvatarConfig,
+          username: profile.username || 'friend',
+          displayName: profile.display_name || profile.username || 'Explorer',
+          status: (profile.status as FriendModel['status']) || 'available',
+          statusMessage: profile.status_message || undefined,
+          avatarConfig: profile.avatar_config || defaultAvatarConfig,
           isOnline: true,
-        };
+        }];
       });
 
       const seen = new Set<string>();

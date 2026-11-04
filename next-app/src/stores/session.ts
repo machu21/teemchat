@@ -111,7 +111,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               if (saved) {
                 const parsed = JSON.parse(saved);
                 if (parsed?.id && parsed?.isGuest) {
-                  guestSession = parsed;
+                  if (UUID_REGEX.test(parsed.id)) {
+                    // An auth-backed guest with no auth session has expired or been cleaned up.
+                    localStorage.removeItem('teem_guest_session');
+                  } else {
+                    guestSession = parsed;
+                  }
                 }
               }
             }
@@ -187,8 +192,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         if (stored) {
           const parsed = JSON.parse(stored) as UserSession;
           if (parsed && parsed.isGuest && parsed.id) {
-            set({ session: parsed, isGuest: true });
-            return;
+            // Only reuse an auth-backed guest while its auth session is still live.
+            const isAuthBacked = UUID_REGEX.test(parsed.id);
+            const liveUserId = isAuthBacked
+              ? (await supabase.auth.getSession()).data.session?.user.id
+              : undefined;
+            if (!isAuthBacked || liveUserId === parsed.id) {
+              set({ session: parsed, isGuest: true });
+              return;
+            }
+            localStorage.removeItem('teem_guest_session');
           }
         }
       }
@@ -235,6 +248,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       });
 
       if (rpcErr) {
+        if (rpcErr.code === 'P0429' || rpcErr.message?.includes('Too many guest sessions')) {
+          console.warn('Guest creation rate limited by database throttle:', rpcErr.message);
+        }
         // Without a DB account the guest can't persist friends or chat; make the cause visible
         console.error('Guest provisioning failed, using a local-only guest:', rpcErr.message);
       }
@@ -287,40 +303,97 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   signInWithPassword: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      const meta = data.user.user_metadata || {};
-      const profileRecord = profile as Record<string, unknown> | null;
-      const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
-      const gender: Gender = rawGender === 'female' ? 'female' : 'male';
-      const isPaid = profile?.is_paid ?? true;
-
-      set({
-        session: {
-          id: data.user.id,
-          displayName: profile?.display_name || meta.display_name || email.split('@')[0],
-          username: profile?.username || meta.username || email.split('@')[0],
-          status: profile?.status || 'available',
-          email,
-          gender,
-          avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
-          isGuest: false,
-          tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
-          isPaid,
-          hasAiCompanion: profile?.has_ai_companion ?? isPaid,
-        },
-        isGuest: false,
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
+
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok || !result.success) {
+        return { error: result.error || result.message || 'Login failed' };
+      }
+
+      // Synchronize client-side Supabase session if returned
+      if (result.session) {
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+      }
+
+      const user = result.user;
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const meta = user.user_metadata || {};
+        const profileRecord = profile as Record<string, unknown> | null;
+        const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
+        const gender: Gender = rawGender === 'female' ? 'female' : 'male';
+        const isPaid = profile?.is_paid ?? true;
+
+        set({
+          session: {
+            id: user.id,
+            displayName: profile?.display_name || meta.display_name || email.split('@')[0],
+            username: profile?.username || meta.username || email.split('@')[0],
+            status: profile?.status || 'available',
+            email,
+            gender,
+            avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
+            isGuest: false,
+            tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+            isPaid,
+            hasAiCompanion: profile?.has_ai_companion ?? isPaid,
+          },
+          isGuest: false,
+        });
+      }
+      return {};
+    } catch (e) {
+      console.warn('API login route error, attempting direct client fallback:', e);
+      // Fallback: direct Supabase client call if network or API route is unavailable
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error: error.message };
+
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        const meta = data.user.user_metadata || {};
+        const profileRecord = profile as Record<string, unknown> | null;
+        const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
+        const gender: Gender = rawGender === 'female' ? 'female' : 'male';
+        const isPaid = profile?.is_paid ?? true;
+
+        set({
+          session: {
+            id: data.user.id,
+            displayName: profile?.display_name || meta.display_name || email.split('@')[0],
+            username: profile?.username || meta.username || email.split('@')[0],
+            status: profile?.status || 'available',
+            email,
+            gender,
+            avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
+            isGuest: false,
+            tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+            isPaid,
+            hasAiCompanion: profile?.has_ai_companion ?? isPaid,
+          },
+          isGuest: false,
+        });
+      }
+      return {};
     }
-    return {};
   },
 
   signUpWithPassword: async (
@@ -478,9 +551,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     } catch {}
     if (current?.isGuest) {
       SpaceService.clearGuestMaps();
-      try {
-        await supabase.rpc('delete_guest_account');
-      } catch {}
+      // Must run before auth.signOut(): the RPC deletes the caller identified by the JWT.
+      if (UUID_REGEX.test(current.id)) {
+        try {
+          const { error } = await supabase.rpc('delete_guest_account');
+          if (error) console.error('Failed to delete guest account on sign-out:', error.message);
+        } catch (err) {
+          console.error('Failed to delete guest account on sign-out:', err);
+        }
+      }
     }
     try {
       await supabase.auth.signOut();

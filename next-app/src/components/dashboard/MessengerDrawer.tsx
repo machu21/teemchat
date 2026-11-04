@@ -11,6 +11,16 @@ import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { useCallStore } from '@/stores/call';
 import { InlineCallPanel } from '@/components/call/InlineCallPanel';
+import {
+  ArrowLeftIcon,
+  ChatBubbleIcon,
+  CloseIcon,
+  PhoneIcon,
+  PlusIcon,
+  UserCheckIcon,
+  UsersIcon,
+  VideoIcon,
+} from '@/components/icons/DockIcons';
 
 import { removeRealtimeChannel } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -65,7 +75,7 @@ export function MessengerDrawer() {
       },
     });
 
-    const callText = isVideo ? '📹 Started a video call' : '📞 Started a voice call';
+    const callText = isVideo ? 'Started a video call' : 'Started a voice call';
     handleSendMessage(callText);
   };
 
@@ -172,7 +182,7 @@ export function MessengerDrawer() {
           <div className={styles.headerLeft}>
             {activeChat ? (
               <button className={styles.backBtn} onClick={closeActiveChat}>
-                ← Back
+                <ArrowLeftIcon size={14} strokeWidth={2.5} /> Back
               </button>
             ) : (
               <span className={styles.drawerTitle}>
@@ -181,7 +191,7 @@ export function MessengerDrawer() {
             )}
           </div>
           <button className={styles.closeButton} onClick={closeDrawer} title="Close drawer">
-            ✕
+            <CloseIcon size={18} strokeWidth={2.5} />
           </button>
         </header>
 
@@ -208,7 +218,7 @@ export function MessengerDrawer() {
                     onClick={() => setStageMaximized(true)}
                     title="Open Full Call Stage"
                   >
-                    🟢 In Call • Stage
+                    <span className={styles.liveDot} /> In Call • Stage
                   </button>
                 ) : (
                   <>
@@ -217,16 +227,18 @@ export function MessengerDrawer() {
                       className={styles.callHeaderBtn}
                       onClick={() => handleStartCall(false)}
                       title="Start Voice Call"
+                      aria-label="Start Voice Call"
                     >
-                      📞
+                      <PhoneIcon size={18} />
                     </button>
                     <button
                       type="button"
                       className={styles.callHeaderBtn}
                       onClick={() => handleStartCall(true)}
                       title="Start Video Call"
+                      aria-label="Start Video Call"
                     >
-                      📹
+                      <VideoIcon size={18} />
                     </button>
                   </>
                 )}
@@ -259,7 +271,7 @@ export function MessengerDrawer() {
                       <div key={m.id} className={styles.callMessageCard}>
                         <div className={styles.callMessageLeft}>
                           <span className={styles.callMessageIcon}>
-                            {isVideo ? '📹' : '📞'}
+                            {isVideo ? <VideoIcon size={22} /> : <PhoneIcon size={22} />}
                           </span>
                           <div>
                             <div className={styles.callMessageTitle}>
@@ -361,7 +373,7 @@ export function MessengerDrawer() {
                 }`}
                 onClick={() => setActiveDrawerTab('dms')}
               >
-                💬 Direct
+                <ChatBubbleIcon size={16} /> Direct
               </button>
               <button
                 className={`${styles.tabBtn} ${
@@ -369,7 +381,7 @@ export function MessengerDrawer() {
                 }`}
                 onClick={() => setActiveDrawerTab('groups')}
               >
-                👥 Squads
+                <UsersIcon size={16} /> Squads
               </button>
               <button
                 className={`${styles.tabBtn} ${
@@ -377,7 +389,7 @@ export function MessengerDrawer() {
                 }`}
                 onClick={() => setActiveDrawerTab('friends')}
               >
-                🤝 Friends ({friends.filter((f) => f.isOnline).length})
+                <UserCheckIcon size={16} /> Friends ({friends.filter((f) => f.isOnline).length})
               </button>
             </div>
 
@@ -392,7 +404,7 @@ export function MessengerDrawer() {
                       variant="secondary"
                       onClick={() => setSearchModalOpen(true)}
                     >
-                      ➕ New Chat
+                      <PlusIcon size={14} strokeWidth={2.5} /> New Chat
                     </NeoButton>
                   </div>
 
@@ -469,7 +481,7 @@ export function MessengerDrawer() {
                       variant="primary"
                       onClick={() => setCreateSquadModalOpen(true)}
                     >
-                      ➕ Create Squad
+                      <PlusIcon size={14} strokeWidth={2.5} /> Create Squad
                     </NeoButton>
                   </div>
 
@@ -539,7 +551,7 @@ export function MessengerDrawer() {
                       variant="secondary"
                       onClick={() => setSearchModalOpen(true)}
                     >
-                      ➕ Add Friend
+                      <PlusIcon size={14} strokeWidth={2.5} /> Add Friend
                     </NeoButton>
                   </div>
 

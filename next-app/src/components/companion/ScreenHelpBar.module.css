@@ -1,0 +1,115 @@
+.shareBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-main);
+  background: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.shareBtn:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--card-border);
+}
+
+.shareBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.liveBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
+  margin-bottom: 8px;
+  background: #00f59b;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px #000;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #000;
+  flex-shrink: 0;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.liveText {
+  flex: 1;
+  min-width: 0;
+}
+
+.stopBtn {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  color: #fff;
+  background: #ef4444;
+  border: 2px solid #000;
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px #000;
+  cursor: pointer;
+}
+
+.consentBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  line-height: 1.45;
+}
+
+.consentBody p {
+  margin: 0;
+}
+
+.consentList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.consentActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot {
+    animation: none;
+  }
+}

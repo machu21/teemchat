@@ -670,6 +670,37 @@
   box-shadow: none;
 }
 
+.floatingCompanionBtn {
+  position: fixed;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  right: calc(24px + env(safe-area-inset-right, 0px));
+  z-index: 990;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent, #F59E0B);
+  color: #18181B;
+  border: var(--neo-border-width) solid var(--card-border);
+  border-radius: 50%;
+  box-shadow: 3px 3.5px 0px var(--card-border);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .floatingCompanionBtn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1.5px 0px var(--card-border);
+  }
+}
+
+.floatingCompanionBtn:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
 .floatingBadge {
   background-color: #EF4444;
   color: #FFFFFF;
@@ -858,6 +889,14 @@
     min-height: 44px;
   }
 
+  .floatingCompanionBtn {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    right: calc(14px + env(safe-area-inset-right, 0px));
+    width: 46px;
+    height: 46px;
+    box-shadow: 2.5px 2.5px 0px var(--card-border);
+  }
+
   .floatingMessengerBtn {
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     right: calc(14px + env(safe-area-inset-right, 0px));
@@ -928,3 +967,141 @@
 }
 
 
+
+/* Create Space: Public / Private segmented toggle */
+.visibilityToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 3px 3.5px 0px var(--card-border);
+  overflow: hidden;
+  background-color: var(--card-bg);
+}
+
+.visibilityOption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.1s ease;
+}
+
+.visibilityOption + .visibilityOption {
+  border-left: 2px solid var(--card-border);
+}
+
+.visibilityOption:hover:not(.visibilityOptionActive) {
+  background-color: var(--card-inner);
+}
+
+.visibilityOption:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+
+.visibilityOptionActive {
+  background-color: var(--cta-btn);
+  color: var(--cta-text);
+}
+
+.visibilityHint {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.privateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-main);
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}
+
+/* Zombie Survival space type */
+.zombieBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #18181b;
+  background-color: #84cc16;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 1.5px 1.5px 0px var(--card-border);
+}
+
+.lockedMapCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  color: var(--text-main);
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 3px 3.5px 0px var(--card-border);
+}
+
+.lockedMapIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  font-size: 1.5rem;
+  background-color: #84cc16;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+}
+
+.lockedMapText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lockedMapName {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.lockedMapDesc {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lockedMapLock {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}

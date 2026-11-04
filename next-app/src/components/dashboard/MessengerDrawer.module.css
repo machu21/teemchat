@@ -300,6 +300,9 @@
   font-weight: 800;
   font-size: 0.82rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   transition: transform 0.1s;
 }
 
@@ -349,6 +352,7 @@
   box-shadow: 2px 2px 0px var(--card-border, #000);
   padding: 5px 8px;
   font-size: 1rem;
+  color: var(--text-main);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -378,6 +382,17 @@
   font-size: 0.75rem;
   font-weight: 800;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #000;
+  flex-shrink: 0;
 }
 
 .callMessageCard {
@@ -401,7 +416,9 @@
 }
 
 .callMessageIcon {
-  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  color: #EC4899;
 }
 
 .callMessageTitle {

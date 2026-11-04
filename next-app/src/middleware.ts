@@ -21,9 +21,18 @@ export function middleware(req: NextRequest) {
     if (pathname.startsWith('/api/auth/register')) {
       config = RATE_LIMITS.AUTH_SIGNUP;
       prefix = 'ip:signup';
+    } else if (pathname.startsWith('/api/auth/login')) {
+      config = RATE_LIMITS.AUTH_LOGIN;
+      prefix = 'ip:login';
+    } else if (pathname.startsWith('/api/auth/guest-identity')) {
+      config = RATE_LIMITS.GUEST_CREATE;
+      prefix = 'ip:guest';
     } else if (pathname.startsWith('/api/companion/chat')) {
       config = RATE_LIMITS.AI_CHAT;
       prefix = 'ip:ai_chat';
+    } else if (pathname.startsWith('/api/companion/screen-help')) {
+      config = RATE_LIMITS.AI_SCREEN_HELP;
+      prefix = 'ip:ai_screen_help';
     } else if (pathname.startsWith('/api/livekit/token')) {
       config = RATE_LIMITS.LIVEKIT_TOKEN;
       prefix = 'ip:livekit';

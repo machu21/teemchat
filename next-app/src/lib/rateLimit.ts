@@ -16,12 +16,19 @@ export const RATE_LIMITS = {
   AI_CHAT: { max: 10, windowMs: 60 * 1000 } as const,
   // Authenticated user limit for AI chat
   USER_AI_CHAT: { max: 15, windowMs: 60 * 1000 } as const,
+  // Companion Screen Help: each request carries a screenshot, so it is throttled harder
+  AI_SCREEN_HELP: { max: 8, windowMs: 60 * 1000 } as const,
+  USER_AI_SCREEN_HELP: { max: 6, windowMs: 60 * 1000 } as const,
   // LiveKit WebRTC access token generation
   LIVEKIT_TOKEN: { max: 20, windowMs: 60 * 1000 } as const,
   // Authenticated user limit for LiveKit token
   USER_LIVEKIT_TOKEN: { max: 25, windowMs: 60 * 1000 } as const,
   // Authentication and Sign-Up velocity limit (prevents bot farm mass account creation)
   AUTH_SIGNUP: { max: 5, windowMs: 15 * 60 * 1000 } as const,
+  // IP-level login attempt limit (prevents credential-stuffing across accounts)
+  AUTH_LOGIN: { max: 10, windowMs: 15 * 60 * 1000 } as const,
+  // Per-account login failure limit (prevents brute-force password guessing against an email)
+  AUTH_LOGIN_ACCOUNT: { max: 5, windowMs: 15 * 60 * 1000 } as const,
   // Guest session generation limit
   GUEST_CREATE: { max: 10, windowMs: 15 * 60 * 1000 } as const,
   // Standard API routes limit
@@ -81,6 +88,10 @@ export class RateLimiter {
   public reset(): void {
     this.store.clear();
     this.lastCleanup = Date.now();
+  }
+
+  public resetKey(key: string): void {
+    this.store.delete(key);
   }
 
   public size(): number {

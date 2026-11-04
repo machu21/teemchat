@@ -8,6 +8,7 @@ All tables reside in PostgreSQL schema `public`:
 auth.users (Supabase Auth)
   └── public.profiles (User Profiles & Guest Profiles)
         ├── public.spaces (Virtual spaces created or owned)
+        │     mode: 'social' (default) | 'zombie'. Zombie Survival spaces always use map_theme 'zombie_city' (migration 20261104_space_mode.sql; covered by the existing spaces RLS)
         │     ├── public.space_members (Role: owner, admin, member)
         │     ├── public.space_invites (Invite codes & join codes)
         │     └── public.messages (Chat messages scoped to room_id)

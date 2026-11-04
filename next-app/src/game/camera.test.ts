@@ -2,6 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { Camera, DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from './camera';
 import { MAP_WIDTH, MAP_HEIGHT } from './collision';
 
+describe('Camera custom bounds (upper floors)', () => {
+  it('clamps inside the given bounds and centres small rooms', () => {
+    const cam = new Camera();
+    cam.setZoom(1);
+    const room = { x: 80, y: 1400, w: 192, h: 148 };
+    cam.follow(100, 1420, 800, 600, room);
+    // Viewport is larger than the room → centred on it
+    expect(cam.x).toBeCloseTo(room.x + (room.w - 800) / 2, 2);
+    expect(cam.y).toBeCloseTo(room.y + (room.h - 600) / 2, 2);
+
+    const big = { x: 0, y: 2000, w: 2000, h: 2000 };
+    cam.follow(10, 2010, 400, 300, big);
+    expect(cam.x).toBe(0);
+    expect(cam.y).toBe(2000);
+  });
+});
+
 describe('Camera Zoom & Follow Logic', () => {
   it('initializes with default zoom', () => {
     const cam = new Camera();

@@ -5,10 +5,13 @@
 // - Scenic Riverfront Esplanade with stone balustrade, lanterns & benches
 // - Natural woodland cascade stream & timber river crossing bridge
 // - Connected trail system linking Bridge to Adventure Camp & Crystal Bay Pier
-// - Walk-in Cozy Cottage with warm wood floor, glowing fireplace & apothecary
-// - Walk-in Town Hall with checkered marble floor & council table
+// - Walk-in Cozy Cottage (living room, kitchen, stairs to bedroom/bath/balcony)
+// - Walk-in Town Hall (council chamber, reception, stairs to mayor's office)
 // - Multi-tier lush foliage with ambient drop shadows & meadow wildflowers
 // ============================================================
+
+import { COTTAGE_W, COTTAGE_H, drawCottageGround } from '../interiors/cottage';
+import { TOWNHALL_W, TOWNHALL_H, drawTownHallGround } from '../interiors/townhall';
 
 export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: number): void {
   const T = 8; // Internal grid unit: 8px (scales 2x to 16px world coords)
@@ -593,186 +596,18 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
     streetLantern(632, 232);
   };
 
-  // ── 7. WALK-IN COZY COTTAGE / POTION SHOP (HABBLAUD 3/4 STYLE) ─────
-  // Coordinates: x: 40, y: 24, w: 96, h: 74
+  // ── 7. WALK-IN COZY COTTAGE / POTION SHOP (APARTMENT 3/4 STYLE) ─────
+  // Coordinates: x: 40, y: 24, w: 96, h: 74 (layout lives in interiors/cottage.ts)
   const drawCottage = () => {
-    const bx = 40;
-    const by = 24;
-    const bw = 96;
-    const bh = 74;
-    const wallH = 16;
-
-    r(bx - 3, by + bh, bw + 6, 6, 'rgba(0, 0, 0, 0.4)');
-
-    const floorY = by + wallH;
-    const floorH = bh - wallH;
-    r(bx, floorY, bw, floorH, '#B47832');
-
-    const plankH = 8;
-    for (let y = floorY; y < floorY + floorH; y += plankH) {
-      r(bx, y + plankH - 1, bw, 1, '#7A4814');
-      r(bx, y, bw, 1, '#D8A056');
-      const row = Math.floor((y - floorY) / plankH);
-      for (let x = bx + (row % 2) * 16; x < bx + bw; x += 32) {
-        r(x, y, 1, plankH, '#5A3208');
-      }
-    }
-
-    const rx = bx + 16;
-    const ry = floorY + 12;
-    const rw = 40;
-    const rh = 28;
-    r(rx - 1, ry - 1, rw + 2, rh + 2, '#451A03');
-    r(rx, ry, rw, rh, '#991B1B');
-    r(rx + 2, ry + 2, rw - 4, rh - 4, '#DC2626');
-    r(rx + 4, ry + 4, rw - 8, rh - 8, '#F59E0B');
-    r(rx + 6, ry + 6, rw - 12, rh - 12, '#FEF08A');
-
-    r(bx, by, bw, wallH, '#E2E8F0');
-    r(bx, by, bw, 2, '#CBD5E1');
-    r(bx, by, bw, 1, '#F8FAFC');
-    r(bx, by + wallH - 2, bw, 2, '#94A3B8');
-
-    for (let px = bx + 6; px < bx + bw - 6; px += 10) {
-      r(px, by + 2, 2, wallH - 4, '#64748B');
-    }
-
-    // Glowing Stone Fireplace
-    const fpX = bx + 6;
-    const fpY = by + 2;
-    const fpW = 24;
-    const fpH = wallH + 10;
-    r(fpX, fpY, fpW, fpH, '#334155');
-    r(fpX + 1, fpY + 1, fpW - 2, 2, '#64748B');
-    r(fpX + 3, fpY + 4, fpW - 6, fpH - 6, '#0F172A');
-    r(fpX + 5, fpY + 8, fpW - 10, fpH - 10, '#DC2626');
-    r(fpX + 7, fpY + 11, fpW - 14, fpH - 13, '#F59E0B');
-    r(fpX + 9, fpY + 13, fpW - 18, 3, '#FEF08A');
-
-    // Apothecary Shelves
-    const apX = bx + 36;
-    const apY = by + 2;
-    const apW = 52;
-    r(apX, apY, apW, 12, '#5A3208');
-    r(apX, apY + 5, apW, 2, '#8C5218');
-    r(apX, apY + 11, apW, 2, '#8C5218');
-
-    const botCols = ['#EF4444', '#10B981', '#3B82F6', '#A855F7', '#F59E0B', '#06B6D4'];
-    for (let i = 0; i < 5; i++) {
-      r(apX + 3 + i * 10, apY + 1, 4, 4, botCols[i % botCols.length]);
-      r(apX + 4 + i * 10, apY - 1, 2, 2, '#CBD5E1');
-      r(apX + 3 + i * 10, apY + 7, 4, 4, botCols[(i + 3) % botCols.length]);
-      r(apX + 4 + i * 10, apY + 5, 2, 2, '#CBD5E1');
-    }
-
-    // Perimeter walls
-    r(bx, by + wallH, 4, bh - wallH, '#475569');
-    r(bx + 1, by + wallH, 1, bh - wallH, '#94A3B8');
-    r(bx + bw - 4, by + wallH, 4, bh - wallH, '#475569');
-    r(bx + bw - 2, by + wallH, 1, bh - wallH, '#94A3B8');
-
-    // Low south parapet wall with open doorway
-    const southY = by + bh - 6;
-    const doorX = bx + 42;
-    const doorW = 20;
-
-    r(bx, southY, doorX - bx, 6, '#334155');
-    r(bx, southY, doorX - bx, 2, '#64748B');
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 6, '#334155');
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 2, '#64748B');
-
-    // Open Doorway Threshold
-    r(doorX, southY - 2, doorW, 8, '#CBD5E1');
-    r(doorX, southY - 2, doorW, 1, '#F8FAFC');
+    r(40 - 3, 24 + COTTAGE_H, COTTAGE_W + 6, 6, 'rgba(0, 0, 0, 0.4)');
+    drawCottageGround(ctx, 40, 24);
   };
 
-  // ── 8. WALK-IN TOWN HALL / GUILD HOUSE (HABBLAUD 3/4 STYLE) ────────
-  // Coordinates: x: 152, y: 16, w: 120, h: 78
+  // ── 8. WALK-IN TOWN HALL / GUILD HOUSE (APARTMENT 3/4 STYLE) ────────
+  // Coordinates: x: 152, y: 16, w: 120, h: 78 (layout lives in interiors/townhall.ts)
   const drawTownHall = () => {
-    const bx = 152;
-    const by = 16;
-    const bw = 120;
-    const bh = 78;
-    const wallH = 16;
-
-    r(bx - 3, by + bh, bw + 6, 6, 'rgba(0, 0, 0, 0.4)');
-
-    const floorY = by + wallH;
-    const floorH = bh - wallH;
-    const tileSize = 8;
-    for (let y = floorY; y < floorY + floorH; y += tileSize) {
-      for (let x = bx; x < bx + bw; x += tileSize) {
-        const isWhite = (Math.floor((x - bx) / tileSize) + Math.floor((y - floorY) / tileSize)) % 2 === 0;
-        const curW = Math.min(tileSize, bx + bw - x);
-        const curH = Math.min(tileSize, floorY + floorH - y);
-        r(x, y, curW, curH, isWhite ? '#F8FAFC' : '#1E293B');
-        if (isWhite && curW > 1 && curH > 1) {
-          r(x + 1, y + 1, curW - 2, 1, '#FFFFFF');
-        }
-      }
-    }
-
-    r(bx, by, bw, wallH, '#1E293B');
-    r(bx, by, bw, 2, '#475569');
-    r(bx, by, bw, 1, '#94A3B8');
-    r(bx, by + wallH - 2, bw, 2, '#0F172A');
-
-    for (let px = bx + 8; px < bx + bw - 8; px += 8) {
-      r(px, by + 2, 1, wallH - 4, '#334155');
-    }
-
-    // Grand Guild Banner
-    const banX = bx + 48;
-    const banY = by + 2;
-    r(banX, banY, 24, 13, '#1E3A8A');
-    r(banX + 2, banY + 2, 20, 9, '#2563EB');
-    r(banX + 10, banY + 4, 4, 5, '#FBBF24');
-    r(banX + 8, banY + 6, 8, 2, '#FBBF24');
-
-    // Grand Council Table
-    const tblX = bx + 36;
-    const tblY = floorY + 16;
-    const tblW = 48;
-    const tblH = 22;
-
-    r(tblX - 1, tblY + tblH, tblW + 2, 4, 'rgba(0, 0, 0, 0.3)');
-    r(tblX, tblY, tblW, tblH, '#451A03');
-    r(tblX + 2, tblY + 2, tblW - 4, tblH - 4, '#78350F');
-    r(tblX + 2, tblY + 2, tblW - 4, 1, '#B45309');
-
-    // Leather Armchairs
-    const chair = (cx: number, cy: number) => {
-      r(cx, cy, 8, 8, '#7F1D1D');
-      r(cx + 1, cy + 1, 6, 6, '#991B1B');
-      r(cx + 2, cy + 2, 4, 4, '#DC2626');
-    };
-    chair(tblX + 6, tblY - 7);
-    chair(tblX + 20, tblY - 7);
-    chair(tblX + 34, tblY - 7);
-    chair(tblX + 6, tblY + tblH - 1);
-    chair(tblX + 20, tblY + tblH - 1);
-    chair(tblX + 34, tblY + tblH - 1);
-
-    // Perimeter walls
-    r(bx, by + wallH, 6, bh - wallH, '#475569');
-    r(bx + 1, by + wallH, 2, bh - wallH, '#94A3B8');
-    r(bx + bw - 6, by + wallH, 6, bh - wallH, '#475569');
-    r(bx + bw - 3, by + wallH, 2, bh - wallH, '#94A3B8');
-
-    // Low south parapet wall with open double doorway
-    const southY = by + bh - 8;
-    const doorX = bx + 48;
-    const doorW = 24;
-
-    r(bx, southY, doorX - bx, 8, '#334155');
-    r(bx, southY, doorX - bx, 2, '#64748B');
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 8, '#334155');
-    r(doorX + doorW, southY, bx + bw - (doorX + doorW), 2, '#64748B');
-
-    // Open double doorway threshold
-    r(doorX, southY - 2, doorW, 10, '#E2E8F0');
-    r(doorX, southY - 2, doorW, 1, '#F8FAFC');
-    r(doorX + Math.floor(doorW / 2) - 1, southY - 2, 2, 10, '#94A3B8');
+    r(152 - 3, 16 + TOWNHALL_H, TOWNHALL_W + 6, 6, 'rgba(0, 0, 0, 0.4)');
+    drawTownHallGround(ctx, 152, 16);
   };
 
   // ── 9. CLIFF ROCK FORMATIONS & CRAGGY RIDGE ──────────────────────

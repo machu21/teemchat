@@ -15,7 +15,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
   onSelectTheme,
   className = '',
 }) => {
-  const configs = getAllMapConfigs();
+  const configs = useMemo(() => getAllMapConfigs().filter((c) => !c.hiddenFromPicker), []);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const gridRef = useRef<HTMLDivElement | null>(null);
 

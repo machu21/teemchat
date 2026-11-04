@@ -6,7 +6,7 @@ import { useSessionStore } from '@/stores/session';
 import { useSocialStore } from '@/stores/social';
 import { SpaceService } from '@/lib/services/spaces';
 import { InviteLinkService } from '@/lib/services/invite';
-import { SpaceModel, spaceTiers } from '@/lib/models/space';
+import { SpaceMode, SpaceModel, spaceTiers } from '@/lib/models/space';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
@@ -28,6 +28,8 @@ import {
 import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
 import { MessengerDrawer } from '@/components/dashboard/MessengerDrawer';
+import { CompanionPanel } from '@/components/companion/CompanionPanel';
+import { BotIcon, GlobeIcon, LockIcon } from '@/components/icons/DockIcons';
 import { FriendRequestModal } from '@/components/dashboard/FriendRequestModal';
 import { CreateSquadModal } from '@/components/dashboard/CreateSquadModal';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
@@ -69,12 +71,15 @@ export default function DashboardPage() {
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [companionOpen, setCompanionOpen] = useState(false);
 
   // Form states
   const [newSpaceName, setNewSpaceName] = useState('');
   const [newSpaceSlug, setNewSpaceSlug] = useState('');
   const [newSpaceTheme, setNewSpaceTheme] = useState<string>('village');
+  const [newSpaceMode, setNewSpaceMode] = useState<SpaceMode>('social');
   const [newSpaceCategory, setNewSpaceCategory] = useState<string>('Gaming');
+  const [newSpaceVisibility, setNewSpaceVisibility] = useState<'public' | 'private'>('public');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,7 +107,10 @@ export default function DashboardPage() {
   };
 
   const handleCopySpaceLink = async (space: SpaceModel) => {
-    const url = InviteLinkService.generateInviteUrl(space.slug || space.id, {
+    // Private spaces only resolve through their random join code, never the slug
+    const code =
+      space.visibility === 'private' && space.joinCode ? space.joinCode : space.slug || space.id;
+    const url = InviteLinkService.generateInviteUrl(code, {
       theme: space.mapTheme,
       name: space.name,
     });
@@ -213,12 +221,16 @@ export default function DashboardPage() {
           slug,
           mapTheme: newSpaceTheme,
           category: newSpaceCategory,
+          visibility: newSpaceVisibility,
+          mode: newSpaceMode,
         },
         session
       );
       setCreateModalOpen(false);
       setNewSpaceName('');
       setNewSpaceSlug('');
+      setNewSpaceVisibility('public');
+      setNewSpaceMode('social');
       router.push(`/space/${created.slug || created.id}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -287,7 +299,10 @@ export default function DashboardPage() {
 
     if (space) {
       setJoinModalOpen(false);
-      const targetSlug = space.slug || space.joinCode || space.id;
+      // Non-members can only reach a private space through its invite code; the space
+      // page redeems it for membership once the session is ready.
+      const targetSlug =
+        space.visibility === 'private' ? extracted : space.slug || space.joinCode || space.id;
       const themeParam = space.mapTheme && space.mapTheme !== 'village' ? `?theme=${space.mapTheme}` : '';
       router.push(`/space/${targetSlug}${themeParam}`);
     } else {
@@ -404,6 +419,17 @@ export default function DashboardPage() {
           >
             💬 Messenger
             {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
+          </NeoButton>
+
+          <NeoButton
+            variant="secondary"
+            size="sm"
+            onClick={() => setCompanionOpen((open) => !open)}
+            title="AI Companion"
+            className={styles.headerMessengerBtn}
+            aria-pressed={companionOpen}
+          >
+            <BotIcon size={18} /> Companion
           </NeoButton>
 
           {session && (
@@ -574,6 +600,18 @@ export default function DashboardPage() {
                       <div className={styles.spaceRowTitleLine}>
                         <h3 className={styles.spaceName}>{space.name}</h3>
                         <NeoBadge color={tierInfo.badgeColor}>{tierInfo.badgeText}</NeoBadge>
+                        {space.mode === 'zombie' && (
+                          <span className={styles.zombieBadge} title="Zombie Survival space">
+                            <span aria-hidden="true">🧟</span>
+                            Survival
+                          </span>
+                        )}
+                        {space.visibility === 'private' && (
+                          <span className={styles.privateBadge} title="Private space: invite only">
+                            <LockIcon size={12} strokeWidth={2.5} />
+                            Private
+                          </span>
+                        )}
                       </div>
                       <p className={styles.spaceDesc}>
                         {space.description || spaceMapConfig.description}
@@ -595,7 +633,12 @@ export default function DashboardPage() {
                             {friendsInSpace.length} friends here
                           </span>
                         ) : (
-                          <span>Code: {space.slug}</span>
+                          <span>
+                            Code:{' '}
+                            {space.visibility === 'private' && space.joinCode
+                              ? space.joinCode
+                              : space.slug}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -679,6 +722,28 @@ export default function DashboardPage() {
         {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
       </button>
 
+      {/* Floating AI Companion Quick Button */}
+      {!companionOpen && (
+        <button
+          className={styles.floatingCompanionBtn}
+          onClick={() => setCompanionOpen(true)}
+          title="AI Companion"
+          aria-label="Open AI Companion"
+        >
+          <BotIcon size={24} />
+        </button>
+      )}
+
+      {/* AI Companion Chat Panel */}
+      <CompanionPanel
+        isOpen={companionOpen}
+        onClose={() => setCompanionOpen(false)}
+        onUpgrade={() => {
+          setCompanionOpen(false);
+          setUpgradeModalOpen(true);
+        }}
+      />
+
       {/* Slide-out Messenger Drawer */}
       <MessengerDrawer />
 
@@ -714,13 +779,107 @@ export default function DashboardPage() {
             onChange={(e) => setNewSpaceSlug(e.target.value)}
           />
 
-          <MapSelector
-            selectedTheme={newSpaceTheme}
-            onSelectTheme={(themeId: MapThemeId, category: string) => {
-              setNewSpaceTheme(themeId);
-              setNewSpaceCategory(category);
-            }}
-          />
+          <div className={styles.selectGroup}>
+            <span className={styles.label} id="space-visibility-label">
+              Who can join?
+            </span>
+            <div
+              className={styles.visibilityToggle}
+              role="radiogroup"
+              aria-labelledby="space-visibility-label"
+            >
+              {(
+                [
+                  { value: 'public', label: 'Public', Icon: GlobeIcon },
+                  { value: 'private', label: 'Private', Icon: LockIcon },
+                ] as const
+              ).map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={newSpaceVisibility === value}
+                  className={`${styles.visibilityOption} ${
+                    newSpaceVisibility === value ? styles.visibilityOptionActive : ''
+                  }`}
+                  onClick={() => setNewSpaceVisibility(value)}
+                >
+                  <Icon size={16} strokeWidth={2.5} />
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className={styles.visibilityHint} aria-live="polite">
+              {newSpaceVisibility === 'public'
+                ? 'Listed in Discover. Anyone can find and join.'
+                : 'Hidden from Discover. Only you and people with your invite link can join.'}
+            </p>
+          </div>
+
+          <div className={styles.selectGroup}>
+            <span className={styles.label} id="space-mode-label">
+              Space type
+            </span>
+            <div
+              className={styles.visibilityToggle}
+              role="radiogroup"
+              aria-labelledby="space-mode-label"
+            >
+              {(
+                [
+                  { value: 'social', emoji: '🏡', label: 'Hangout' },
+                  { value: 'zombie', emoji: '🧟', label: 'Zombie Survival' },
+                ] as const
+              ).map(({ value, emoji, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={newSpaceMode === value}
+                  className={`${styles.visibilityOption} ${
+                    newSpaceMode === value ? styles.visibilityOptionActive : ''
+                  }`}
+                  onClick={() => setNewSpaceMode(value)}
+                >
+                  <span aria-hidden="true">{emoji}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className={styles.visibilityHint} aria-live="polite">
+              {newSpaceMode === 'social'
+                ? 'A social space to hang out, chat, and voice call on the map you pick.'
+                : 'Survive the horde together. Zombie mode is always on.'}
+            </p>
+          </div>
+
+          {newSpaceMode === 'zombie' ? (
+            <div className={styles.selectGroup}>
+              <span className={styles.label}>Map</span>
+              <div className={styles.lockedMapCard} aria-label="Map: Zombie City (locked)">
+                <span className={styles.lockedMapIcon} aria-hidden="true">
+                  🏙️
+                </span>
+                <span className={styles.lockedMapText}>
+                  <span className={styles.lockedMapName}>Zombie City</span>
+                  <span className={styles.lockedMapDesc}>
+                    Survival spaces always use the overrun city map.
+                  </span>
+                </span>
+                <span className={styles.lockedMapLock} title="Locked for survival spaces">
+                  <LockIcon size={16} strokeWidth={2.5} />
+                </span>
+              </div>
+            </div>
+          ) : (
+            <MapSelector
+              selectedTheme={newSpaceTheme}
+              onSelectTheme={(themeId: MapThemeId, category: string) => {
+                setNewSpaceTheme(themeId);
+                setNewSpaceCategory(category);
+              }}
+            />
+          )}
 
           <NeoButton type="submit" variant="primary" size="lg" disabled={isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Launch Space'}

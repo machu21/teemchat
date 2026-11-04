@@ -6,8 +6,12 @@ import { renderOfficeMap } from './maps/officeMap';
 import { renderNightclubMap } from './maps/nightclubMap';
 import { renderArcadeMap } from './maps/arcadeMap';
 import { renderCafeMap } from './maps/cafeMap';
+import { BuildingDefinition, VILLAGE_BUILDINGS } from './buildings';
+import type { Entrance } from '../zombie/entrances';
+import type { LootSpawn } from '../zombie/weapons';
+import { buildZombieCityConfig } from './city/cityMap';
 
-export type MapThemeId = 'village' | 'school' | 'office' | 'nightclub' | 'arcade' | 'cafe';
+export type MapThemeId = 'village' | 'school' | 'office' | 'nightclub' | 'arcade' | 'cafe' | 'zombie_city';
 
 export interface ZoneDefinition {
   id: string;
@@ -33,19 +37,49 @@ export interface MapThemeConfig {
   zones: ZoneDefinition[];
   boundaryWalls: Rect[];
   defaultProps: { type: FurnitureType; x: number; y: number }[];
+  /** Enterable buildings with roof-lift interiors (optional per map). */
+  buildings?: BuildingDefinition[];
   isPositionInWater: (x: number, y: number) => boolean;
   getCurrentZone: (x: number, y: number) => { name: string; tag: string; color: string };
   render: (ctx: CanvasRenderingContext2D, iw: number, ih: number) => void;
+  /** Outdoor world size in px. Omitted = MAP_WIDTH × MAP_HEIGHT (all social maps). */
+  size?: { w: number; h: number };
+  /**
+   * Draws one world-px rect of the ground layer. The ctx is already translated to
+   * world coordinates (draw at world px; output outside `rect` is discarded).
+   * When present the map is streamed in chunks instead of one pre-rendered
+   * canvas (needed for large maps on mobile).
+   */
+  renderChunk?: (ctx: CanvasRenderingContext2D, rect: Rect) => void;
+  /** Draws one door/window in its current state (world px), each frame. */
+  renderEntrance?: (ctx: CanvasRenderingContext2D, e: Entrance) => void;
+  /** Not offered in the map picker (e.g. the Zombie Survival city). */
+  hiddenFromPicker?: boolean;
+  /** Doors and windows (Zombie Survival); their tiles must sit in gaps of boundaryWalls. */
+  entrances?: Entrance[];
+  /**
+   * Low obstacles (fences, cars, bins…): solid on foot, cleared mid-jump in
+   * survival. Zombies can't cross them, but they don't block sight.
+   */
+  lowWalls?: Rect[];
+  /** Weapon / ammo pickups (Zombie Survival). Ids must be stable: they're synced by id. */
+  loot?: LootSpawn[];
 }
 
-const PERIMETER_WALLS: Rect[] = [
-  { x: 0, y: 0, w: MAP_WIDTH, h: WALL_THICK },
-  { x: 0, y: MAP_HEIGHT - WALL_THICK, w: MAP_WIDTH, h: WALL_THICK },
-  { x: 0, y: 0, w: WALL_THICK, h: MAP_HEIGHT },
-  { x: MAP_WIDTH - WALL_THICK, y: 0, w: WALL_THICK, h: MAP_HEIGHT },
-];
+/** World-edge walls for a map of the given size. */
+export function perimeterWalls(w: number, h: number): Rect[] {
+  return [
+    { x: 0, y: 0, w, h: WALL_THICK },
+    { x: 0, y: h - WALL_THICK, w, h: WALL_THICK },
+    { x: 0, y: 0, w: WALL_THICK, h },
+    { x: w - WALL_THICK, y: 0, w: WALL_THICK, h },
+  ];
+}
 
-export const MAP_REGISTRY: Record<MapThemeId, MapThemeConfig> = {
+const PERIMETER_WALLS: Rect[] = perimeterWalls(MAP_WIDTH, MAP_HEIGHT);
+
+// zombie_city is attached below as a lazy getter (generating the city takes ~100 ms)
+const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
   // ── 1. VERDANT VILLAGE (THE CURRENT MAP) ──────────────────────
   village: {
     id: 'village',
@@ -165,7 +199,9 @@ export const MAP_REGISTRY: Record<MapThemeId, MapThemeConfig> = {
       { type: 'tent', x: 420, y: 750 },
       { type: 'logBench', x: 350, y: 840 },
     ],
+    buildings: VILLAGE_BUILDINGS,
     isPositionInWater(x: number, y: number): boolean {
+      if (y > MAP_HEIGHT) return false; // Upper building floors live below the outdoor map
       if (x >= 710 && x <= 826 && y >= 660 && y <= 745) return false;
       if (x >= 1290 && x <= 1590 && y >= 458 && y <= 534) return false;
       if (x >= 730 && x <= 806 && y >= 414 && y <= MAP_HEIGHT) return true;
@@ -685,6 +721,16 @@ export const MAP_REGISTRY: Record<MapThemeId, MapThemeConfig> = {
   },
 };
 
+export const MAP_REGISTRY = EAGER_MAPS as Record<MapThemeId, MapThemeConfig>;
+
+/** Maps generated on first access instead of at import (never listed in the picker). */
+const LAZY_MAPS: ReadonlySet<MapThemeId> = new Set<MapThemeId>(['zombie_city']);
+let zombieCityConfig: MapThemeConfig | null = null;
+Object.defineProperty(MAP_REGISTRY, 'zombie_city', {
+  enumerable: true,
+  get: () => (zombieCityConfig ??= buildZombieCityConfig()),
+});
+
 // ── REGISTRY HELPER UTILITIES ──────────────────────────────────
 
 export function getMapConfig(themeId?: string | null): MapThemeConfig {
@@ -694,8 +740,14 @@ export function getMapConfig(themeId?: string | null): MapThemeConfig {
   return MAP_REGISTRY[themeId as MapThemeId];
 }
 
+/** Pickable maps. Skips lazily generated hidden maps so listing never pays for generating them. */
 export function getAllMapConfigs(): MapThemeConfig[] {
-  return Object.values(MAP_REGISTRY);
+  return (Object.keys(MAP_REGISTRY) as MapThemeId[]).filter((id) => !LAZY_MAPS.has(id)).map((id) => MAP_REGISTRY[id]);
+}
+
+/** Outdoor world size of a map in px. */
+export function getMapSize(themeId?: string | null): { w: number; h: number } {
+  return getMapConfig(themeId).size ?? { w: MAP_WIDTH, h: MAP_HEIGHT };
 }
 
 export function getZonesForMap(themeId?: string | null): ZoneDefinition[] {
@@ -704,6 +756,10 @@ export function getZonesForMap(themeId?: string | null): ZoneDefinition[] {
 
 export function getBoundaryWallsForMap(themeId?: string | null): Rect[] {
   return getMapConfig(themeId).boundaryWalls;
+}
+
+export function getBuildingsForMap(themeId?: string | null): BuildingDefinition[] {
+  return getMapConfig(themeId).buildings ?? [];
 }
 
 export function getDefaultPropsForMap(themeId?: string | null): { type: FurnitureType; x: number; y: number }[] {
