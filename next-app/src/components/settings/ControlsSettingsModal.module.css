@@ -1,0 +1,239 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-main);
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.tabOn {
+  color: #18181b;
+  background-color: #fde047;
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border);
+}
+
+.tab:focus-visible,
+.key:focus-visible,
+.segment:focus-visible,
+.range:focus-visible {
+  outline: 3px solid var(--primary, #a855f7);
+  outline-offset: 2px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lead {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.notice {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #18181b;
+  background-color: #fef3c7;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupTitle {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--card-border);
+}
+
+.rowLabel,
+.settingLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.rowLabel small,
+.settingLabel small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.keys {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.key {
+  min-width: 64px;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-main);
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border);
+  touch-action: manipulation;
+}
+
+.keyEmpty {
+  color: var(--text-muted);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.keyCapturing {
+  color: #18181b;
+  background-color: #fde047;
+  animation: keyPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes keyPulse {
+  50% {
+    background-color: #fef9c3;
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--card-border);
+}
+
+.segmented {
+  display: flex;
+  flex-shrink: 0;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.segment {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-main);
+  background-color: var(--card-bg);
+  border: none;
+  touch-action: manipulation;
+}
+
+.segment + .segment {
+  border-left: 2px solid var(--card-border);
+}
+
+.segmentOn {
+  color: #18181b;
+  background-color: #a7f3d0;
+}
+
+.range {
+  flex: 0 1 200px;
+  min-width: 120px;
+  accent-color: #a855f7;
+}
+
+.inline {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+/* Phones: stack label above its control so nothing gets squeezed */
+@media (max-width: 520px) {
+  .row,
+  .setting {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .keys,
+  .segmented,
+  .inline {
+    width: 100%;
+  }
+
+  .key,
+  .segment,
+  .inline > * {
+    flex: 1;
+  }
+
+  .range {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keyCapturing {
+    animation: none;
+  }
+
+  .tab {
+    transition: none;
+  }
+}

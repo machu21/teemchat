@@ -399,13 +399,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Game-area size drives orientation-specific layouts and on-screen clamping
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setArea({ w: Math.round(width), h: Math.round(height) });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    if (!el) return;
+    // Measure now and on window resize / rotation too: ResizeObserver alone only reports
+    // during rendering, which is paused for background tabs and some WebViews
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setArea((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+      ro?.disconnect();
+    };
   }, []);
 
   // Esc leaves the layout editor

@@ -895,7 +895,8 @@
     min-width: 0;
     max-width: calc(100% - 76px);
     padding: 6px 8px;
-    bottom: calc(204px + env(safe-area-inset-bottom, 0px));
+    /* Above the joystick, which grows with the Controls button size (--ts) */
+    bottom: calc(204px + (var(--ts, 1) - 1) * 64px + env(safe-area-inset-bottom, 0px));
   }
 
   .weaponName {
@@ -1013,8 +1014,9 @@
     padding: 3px 2px;
   }
 
+  /* Clears the joystick, which grows with the Controls button size (--ts) */
   .weaponBar {
-    left: max(132px, env(safe-area-inset-left, 0px) + 124px);
+    left: max(calc(132px + (var(--ts, 1) - 1) * 60px), env(safe-area-inset-left, 0px) + 124px);
     bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     padding: 5px 8px;
     min-width: 0;
@@ -1233,9 +1235,10 @@
     top: calc(90px + env(safe-area-inset-top, 0px));
   }
 
+  /* Above the jump button: the zoom controls own the right edge here */
   .zombieSprintBtn {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-    right: max(20px, env(safe-area-inset-right, 0px) + 14px);
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    right: max(76px, env(safe-area-inset-right, 0px) + 70px);
     width: 42px;
     height: 42px;
   }
@@ -1250,6 +1253,163 @@
 /* Tablet widths show the joystick (bottom-left, 128px tall): keep the weapon + supply bar above it */
 @media (min-width: 641px) and (max-width: 1024px) and (min-height: 501px) {
   .weaponBar {
-    bottom: max(176px, env(safe-area-inset-bottom, 24px) + 160px);
+    bottom: max(calc(176px + (var(--ts, 1) - 1) * 64px), env(safe-area-inset-bottom, 24px) + 160px);
+  }
+}
+
+/* ── On-screen control layers (Controls settings) ───────────────
+   Each layer covers the game area. Left-handed play mirrors the whole
+   layer (positions flip) and un-mirrors every child (content reads
+   normally). The separate `scale` / `translate` properties compose with
+   the controls' own :active transforms. */
+.touchLayer {
+  --mx: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+
+.touchMirror {
+  --mx: -1;
+  scale: -1 1;
+}
+
+.touchLayer > * {
+  scale: var(--mx) 1;
+}
+
+.touchLayer > [data-ctl] {
+  pointer-events: auto;
+  opacity: var(--to, 1);
+  scale: calc(var(--mx) * var(--ts, 1)) var(--ts, 1);
+}
+
+/* Layout editor: everything draggable is outlined and shown, even controls a mouse user normally hides */
+.touchEditing > [data-ctl] {
+  opacity: 1;
+  cursor: grab;
+  touch-action: none;
+  outline: 2px dashed #a855f7;
+  outline-offset: 3px;
+  animation: ctlWiggle 1.4s ease-in-out infinite;
+}
+
+.touchEditing > [data-ctl]:active {
+  cursor: grabbing;
+}
+
+.touchEditing > .joystickZone,
+.touchEditing > .actionBtnZone {
+  display: flex;
+}
+
+.touchEditing > .zombieSprintBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes ctlWiggle {
+  50% {
+    outline-color: #f59e0b;
+  }
+}
+
+.layoutEditBar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px) + 8px);
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 8px 12px;
+  transform: translateX(-50%);
+  font-family: 'Plus Jakarta Sans', inherit;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+}
+
+.layoutEditText {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.layoutEditText small {
+  font-weight: 600;
+  color: var(--text-muted, #71717a);
+}
+
+.layoutEditActions {
+  display: flex;
+  gap: 8px;
+}
+
+.layoutEditBtn {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #18181b;
+  background-color: var(--card-inner, #f3f4f6);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border, #18181b);
+}
+
+.layoutEditBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+.layoutEditDone {
+  background-color: #a7f3d0;
+}
+
+/* Short landscape screens: keep the bar clear of the survival HUD below it */
+@media (max-height: 500px) {
+  .layoutEditBar {
+    top: max(6px, env(safe-area-inset-top, 0px) + 4px);
+    padding: 4px 10px;
+  }
+
+  .layoutEditText small {
+    display: none;
+  }
+
+  .layoutEditBtn {
+    min-height: 30px;
+    padding: 3px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .layoutEditText {
+    font-size: 0.74rem;
+  }
+
+  .layoutEditActions {
+    width: 100%;
+  }
+
+  .layoutEditBtn {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touchEditing > [data-ctl] {
+    animation: none;
   }
 }

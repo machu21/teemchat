@@ -45,6 +45,7 @@ import {
 } from '@/components/icons/DockIcons';
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
 import { useSpaceCompanion } from '@/lib/hooks/useSpaceCompanion';
+import { ControlsSettingsModal } from '@/components/settings/ControlsSettingsModal';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -130,6 +131,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   // Modals & Panels
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [buildModeOpen, setBuildModeOpen] = useState(false);
   const [selectedFurniture, setSelectedFurniture] = useState<FurnitureType | null>(null);
@@ -946,11 +948,22 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               🚀 <span className={styles.hudBtnLabel}>Teleport</span>
             </NeoButton>
           )}
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            onClick={() => setControlsOpen(true)}
+            title="Controls: keys, touch layout and button positions"
+            aria-label="Controls settings"
+          >
+            ⚙️ <span className={styles.hudBtnLabel}>Controls</span>
+          </NeoButton>
           <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
             🎟️ <span className={styles.hudBtnLabel}>Invite Friends</span>
           </NeoButton>
         </div>
       </header>
+
+      <ControlsSettingsModal isOpen={controlsOpen} onClose={() => setControlsOpen(false)} />
 
       {/* Video PiP Overlay */}
       {videoFeeds.length > 0 && (

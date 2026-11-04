@@ -197,7 +197,8 @@ export const TOUCH_CONTROLS: readonly { id: TouchControl; label: string }[] = [
   { id: 'action', label: 'Action (A)' },
 ];
 
-export const SIZE_SCALE: Record<ControlSize, number> = { sm: 0.85, md: 1, lg: 1.2 };
+/** Controls grow from their centre, so Large stays modest enough to keep the default layout clear. */
+export const SIZE_SCALE: Record<ControlSize, number> = { sm: 0.85, md: 1, lg: 1.15 };
 
 export const DEFAULT_TOUCH: TouchLayout = {
   hand: 'right',
@@ -244,6 +245,13 @@ export function sanitizeSettings(raw: unknown): ControlsSettings {
     const seen = new Set<string>();
     for (const a of Object.keys(bindings) as ControlAction[]) {
       bindings[a] = bindings[a].map((c) => (c && seen.has(c) ? null : (c && seen.add(c), c))) as [string | null, string | null];
+    }
+    // An action left with no key gets its default back when that key is free
+    for (const a of Object.keys(bindings) as ControlAction[]) {
+      if (bindings[a][0] || bindings[a][1]) continue;
+      const free = DEFAULT_BINDINGS[a].filter((c): c is string => !!c && !seen.has(c));
+      free.forEach((c) => seen.add(c));
+      bindings[a] = [free[0] ?? null, free[1] ?? null];
     }
   }
   const t = (r.touch && typeof r.touch === 'object' ? r.touch : {}) as Partial<TouchLayout>;
