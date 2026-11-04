@@ -80,12 +80,19 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
     <html lang="en" className={plusJakartaSans.variable}>
       <body>
         {children}
+        {gtmId && (
+          <script
+            async
+            src={`https://www.googletagmanager.com/gtm.js?id=${gtmId}`}
+          />
+        )}
         {gaId && (
           <>
             <script
