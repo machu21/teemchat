@@ -39,6 +39,7 @@ import { InviteLinkService } from '@/lib/services/invite';
 import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/lib/models/avatar';
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { useRouter } from 'next/navigation';
+import { useIsNativeApp } from '@/lib/platform/nativeApp';
 
 const TYPEWRITER_PHRASES = [
   'cozy 2D spaces.',
@@ -47,8 +48,16 @@ const TYPEWRITER_PHRASES = [
   'virtual world avenues.',
 ];
 
-export function LandingPageClient() {
+interface LandingPageClientProps {
+  /** 'app' renders the compact native-app entry screen (login + guest only). */
+  variant?: 'web' | 'app';
+}
+
+export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = {}) {
   const router = useRouter();
+  // Fallback for older APK builds without the UA token: detect Capacitor client-side.
+  const isNativeClient = useIsNativeApp();
+  const appMode = variant === 'app' || isNativeClient;
   const { session, isGuest, signInGuest, signInWithPassword, signUpWithPassword, initSession } =
     useSessionStore();
   const { theme, initTheme } = useThemeStore();
@@ -128,11 +137,12 @@ export function LandingPageClient() {
     if (session) {
       if (pendingCode) {
         router.push(`/space/${pendingCode}`);
-      } else if (!isGuest) {
+      } else if (!isGuest || appMode) {
+        // The native app has no landing page, so returning guests go straight in too.
         router.push('/dashboard');
       }
     }
-  }, [session, isGuest, pendingCode, router]);
+  }, [session, isGuest, pendingCode, router, appMode]);
 
   // Typewriter loop
   useEffect(() => {
@@ -266,6 +276,307 @@ export function LandingPageClient() {
 
   const selectedPalette = colorPalettes[selectedColorIndex];
   const initials = getInitials(spaceName);
+
+  const modals = (
+    <>
+        {/* ── Auth Modal ── */}
+        <NeoModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          title={isSignUp ? 'Create your Account' : 'Welcome Back'}
+        >
+          <div className={styles.authTogglePill}>
+            <button
+              type="button"
+              className={`${styles.authTab} ${!isSignUp ? styles.authTabActive : ''}`}
+              onClick={() => {
+                setIsSignUp(false);
+                setAuthError('');
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`${styles.authTab} ${isSignUp ? styles.authTabActive : ''}`}
+              onClick={() => {
+                setIsSignUp(true);
+                setAuthError('');
+                setFormRenderedAt(Date.now());
+                setHoneypot('');
+              }}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} className={styles.authForm}>
+            {/* Anti-Bot Honeypot: Invisible to human users, traps automated form fillers */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                top: '-9999px',
+                opacity: 0,
+                height: 0,
+                width: 0,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+              }}
+              aria-hidden="true"
+            >
+              <label htmlFor="company_site_field">Do not fill this</label>
+              <input
+                id="company_site_field"
+                type="text"
+                name="company_site_field"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
+
+            {authError && <div className={styles.errorAlert}>{authError}</div>}
+
+            {isSignUp && (
+              <>
+                <NeoInput
+                  label="DISPLAY NAME"
+                  placeholder="Alex Rivera"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                />
+                <NeoInput
+                  label="USERNAME"
+                  placeholder="alex_rivera"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+                <div className={styles.genderSection}>
+                  <div className={styles.genderLabel}>SELECT GENDER</div>
+                  <div className={styles.genderRow}>
+                    <button
+                      type="button"
+                      className={`${styles.genderCard} ${signUpGender === 'male' ? styles.genderCardMaleActive : ''}`}
+                      onClick={() => setSignUpGender('male')}
+                    >
+                      <UserMaleIcon size={18} />
+                      <span>Male</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.genderCard} ${signUpGender === 'female' ? styles.genderCardFemaleActive : ''}`}
+                      onClick={() => setSignUpGender('female')}
+                    >
+                      <UserFemaleIcon size={18} />
+                      <span>Female</span>
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.signUpAvatarPreviewRow}>
+                  <PixelAvatar
+                    config={signUpGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
+                    size={42}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                      {signUpGender === 'female' ? 'Female Persona' : 'Male Persona'}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      Retro pixel avatar with tailored outfit &amp; styling
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <NeoInput
+              label="EMAIL ADDRESS"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <NeoInput
+              label="PASSWORD"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            <NeoButton type="submit" variant="primary" size="lg" disabled={isSubmitting}>
+              {isSubmitting
+                ? 'Processing...'
+                : isSignUp
+                  ? 'Create Persona & Enter'
+                  : 'Sign In & Enter'}
+            </NeoButton>
+
+            <button
+              type="button"
+              className={styles.guestSkipLink}
+              onClick={() => {
+                setAuthModalOpen(false);
+                openGuestModal();
+              }}
+            >
+              Skip for now &amp; enter as Guest →
+            </button>
+          </form>
+        </NeoModal>
+
+        {/* ── Guest Character Selection Modal ── */}
+        <NeoModal
+          isOpen={characterModalOpen}
+          onClose={() => setCharacterModalOpen(false)}
+          title="Choose Your Character"
+        >
+          <div className={styles.characterModalContent}>
+            <div className={styles.avatarPedestalCard}>
+              <div className={styles.pedestalStage}>
+                <PixelAvatar
+                  config={guestGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
+                  size={72}
+                />
+              </div>
+              <div className={styles.pedestalName}>{guestName.trim() || guestIdentity?.displayName || 'Explorer'}</div>
+              {guestIdentity?.username && (
+                <div className={styles.pedestalHandle}>@{guestIdentity.username}</div>
+              )}
+              <div className={styles.pedestalMeta}>
+                {guestGender === 'female' ? 'Female Persona' : 'Male Persona'}
+              </div>
+            </div>
+
+            <NeoInput
+              label="EXPLORER NAME"
+              placeholder={guestIdentity?.displayName || "Explorer"}
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              required
+            />
+
+            <div className={styles.genderSection}>
+              <div className={styles.genderLabel}>SELECT GENDER</div>
+              <div className={styles.genderRow}>
+                <button
+                  type="button"
+                  className={`${styles.genderCard} ${guestGender === 'male' ? styles.genderCardMaleActive : ''}`}
+                  onClick={() => setGuestGender('male')}
+                >
+                  <UserMaleIcon size={18} />
+                  <span>Male</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.genderCard} ${guestGender === 'female' ? styles.genderCardFemaleActive : ''}`}
+                  onClick={() => setGuestGender('female')}
+                >
+                  <UserFemaleIcon size={18} />
+                  <span>Female</span>
+                </button>
+              </div>
+            </div>
+
+            <NeoButton
+              variant="primary"
+              size="lg"
+              onClick={handleConfirmGuest}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                'Entering World...'
+              ) : (
+                <>
+                  <ZapIcon size={18} style={{ marginRight: 6 }} /> Enter Virtual World
+                </>
+              )}
+            </NeoButton>
+          </div>
+        </NeoModal>
+    </>
+  );
+
+  // ── Native App Entry Screen (APK / iOS): login + guest entry only ──
+  if (appMode) {
+    return (
+      <div className={styles.appEntry}>
+        <div className={styles.appEntryTop}>
+          <ThemeToggle />
+        </div>
+
+        <main className={styles.appEntryMain}>
+          <div className={styles.appEntryLogo}>
+            <Image
+              src={isDark ? '/images/teamchat_logo_dark.jpg' : '/images/teamchat_logo.jpg'}
+              alt="TeemChat Logo"
+              width={96}
+              height={96}
+              className={styles.logoImg}
+              priority
+            />
+          </div>
+          <h1 className={styles.appEntryTitle}>
+            teemchat<span className={styles.logoDot}>.</span>
+          </h1>
+          <p className={styles.appEntryTagline}>Hang out in cozy 2D pixel spaces.</p>
+
+          {pendingCode && (
+            <div className={styles.appEntryInvite}>
+              <LinkIcon size={16} />
+              <span>
+                Invited to <strong>{pendingCode}</strong>
+              </span>
+            </div>
+          )}
+
+          <div className={styles.appEntryActions}>
+            <NeoButton
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                setIsSignUp(false);
+                setAuthError('');
+                setAuthModalOpen(true);
+              }}
+            >
+              <KeyIcon size={18} style={{ marginRight: 8 }} /> Log in
+            </NeoButton>
+            <NeoButton
+              variant="secondary"
+              size="lg"
+              onClick={() => {
+                setIsSignUp(true);
+                setAuthError('');
+                setFormRenderedAt(Date.now());
+                setHoneypot('');
+                setAuthModalOpen(true);
+              }}
+            >
+              <SparklesIcon size={18} style={{ marginRight: 8 }} /> Create Account
+            </NeoButton>
+            <button
+              type="button"
+              className={styles.guestSkipLink}
+              onClick={() => openGuestModal()}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Entering...' : 'Continue as Guest →'}
+            </button>
+          </div>
+        </main>
+
+        {modals}
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -1179,228 +1490,7 @@ export function LandingPageClient() {
         </div>
       </footer>
 
-      {/* ── Auth Modal ── */}
-      <NeoModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        title={isSignUp ? 'Create your Account' : 'Welcome Back'}
-      >
-        <div className={styles.authTogglePill}>
-          <button
-            type="button"
-            className={`${styles.authTab} ${!isSignUp ? styles.authTabActive : ''}`}
-            onClick={() => {
-              setIsSignUp(false);
-              setAuthError('');
-            }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`${styles.authTab} ${isSignUp ? styles.authTabActive : ''}`}
-            onClick={() => {
-              setIsSignUp(true);
-              setAuthError('');
-              setFormRenderedAt(Date.now());
-              setHoneypot('');
-            }}
-          >
-            Create Account
-          </button>
-        </div>
-
-        <form onSubmit={handleAuthSubmit} className={styles.authForm}>
-          {/* Anti-Bot Honeypot: Invisible to human users, traps automated form fillers */}
-          <div
-            style={{
-              position: 'absolute',
-              left: '-9999px',
-              top: '-9999px',
-              opacity: 0,
-              height: 0,
-              width: 0,
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}
-            aria-hidden="true"
-          >
-            <label htmlFor="company_site_field">Do not fill this</label>
-            <input
-              id="company_site_field"
-              type="text"
-              name="company_site_field"
-              tabIndex={-1}
-              autoComplete="off"
-              value={honeypot}
-              onChange={(e) => setHoneypot(e.target.value)}
-            />
-          </div>
-
-          {authError && <div className={styles.errorAlert}>{authError}</div>}
-
-          {isSignUp && (
-            <>
-              <NeoInput
-                label="DISPLAY NAME"
-                placeholder="Alex Rivera"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-              />
-              <NeoInput
-                label="USERNAME"
-                placeholder="alex_rivera"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-              <div className={styles.genderSection}>
-                <div className={styles.genderLabel}>SELECT GENDER</div>
-                <div className={styles.genderRow}>
-                  <button
-                    type="button"
-                    className={`${styles.genderCard} ${signUpGender === 'male' ? styles.genderCardMaleActive : ''}`}
-                    onClick={() => setSignUpGender('male')}
-                  >
-                    <UserMaleIcon size={18} />
-                    <span>Male</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.genderCard} ${signUpGender === 'female' ? styles.genderCardFemaleActive : ''}`}
-                    onClick={() => setSignUpGender('female')}
-                  >
-                    <UserFemaleIcon size={18} />
-                    <span>Female</span>
-                  </button>
-                </div>
-              </div>
-              <div className={styles.signUpAvatarPreviewRow}>
-                <PixelAvatar
-                  config={signUpGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
-                  size={42}
-                />
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
-                    {signUpGender === 'female' ? 'Female Persona' : 'Male Persona'}
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    Retro pixel avatar with tailored outfit &amp; styling
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          <NeoInput
-            label="EMAIL ADDRESS"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <NeoInput
-            label="PASSWORD"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          <NeoButton type="submit" variant="primary" size="lg" disabled={isSubmitting}>
-            {isSubmitting
-              ? 'Processing...'
-              : isSignUp
-                ? 'Create Persona & Enter'
-                : 'Sign In & Enter'}
-          </NeoButton>
-
-          <button
-            type="button"
-            className={styles.guestSkipLink}
-            onClick={() => {
-              setAuthModalOpen(false);
-              openGuestModal();
-            }}
-          >
-            Skip for now &amp; enter as Guest →
-          </button>
-        </form>
-      </NeoModal>
-
-      {/* ── Guest Character Selection Modal ── */}
-      <NeoModal
-        isOpen={characterModalOpen}
-        onClose={() => setCharacterModalOpen(false)}
-        title="Choose Your Character"
-      >
-        <div className={styles.characterModalContent}>
-          <div className={styles.avatarPedestalCard}>
-            <div className={styles.pedestalStage}>
-              <PixelAvatar
-                config={guestGender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig}
-                size={72}
-              />
-            </div>
-            <div className={styles.pedestalName}>{guestName.trim() || guestIdentity?.displayName || 'Explorer'}</div>
-            {guestIdentity?.username && (
-              <div className={styles.pedestalHandle}>@{guestIdentity.username}</div>
-            )}
-            <div className={styles.pedestalMeta}>
-              {guestGender === 'female' ? 'Female Persona' : 'Male Persona'}
-            </div>
-          </div>
-
-          <NeoInput
-            label="EXPLORER NAME"
-            placeholder={guestIdentity?.displayName || "Explorer"}
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            required
-          />
-
-          <div className={styles.genderSection}>
-            <div className={styles.genderLabel}>SELECT GENDER</div>
-            <div className={styles.genderRow}>
-              <button
-                type="button"
-                className={`${styles.genderCard} ${guestGender === 'male' ? styles.genderCardMaleActive : ''}`}
-                onClick={() => setGuestGender('male')}
-              >
-                <UserMaleIcon size={18} />
-                <span>Male</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.genderCard} ${guestGender === 'female' ? styles.genderCardFemaleActive : ''}`}
-                onClick={() => setGuestGender('female')}
-              >
-                <UserFemaleIcon size={18} />
-                <span>Female</span>
-              </button>
-            </div>
-          </div>
-
-          <NeoButton
-            variant="primary"
-            size="lg"
-            onClick={handleConfirmGuest}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              'Entering World...'
-            ) : (
-              <>
-                <ZapIcon size={18} style={{ marginRight: 6 }} /> Enter Virtual World
-              </>
-            )}
-          </NeoButton>
-        </div>
-      </NeoModal>
+      {modals}
     </div>
   );
 }

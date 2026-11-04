@@ -7,8 +7,20 @@ import {
   type RateLimitConfig,
 } from '@/lib/rateLimit';
 
+// Appended to the WebView UA by capacitor.config.ts. Keep in sync with src/lib/platform/nativeApp.ts.
+const NATIVE_APP_UA_TOKEN = 'TeemChatApp';
+
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+
+  // Native app (APK / iOS): skip the marketing landing page and serve the
+  // login / guest entry screen. Rewrite keeps the URL at '/' so existing
+  // router.push('/') and '/?signup=1' links keep working.
+  if (pathname === '/' && req.headers.get('user-agent')?.includes(NATIVE_APP_UA_TOKEN)) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/app';
+    return NextResponse.rewrite(url);
+  }
 
   // Apply rate limiting to all API endpoints
   if (pathname.startsWith('/api/')) {
@@ -69,5 +81,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: ['/', '/api/:path*'],
 };

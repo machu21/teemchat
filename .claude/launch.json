@@ -4,8 +4,27 @@
     {
       "name": "next-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "next-app"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "next-app"
+      ],
       "port": 3000
+    },
+    {
+      "name": "next-start",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--prefix",
+        "next-app",
+        "--",
+        "-p",
+        "3005"
+      ],
+      "port": 3005
     }
   ]
 }

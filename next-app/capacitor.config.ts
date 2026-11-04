@@ -7,6 +7,8 @@ const config: CapacitorConfig = {
   appName: 'TeemChat',
   webDir: 'out',
   backgroundColor: '#180D26',
+  // Lets the web app detect the native shell and hide the marketing landing page.
+  appendUserAgent: 'TeemChatApp',
   server: {
     androidScheme: 'https',
     cleartext: true,
