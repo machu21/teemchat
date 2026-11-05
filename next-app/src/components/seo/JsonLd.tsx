@@ -29,7 +29,7 @@ export const defaultFaqItems = [
   {
     question: 'How do I invite teammates to my virtual space?',
     answer:
-      'Simply copy your space invite link (e.g. teemchat.vercel.app/space/YOUR_CODE) and share it via Discord, Slack, WhatsApp, or email. Your teammates can click and join instantly.',
+      'Simply copy your space invite link (e.g. www.teemchat.chat/space/YOUR_CODE) and share it via Discord, Slack, WhatsApp, or email. Your teammates can click and join instantly.',
   },
 ];
 

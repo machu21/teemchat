@@ -46,6 +46,7 @@ import {
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
 import { useSpaceCompanion } from '@/lib/hooks/useSpaceCompanion';
 import { ControlsSettingsModal } from '@/components/settings/ControlsSettingsModal';
+import { AiUpgradePrompt } from '@/components/billing/AiUpgradePrompt';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -1196,6 +1197,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                         {chip}
                       </span>
                     ))}
+                    {m.upgrade && <AiUpgradePrompt />}
                     {m.screenshot && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={m.screenshot} alt="Screenshot sent to companion" className={styles.screenshotThumb} />

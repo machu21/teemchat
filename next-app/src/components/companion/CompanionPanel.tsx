@@ -12,6 +12,7 @@ import { BotIcon, CloseIcon } from '@/components/icons/DockIcons';
 import { runCompanionActions } from '@/lib/companion/actions';
 import { BOND_LEVELS, bondProgress, getBondLevel } from '@/lib/companion/bond';
 import { COMPANION_SPECIES } from '@/lib/companion/types';
+import { AiUpgradePrompt } from '@/components/billing/AiUpgradePrompt';
 import type {
   CompanionReply,
   CompanionSpecies,
@@ -215,6 +216,7 @@ export function CompanionPanel({ isOpen, onClose, onUpgrade }: CompanionPanelPro
                           {chip}
                         </span>
                       ))}
+                      {m.upgrade && <AiUpgradePrompt />}
                     </div>
                   ))
                 )}

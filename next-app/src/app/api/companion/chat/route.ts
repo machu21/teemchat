@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
-import { authenticateCompanionRequest, checkCompanionQuota } from '@/lib/companionAuth';
+import { authenticateCompanionRequest, checkCompanionQuota, formatWindowReset } from '@/lib/companionAuth';
 import { COMPANION_REPLY_SCHEMA, buildSystemPrompt } from '@/lib/companion/prompt';
 import { normalizeWorldContext, oneLine, parseCompanionReply } from '@/lib/companion/normalize';
 import {
@@ -86,10 +86,13 @@ export async function POST(req: NextRequest) {
     const quota = await checkCompanionQuota(supabase);
     if (!quota.allowed) {
       return NextResponse.json({
-        response: quota.isTrial
-          ? "⚡ You've reached your free daily trial limit (5/5 messages). Upgrade your account for full access, or chat again tomorrow!"
+        response: quota.limitType === 'window'
+          ? `⚡ You've used your AI messages for this 5-hour window. Your limit resets ${formatWindowReset(quota.resetsAt)}.`
+          : quota.isTrial
+          ? "⚡ You've used your 5 free AI messages. Get the AI add-on to keep chatting — 60 messages every 5 hours."
           : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
         quotaExceeded: true,
+        upgradeRequired: quota.isTrial,
         mood: 'sleepy',
         emote: 'zzz',
         actions: [],

@@ -55,7 +55,7 @@ serve(async (req: Request) => {
     }
 
     // Only return to our own app; the Origin header is caller-controlled.
-    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://teemchat.app")
+    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://www.teemchat.chat,https://teemchat.chat")
       .split(",")
       .map((o: string) => o.trim().replace(/\/+$/, ""))
       .filter(Boolean);

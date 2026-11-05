@@ -1096,6 +1096,22 @@
   box-shadow: 4.5px 5.5px 0px #000000;
 }
 
+.pricingFootnote {
+  margin: 18px auto 0;
+  max-width: 720px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pricingFootnote a {
+  color: var(--text-main);
+  font-weight: 800;
+  text-decoration: underline;
+}
+
 .pricingPopular {
   border-width: 2.5px;
   border-color: var(--cta-btn);
@@ -1680,6 +1696,17 @@
   border-radius: var(--neo-radius-sm);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.errorAlertAction {
+  margin-left: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ── Auth Tabs ── */

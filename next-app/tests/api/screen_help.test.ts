@@ -231,7 +231,8 @@ describe('POST /api/companion/screen-help', () => {
 
       const data = await res.json();
       expect(data.quotaExceeded).toBe(true);
-      expect(data.response).toContain("free daily trial limit");
+      expect(data.response).toContain("used your 5 free AI messages");
+      expect(data.upgradeRequired).toBe(true);
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 

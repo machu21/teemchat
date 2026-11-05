@@ -16,6 +16,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 1.0,
     },
+    ...['/terms', '/privacy', '/refunds', '/contact'].map((path) => ({
+      url: `${siteUrl}${path}`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly' as const,
+      priority: 0.3,
+    })),
     {
       url: `${siteUrl}/space/main-hq`,
       lastModified: currentDate,

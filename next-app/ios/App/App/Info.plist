@@ -68,5 +68,16 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>TeemChat needs access to your microphone for real-time proximity voice chat in the virtual world.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.antigravity.virtualworld.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.antigravity.virtualworld</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

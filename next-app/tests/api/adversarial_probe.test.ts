@@ -48,13 +48,27 @@ vi.mock('@supabase/supabase-js', () => ({
       signUp: mockSignUp,
       getUser: mockGetUser,
     },
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: { id: '00000000-0000-0000-0000-000000000001' }, error: null }),
-      upsert: mockUpsert,
-      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-    })),
+    from: vi.fn(() => {
+      // Username availability lookups (register route) find no existing row
+      let byUsername = false;
+      const builder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn((column: string) => {
+          if (column === 'username') byUsername = true;
+          return builder;
+        }),
+        maybeSingle: vi.fn(() =>
+          Promise.resolve(
+            byUsername
+              ? { data: null, error: null }
+              : { data: { id: '00000000-0000-0000-0000-000000000001' }, error: null }
+          )
+        ),
+        upsert: mockUpsert,
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+      return builder;
+    }),
     rpc: mockRpc,
   })),
 }));

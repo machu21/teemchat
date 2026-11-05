@@ -1,3 +1,5 @@
+import { getSiteUrl } from '../constants/site';
+
 export class InviteLinkService {
   /**
    * Safely extracts an invite or room code from:
@@ -75,10 +77,8 @@ export class InviteLinkService {
       params.set('name', options.name.trim());
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/space/${spaceCode}${query}`;
-    }
-    return `https://teemchat.vercel.app/space/${spaceCode}${query}`;
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : getSiteUrl();
+    return `${baseUrl}/space/${spaceCode}${query}`;
   }
 
   /**

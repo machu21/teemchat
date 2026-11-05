@@ -8,6 +8,13 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
+// AI Companion add-on: $5/month or $45/year (25% off). Set STRIPE_PRICE_AI_MONTHLY /
+// STRIPE_PRICE_AI_YEARLY to Stripe Price IDs to manage prices from the Stripe dashboard.
+const AI_ADDON_PLANS = {
+  month: { planId: "ai_addon_monthly", priceEnv: "STRIPE_PRICE_AI_MONTHLY", unitAmount: 500 },
+  year: { planId: "ai_addon_yearly", priceEnv: "STRIPE_PRICE_AI_YEARLY", unitAmount: 4500 },
+} as const;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -42,11 +49,25 @@ serve(async (req: Request) => {
       });
     }
 
+    // Guests are temporary accounts; they must register before buying.
+    const isGuest =
+      Boolean(user.is_anonymous) ||
+      Boolean(user.app_metadata?.is_guest) ||
+      Boolean(user.user_metadata?.is_guest) ||
+      Boolean(user.email?.endsWith("@guest.teemchat.local"));
+    if (isGuest) {
+      return new Response(JSON.stringify({ error: "Create an account before buying the AI add-on." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
-    const { planId = "ai_unlimited_monthly" } = body;
+    const interval: "month" | "year" = body.interval === "year" ? "year" : "month";
+    const plan = AI_ADDON_PLANS[interval];
 
     // Only redirect back to our own app, never to a URL supplied by the caller's choosing.
-    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://teemchat.app")
+    const allowedOrigins = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "https://www.teemchat.chat,https://teemchat.chat")
       .split(",")
       .map((o: string) => o.trim().replace(/\/+$/, ""))
       .filter(Boolean);
@@ -74,9 +95,20 @@ serve(async (req: Request) => {
     // Check if user already has a Stripe customer ID stored
     const { data: subData } = await supabase
       .from("user_subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, stripe_subscription_id, status, has_ai_addon")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (
+      subData?.has_ai_addon &&
+      subData.stripe_subscription_id &&
+      ["active", "trialing", "past_due"].includes(subData.status)
+    ) {
+      return new Response(JSON.stringify({ error: "You already have the AI add-on." }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     let customerId = subData?.stripe_customer_id;
 
@@ -90,37 +122,40 @@ serve(async (req: Request) => {
       customerId = customer.id;
     }
 
-    // Create recurring Stripe Checkout Session for AI Companion ($15/month)
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      payment_method_types: ["card"],
-      mode: "subscription",
-      line_items: [
-        {
+    // Recurring Checkout Session for the AI Companion add-on.
+    // Uses the Stripe Price ID when configured, otherwise an inline price.
+    const priceId = Deno.env.get(plan.priceEnv);
+    const lineItem = priceId
+      ? { price: priceId, quantity: 1 }
+      : {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "TeemChat AI Companion Unlimited",
-              description: "Unlimited daily companion messages, persistent memory & AI smart assistant in your virtual world.",
+              name: "TeemChat AI Companion add-on",
+              description: "60 AI companion messages every 5 hours, persistent memory and custom persona.",
             },
-            unit_amount: 1500, // $15.00 USD
-            recurring: {
-              interval: "month",
-            },
+            unit_amount: plan.unitAmount,
+            recurring: { interval },
           },
           quantity: 1,
-        },
-      ],
+        };
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [lineItem],
+      allow_promotion_codes: true,
       client_reference_id: user.id,
       metadata: {
         userId: user.id,
-        planId: planId,
+        planId: plan.planId,
+        product: "ai_addon",
       },
       subscription_data: {
         metadata: {
           userId: user.id,
-          planId: planId,
+          planId: plan.planId,
+          product: "ai_addon",
         },
       },
       success_url: successUrlWithSession,

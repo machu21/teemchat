@@ -28,6 +28,6 @@ export function getSiteUrl(): string {
   if (envUrl && envUrl.trim()) {
     return envUrl.trim().replace(/\/+$/, '');
   }
-  return 'https://teemchat.vercel.app';
+  return 'https://www.teemchat.chat';
 }
 

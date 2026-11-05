@@ -71,10 +71,13 @@ export async function authenticateCompanionRequest(
   return { ok: true, user, supabase };
 }
 
-export type CompanionQuotaResult = { allowed: true } | { allowed: false; isTrial: boolean };
+export type CompanionQuotaResult =
+  | { allowed: true }
+  | { allowed: false; isTrial: boolean; limitType?: 'daily' | 'window' | 'trial'; resetsAt?: string };
 
 /**
- * Daily AI message quota (shared across all companion routes).
+ * AI message quota (shared across all companion routes). AI add-on holders get a
+ * rolling 5-hour window; everyone else gets 5 trial messages in total.
  * Fails open on RPC errors, matching the original chat route behaviour.
  */
 export async function checkCompanionQuota(supabase: SupabaseClient): Promise<CompanionQuotaResult> {
@@ -84,10 +87,29 @@ export async function checkCompanionQuota(supabase: SupabaseClient): Promise<Com
     });
 
     if (usage && typeof usage === 'object' && 'allowed' in usage && !usage.allowed) {
-      return { allowed: false, isTrial: Boolean((usage as { is_trial?: boolean }).is_trial) };
+      const u = usage as { is_trial?: boolean; limit_type?: string; resets_at?: string | null };
+      return {
+        allowed: false,
+        isTrial: Boolean(u.is_trial),
+        limitType:
+          u.limit_type === 'window' || u.limit_type === 'daily' || u.limit_type === 'trial'
+            ? u.limit_type
+            : undefined,
+        resetsAt: typeof u.resets_at === 'string' ? u.resets_at : undefined,
+      };
     }
   } catch (e) {
     console.warn('Quota check warning:', e);
   }
   return { allowed: true };
+}
+
+/** Human-friendly "in 2h 15m" until the AI window resets. */
+export function formatWindowReset(resetsAt: string | undefined, now: number = Date.now()): string {
+  const ms = resetsAt ? new Date(resetsAt).getTime() - now : NaN;
+  if (!Number.isFinite(ms) || ms <= 0) return 'shortly';
+  const totalMin = Math.ceil(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
 }

@@ -7,6 +7,8 @@ import { useSocialStore } from '@/stores/social';
 import { SpaceService } from '@/lib/services/spaces';
 import { InviteLinkService } from '@/lib/services/invite';
 import { SpaceMode, SpaceModel, spaceTiers } from '@/lib/models/space';
+import { membershipLabel } from '@/lib/membership';
+import { AiAddonCard } from '@/components/billing/AiAddonCard';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
@@ -44,7 +46,7 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { session, initSession, signOut, updateProfile } = useSessionStore();
+  const { session, isLoading: isSessionLoading, initSession, signOut, updateProfile } = useSessionStore();
   const { initSocial, cleanupSocial, openDrawer, isDrawerOpen, unreadCount, friends } = useSocialStore();
 
   const [spaces, setSpaces] = useState<SpaceModel[]>([]);
@@ -151,6 +153,13 @@ export default function DashboardPage() {
     initSession();
   }, [initSession]);
 
+  // Auth guard: the dashboard requires a signed-in user or a guest session.
+  // Sessions live in localStorage, so this has to run client-side after initSession resolves.
+  const needsAuthRedirect = !isSessionLoading && !session;
+  useEffect(() => {
+    if (needsAuthRedirect) router.replace('/');
+  }, [needsAuthRedirect, router]);
+
   const handleSelectGender = (gender: Gender) => {
     setEditGender(gender);
     if (gender === 'female') {
@@ -177,6 +186,19 @@ export default function DashboardPage() {
     }
     setAvatarDrawerOpen(true);
   };
+
+  // Back from Stripe (?billing=success|cancel): open the account panel so the
+  // AI add-on card can show the result.
+  const billingReturnHandledRef = useRef(false);
+  useEffect(() => {
+    if (billingReturnHandledRef.current || !session || session.isGuest) return;
+    if (!new URLSearchParams(window.location.search).has('billing')) return;
+    const timer = setTimeout(() => {
+      billingReturnHandledRef.current = true;
+      openAvatarEditor();
+    }, 0);
+    return () => clearTimeout(timer);
+  });
 
   useEffect(() => {
     if (session) {
@@ -396,6 +418,16 @@ export default function DashboardPage() {
     };
   }, [spaces, session, pinnedSpaceIds]);
 
+  if (!session) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading} role="status" aria-busy="true">
+          {needsAuthRedirect ? 'Redirecting to sign in…' : 'Loading…'}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       {/* Top Navbar */}
@@ -451,7 +483,7 @@ export default function DashboardPage() {
               <div className={styles.userInfo}>
                 <span className={styles.userName}>{session.displayName}</span>
                 <span className={styles.userRole}>
-                  {session.isGuest ? `@${session.username}` : session.tier.toUpperCase()}
+                  {session.isGuest ? `@${session.username}` : membershipLabel(session).toUpperCase()}
                 </span>
               </div>
             </div>
@@ -1115,7 +1147,7 @@ export default function DashboardPage() {
               <div className={styles.modalAccountInfo}>
                 <span className={styles.modalAccountName}>{session.displayName}</span>
                 <span className={styles.modalAccountRole}>
-                  {session.isGuest ? `@${session.username} • Guest Session` : `${session.tier.toUpperCase()} Member`}
+                  {session.isGuest ? `@${session.username} • Guest Session` : membershipLabel(session)}
                 </span>
               </div>
               {session.isGuest && (
@@ -1131,6 +1163,7 @@ export default function DashboardPage() {
                   ⭐ Upgrade Account
                 </NeoButton>
               )}
+              {!session.isGuest && <AiAddonCard session={session} onPurchased={initSession} />}
               <NeoButton
                 variant="danger"
                 size="md"
@@ -1194,14 +1227,14 @@ export default function DashboardPage() {
         <div className={styles.upgradeCard}>
           <p>
             Guest sessions are temporary. Create a free account to keep your avatar, friends, and
-            spaces. Paid plans will unlock:
+            spaces. During the beta, every account gets Member features for free:
           </p>
           <ul className={styles.upgradeList}>
-            <li>✨ Unlimited Virtual Spaces</li>
-            <li>🤖 Personal AI Companion with RAG vector memory</li>
-            <li>👥 Increased Room Capacity up to 250 players</li>
+            <li>✨ Up to 10 Virtual Spaces</li>
+            <li>👥 Rooms of up to 50 players</li>
             <li>🎨 Custom Map Decorator & Persistent Furniture</li>
           </ul>
+          <p>The AI Companion (60 messages every 5 hours, with memory) is a paid add-on.</p>
           <NeoButton
             variant="primary"
             size="lg"
@@ -1214,7 +1247,7 @@ export default function DashboardPage() {
             Create a Free Account
           </NeoButton>
           <NeoButton variant="secondary" size="lg" disabled title="Payments are not available yet">
-            Paid Plans Coming Soon
+            AI Add-on Coming Soon
           </NeoButton>
           <p className={styles.upgradeNote}>
             Creating an account ends this guest session and removes its temporary map.

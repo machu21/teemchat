@@ -32,7 +32,7 @@ interface SessionState {
       phone_alt?: string;
       renderedAt?: number;
     }
-  ) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; code?: string }>;
   updateProfile: (
     displayName: string,
     status: string,
@@ -66,7 +66,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const profileRecord = profile as Record<string, unknown> | null;
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
-        const isPaid = profile?.is_paid ?? !isGuest;
+        const isPaid = profile?.is_paid ?? false;
 
         const userSession: UserSession = {
           id: session.user.id,
@@ -159,7 +159,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const profileRecord = profile as Record<string, unknown> | null;
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
-        const isPaid = profile?.is_paid ?? !isGuest;
+        const isPaid = profile?.is_paid ?? false;
 
         set({
           session: {
@@ -336,7 +336,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const profileRecord = profile as Record<string, unknown> | null;
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
-        const isPaid = profile?.is_paid ?? true;
+        const isPaid = profile?.is_paid ?? false;
 
         set({
           session: {
@@ -373,7 +373,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const profileRecord = profile as Record<string, unknown> | null;
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
-        const isPaid = profile?.is_paid ?? true;
+        const isPaid = profile?.is_paid ?? false;
 
         set({
           session: {
@@ -432,20 +432,33 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok || !result.success) {
-        return { error: result.error || result.message || 'Registration failed' };
+        return {
+          error: result.error || result.message || 'Registration failed',
+          code: typeof result.code === 'string' ? result.code : undefined,
+        };
       }
 
-      // Sync Supabase client session if available
+      // Only treat the user as signed in once Supabase holds a real session for them.
+      let authedUserId: string | undefined;
       if (result.session) {
-        await supabase.auth.setSession({
+        const { data: setRes, error: setErr } = await supabase.auth.setSession({
           access_token: result.session.access_token,
           refresh_token: result.session.refresh_token,
         });
+        if (!setErr) authedUserId = setRes.user?.id;
       } else {
         const loginRes = await supabase.auth.signInWithPassword({ email, password });
-        if (loginRes.error) {
-          console.warn('Sign-in after registration notice:', loginRes.error);
+        if (!loginRes.error) authedUserId = loginRes.data.user?.id;
+        else if (/not confirmed/i.test(loginRes.error.message)) {
+          return {
+            error: 'Account created! Check your email to confirm it, then log in.',
+            code: 'email_unconfirmed',
+          };
         }
+      }
+
+      if (!authedUserId || authedUserId !== result.user?.id) {
+        return { error: 'Your account could not be signed in. Please try logging in.' };
       }
 
       // Upsert avatar config if necessary

@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import { SpaceModel, SpaceMode, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
 import { UserSession } from '../models/user';
 import { InviteLinkService } from './invite';
+import { mapLimitFor } from '../membership';
 import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -125,7 +126,6 @@ export const SpaceService = {
     session: UserSession | null
   ): Promise<SpaceModel> {
     const isGuest = session?.isGuest ?? true;
-    const isPaid = session?.isPaid ?? false;
     const currentUserId = session?.id;
     const visibility = params.visibility === 'private' ? 'private' : 'public';
     // Private spaces get a random join code (set_space_join_code trigger) so the
@@ -207,15 +207,21 @@ export const SpaceService = {
       return localSpace;
     }
 
-    // Free account validation: Only 1 map allowed
-    if (!isPaid && currentUserId) {
+    // Map limit: Members (free for every registered account during the beta) own up to
+    // MAP_LIMITS.member maps; guests and free accounts get one.
+    if (currentUserId) {
+      const mapLimit = mapLimitFor(session);
       const { data: existing } = await supabase
         .from('spaces')
         .select('id')
         .eq('owner_id', currentUserId);
-      if (existing && existing.length >= 1) {
+      if (existing && existing.length >= mapLimit) {
         throw new Error(
-          'Only paid accounts can make multiple maps. Upgrade to a Paid Account to create unlimited spaces!'
+          mapLimit > 1
+            ? `You've reached the limit of ${mapLimit} maps. Delete a map to create a new one.`
+            : session?.isGuest
+              ? 'Guest sessions can only have 1 map. Create a free account to make more maps!'
+              : 'Free accounts can have 1 map. Upgrade to Member to create more!'
         );
       }
     }

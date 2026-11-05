@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
-import { authenticateCompanionRequest, checkCompanionQuota } from '@/lib/companionAuth';
+import { authenticateCompanionRequest, checkCompanionQuota, formatWindowReset } from '@/lib/companionAuth';
 import { normalizePlatform, parseScreenshotDataUrl } from '@/lib/utils/screenshot';
 
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
@@ -52,10 +52,13 @@ export async function POST(req: NextRequest) {
     const quota = await checkCompanionQuota(supabase);
     if (!quota.allowed) {
       return NextResponse.json({
-        response: quota.isTrial
-          ? "⚡ You've reached your free daily trial limit. Upgrade your account for full access, or try again tomorrow!"
+        response: quota.limitType === 'window'
+          ? `⚡ You've used your AI messages for this 5-hour window. Your limit resets ${formatWindowReset(quota.resetsAt)}.`
+          : quota.isTrial
+          ? "⚡ You've used your 5 free AI messages. Get the AI add-on to keep chatting — 60 messages every 5 hours."
           : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC!",
         quotaExceeded: true,
+        upgradeRequired: quota.isTrial,
       });
     }
 

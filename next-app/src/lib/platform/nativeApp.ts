@@ -28,3 +28,22 @@ const noopSubscribe = () => () => {};
 export function useIsNativeApp(): boolean {
   return useSyncExternalStore(noopSubscribe, isNativeApp, () => false);
 }
+
+/**
+ * True inside the Capacitor iOS shell. Apple requires in-app purchase for
+ * digital subscriptions, so web checkout is not offered there.
+ */
+export function isIosApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (Capacitor.getPlatform() === 'ios') return true;
+  } catch {
+    // Capacitor bridge unavailable — fall through to UA check.
+  }
+  return isNativeApp() && /iPhone|iPad|iPod/.test(navigator.userAgent);
+}
+
+/** Hydration-safe hook: always false on the server, real value on the client. */
+export function useIsIosApp(): boolean {
+  return useSyncExternalStore(noopSubscribe, isIosApp, () => false);
+}

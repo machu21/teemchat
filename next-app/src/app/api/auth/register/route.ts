@@ -118,19 +118,49 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const cleanUsername = username.trim();
 
-    // 7. Supabase Auth Registration
+    // 7. Username availability (profiles are publicly readable; username is UNIQUE)
+    const { data: takenProfile, error: usernameLookupError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', cleanUsername)
+      .maybeSingle();
+    if (!usernameLookupError && takenProfile) {
+      return NextResponse.json(
+        { error: 'That username is already taken. Please choose another.', code: 'username_taken' },
+        { status: 409, headers: getRateLimitHeaders(rateResult) }
+      );
+    }
+
+    // 8. Supabase Auth Registration
     const { data, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
       options: {
         data: {
-          username: username.trim(),
+          username: cleanUsername,
           display_name: cleanDisplayName,
           gender: cleanGender,
         },
       },
     });
+
+    // Existing email: with email confirmation OFF Supabase returns `user_already_exists`;
+    // with confirmation ON it returns an obfuscated user that has no identities.
+    const emailAlreadyRegistered =
+      authError?.code === 'user_already_exists' ||
+      /already (registered|exists)/i.test(authError?.message || '') ||
+      (!authError && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0);
+    if (emailAlreadyRegistered) {
+      return NextResponse.json(
+        {
+          error: 'An account with this email already exists. Try logging in instead.',
+          code: 'email_taken',
+        },
+        { status: 409, headers: getRateLimitHeaders(rateResult) }
+      );
+    }
 
     if (authError || !data.user) {
       return NextResponse.json(
@@ -139,11 +169,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 8. Provision Secure Profile (Default to Free tier with trial limits)
+    // 9. Provision Secure Profile (Default to Free tier with trial limits)
     try {
       await supabase.from('profiles').upsert({
         id: data.user.id,
-        username: username.trim(),
+        username: cleanUsername,
         display_name: cleanDisplayName,
         gender: cleanGender,
         status: 'available',

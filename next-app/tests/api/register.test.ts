@@ -13,6 +13,8 @@ vi.mock('@/lib/security/disposableEmails', () => import('../../src/lib/security/
 // 3. Mock @supabase/supabase-js
 const mockSignUp = vi.fn();
 const mockUpsert = vi.fn().mockResolvedValue({ data: null, error: null });
+const mockUsernameLookup = vi.fn().mockResolvedValue({ data: null, error: null });
+const mockProfileEq = vi.fn(() => ({ maybeSingle: mockUsernameLookup }));
 
 const mockSupabaseClient = {
   auth: {
@@ -20,7 +22,7 @@ const mockSupabaseClient = {
   },
   from: vi.fn((table: string) => {
     if (table === 'profiles') {
-      return { upsert: mockUpsert };
+      return { upsert: mockUpsert, select: vi.fn(() => ({ eq: mockProfileEq })) };
     }
     return {
       select: vi.fn().mockReturnThis(),
@@ -58,6 +60,7 @@ describe('POST /api/auth/register', () => {
       error: null,
     });
     mockUpsert.mockResolvedValue({ data: null, error: null });
+    mockUsernameLookup.mockResolvedValue({ data: null, error: null });
   });
 
   describe('Happy Path & Normalization', () => {
@@ -496,11 +499,91 @@ describe('POST /api/auth/register', () => {
     });
   });
 
-  describe('Supabase Auth Integration Failures', () => {
-    it('returns status 400 with provider error message when user already exists', async () => {
+  describe('Duplicate Email & Username', () => {
+    const makeReq = () =>
+      new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validBasePayload()),
+      });
+    const EMAIL_TAKEN = 'An account with this email already exists. Try logging in instead.';
+
+    it('returns 409 email_taken when Supabase reports user_already_exists (confirmation off)', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: 'User already registered', code: 'user_already_exists' },
+      });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(409);
+      const data = await res.json();
+      expect(data).toEqual({ error: EMAIL_TAKEN, code: 'email_taken' });
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 email_taken for legacy "User already registered" message without a code', async () => {
       mockSignUp.mockResolvedValueOnce({
         data: { user: null, session: null },
         error: { message: 'User already registered' },
+      });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(409);
+      expect((await res.json()).code).toBe('email_taken');
+    });
+
+    it('returns 409 email_taken for the obfuscated user with no identities (confirmation on)', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: { id: 'fake-obfuscated-id', email: 'newplayer@example.com', identities: [] }, session: null },
+        error: null,
+      });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(409);
+      const data = await res.json();
+      expect(data).toEqual({ error: EMAIL_TAKEN, code: 'email_taken' });
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
+
+    it('still succeeds for a new user with identities and no session (confirmation pending)', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: { id: 'usr-new', identities: [{ id: 'ident-1' }] }, session: null },
+        error: null,
+      });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(200);
+      expect((await res.json()).success).toBe(true);
+    });
+
+    it('returns 409 username_taken before calling signUp when the username exists', async () => {
+      mockUsernameLookup.mockResolvedValueOnce({ data: { id: 'existing-user' }, error: null });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(409);
+      const data = await res.json();
+      expect(data).toEqual({
+        error: 'That username is already taken. Please choose another.',
+        code: 'username_taken',
+      });
+      expect(mockProfileEq).toHaveBeenCalledWith('username', 'pixel_adventurer');
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it('does not block sign-up when the username lookup itself errors', async () => {
+      mockUsernameLookup.mockResolvedValueOnce({ data: null, error: { message: 'lookup failed' } });
+
+      const res = await POST(makeReq());
+      expect(res.status).toBe(200);
+      expect(mockSignUp).toHaveBeenCalled();
+    });
+  });
+
+  describe('Supabase Auth Integration Failures', () => {
+    it('returns status 400 with provider error message for other auth errors', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: 'Password should contain at least one character of each kind' },
       });
 
       const req = new NextRequest('http://localhost:3000/api/auth/register', {
@@ -512,7 +595,7 @@ describe('POST /api/auth/register', () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe('User already registered');
+      expect(data.error).toBe('Password should contain at least one character of each kind');
     });
 
     it('returns status 400 when Supabase returns no user and no error message', async () => {

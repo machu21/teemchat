@@ -12,6 +12,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // OAuth (Google) returns a one-time ?code= that this client exchanges; the
+    // Android/iOS deep link relies on it (see lib/auth/googleAuth.ts).
+    flowType: 'pkce',
   },
   realtime: {
     params: {

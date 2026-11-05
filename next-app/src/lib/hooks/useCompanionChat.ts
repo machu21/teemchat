@@ -45,6 +45,8 @@ export interface CompanionChatMessage {
   screenshot?: string;
   /** Labels for actions the companion took (e.g. "Leading you to Crystal Bay") */
   chips?: string[];
+  /** Trial used up: show the AI add-on payment buttons under this reply. */
+  upgrade?: boolean;
 }
 
 interface UseCompanionChatOptions {
@@ -250,7 +252,12 @@ export function useCompanionChat({ userId, userName, getWorld, onReply, onRemind
       const chips = callbacksRef.current.onReply?.(reply) || undefined;
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: reply.text, ...(chips && chips.length ? { chips } : {}) },
+        {
+          role: 'assistant',
+          content: reply.text,
+          ...(chips && chips.length ? { chips } : {}),
+          ...(data.upgradeRequired ? { upgrade: true } : {}),
+        },
       ]);
 
       if (TtsService.autoSpeak) {

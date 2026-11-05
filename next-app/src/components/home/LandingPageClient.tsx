@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import styles from '@/app/page.module.css';
 import { useSessionStore } from '@/stores/session';
 import { useThemeStore } from '@/stores/theme';
@@ -40,6 +41,8 @@ import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig } from '@/li
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { useRouter } from 'next/navigation';
 import { useIsNativeApp } from '@/lib/platform/nativeApp';
+import { LEGAL } from '@/lib/constants/legal';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 
 const TYPEWRITER_PHRASES = [
   'cozy 2D spaces.',
@@ -71,6 +74,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authErrorCode, setAuthErrorCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Anti-Bot Defense State ──
@@ -211,6 +215,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setAuthErrorCode('');
     setIsSubmitting(true);
 
     try {
@@ -232,6 +237,12 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
         );
         if (res.error) {
           setAuthError(res.error);
+          setAuthErrorCode(res.code || '');
+          if (res.code === 'email_unconfirmed') {
+            // Account exists now; the next step is logging in after confirming the email
+            setIsSignUp(false);
+            setPassword('');
+          }
         } else {
           setAuthModalOpen(false);
           router.push('/dashboard');
@@ -310,6 +321,11 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
             </button>
           </div>
 
+          <GoogleAuthButton
+            label={isSignUp ? 'Sign up with Google' : 'Sign in with Google'}
+            disabled={isSubmitting}
+          />
+
           <form onSubmit={handleAuthSubmit} className={styles.authForm}>
             {/* Anti-Bot Honeypot: Invisible to human users, traps automated form fillers */}
             <div
@@ -337,7 +353,26 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               />
             </div>
 
-            {authError && <div className={styles.errorAlert}>{authError}</div>}
+            {authError && (
+              <div className={styles.errorAlert} role="alert">
+                {authError}
+                {isSignUp && authErrorCode === 'email_taken' && (
+                  <button
+                    type="button"
+                    className={styles.errorAlertAction}
+                    onClick={() => {
+                      // Keep the typed email so the user can log in straight away
+                      setIsSignUp(false);
+                      setAuthError('');
+                      setAuthErrorCode('');
+                      setPassword('');
+                    }}
+                  >
+                    Log in instead
+                  </button>
+                )}
+              </div>
+            )}
 
             {isSignUp && (
               <>
@@ -1108,7 +1143,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           </div>
           <h2 className={styles.sectionTitle}>Simple, transparent pricing.</h2>
           <p className={styles.heroSubtext} style={{ marginBottom: '20px' }}>
-            Start free forever with your crew. Upgrade when you need bigger rooms and custom builds.
+            Free during the beta. Add the AI Companion whenever you want it.
           </p>
 
           <div className={styles.billingToggle}>
@@ -1169,32 +1204,70 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </NeoButton>
             </div>
 
-            {/* Paid Tier */}
+            {/* Member Tier: free during the beta */}
+            <div className={styles.pricingCard}>
+              <NeoBadge
+                color={isDark ? '#312E81' : '#EDE9FE'}
+                textColor={isDark ? '#C4B5FD' : '#5B21B6'}
+              >
+                MEMBER • FREE DURING BETA
+              </NeoBadge>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Member</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                A full account that keeps your avatar, friends and worlds.
+              </p>
+
+              <div className={styles.priceDisplay}>
+                <span>$0</span>
+                <span className={styles.pricePeriod}>during beta</span>
+              </div>
+
+              <ul className={styles.featureList}>
+                <li><CheckIcon size={16} color="#10B981" /> Full registered account &amp; profile</li>
+                <li><CheckIcon size={16} color="#10B981" /> Up to 10 permanent maps</li>
+                <li><CheckIcon size={16} color="#10B981" /> Rooms of up to 50 people</li>
+                <li><CheckIcon size={16} color="#10B981" /> World decorator &amp; custom outfits</li>
+                <li><CheckIcon size={16} color="#10B981" /> Screen sharing &amp; video calls</li>
+                <li><CheckIcon size={16} color="#10B981" /> 5 free AI Companion messages</li>
+              </ul>
+
+              <NeoButton
+                variant="secondary"
+                size="md"
+                fullWidth
+                onClick={() => {
+                  setIsSignUp(true);
+                  setAuthModalOpen(true);
+                }}
+              >
+                Create Free Account
+              </NeoButton>
+            </div>
+
+            {/* AI Companion add-on: the only paid product */}
             <div className={`${styles.pricingCard} ${styles.pricingPopular}`}>
               <NeoBadge
                 color={isDark ? '#E2F952' : '#FAB936'}
                 textColor={isDark ? '#180D26' : '#18181B'}
               >
-                PAID TIER • ALL-INCLUSIVE
+                ADD-ON • FOR ANY ACCOUNT
               </NeoBadge>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Member + AI</h3>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>AI Companion</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Full persistent account with your personalized AI Companion.
+                Your personal AI pixel pet that learns and remembers you.
               </p>
 
               <div className={styles.priceDisplay}>
-                <span>{isPricingAnnual ? '$9' : '$12'}</span>
-                <span className={styles.pricePeriod}>/ month</span>
+                <span>{isPricingAnnual ? '$45' : '$5'}</span>
+                <span className={styles.pricePeriod}>{isPricingAnnual ? '/ year' : '/ month'}</span>
               </div>
 
               <ul className={styles.featureList}>
-                <li><CheckIcon size={16} color="#10B981" /> Full registered account &amp; profile</li>
-                <li><CheckIcon size={16} color="#10B981" /> Personal AI Companion (learns from scratch)</li>
-                <li><CheckIcon size={16} color="#10B981" /> Custom AI Persona, memories &amp; sprite avatar</li>
-                <li><CheckIcon size={16} color="#10B981" /> Permanent cloud spaces &amp; world decorator</li>
-                <li><CheckIcon size={16} color="#10B981" /> Interactive screen sharing &amp; video calls</li>
-                <li><CheckIcon size={16} color="#10B981" /> High-bitrate low-latency spatial voice</li>
-                <li><CheckIcon size={16} color="#10B981" /> Custom retro outfits &amp; accessories</li>
+                <li><CheckIcon size={16} color="#10B981" /> 60 AI messages every 5 hours</li>
+                <li><CheckIcon size={16} color="#10B981" /> Memories, diary &amp; custom persona</li>
+                <li><CheckIcon size={16} color="#10B981" /> Screen Help for step-by-step tech support</li>
+                <li><CheckIcon size={16} color="#10B981" /> World guide, tours &amp; reminders</li>
+                <li><CheckIcon size={16} color="#10B981" /> Renews automatically, cancel anytime</li>
               </ul>
 
               <NeoButton
@@ -1206,10 +1279,16 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
                   setAuthModalOpen(true);
                 }}
               >
-                Create Account (Free Beta)
+                Create Account to Add AI
               </NeoButton>
             </div>
           </div>
+
+          <p className={styles.pricingFootnote}>
+            Prices in US dollars, plus any applicable tax. The AI add-on renews monthly or yearly until you cancel
+            from Manage billing. See our <Link href="/terms">Terms</Link>, <Link href="/refunds">Refund Policy</Link>{' '}
+            and <Link href="/privacy">Privacy Policy</Link>, or <Link href="/contact">contact support</Link>.
+          </p>
         </section>
 
         {/* Section 5: Mobile Downloads */}
@@ -1449,19 +1528,19 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
 
             {/* Community Column */}
             <div className={styles.footerCol}>
-              <h4 className={styles.footerHeading}>COMMUNITY</h4>
+              <h4 className={styles.footerHeading}>SUPPORT &amp; LEGAL</h4>
               <ul className={styles.footerList}>
                 <li>
-                  <span className={styles.footerStaticItem}>Community Lounge</span>
+                  <Link href="/contact" className={styles.footerLink}>Contact &amp; Support</Link>
                 </li>
                 <li>
-                  <span className={styles.footerStaticItem}>Virtual Office Hub</span>
+                  <Link href="/terms" className={styles.footerLink}>Terms of Service</Link>
                 </li>
                 <li>
-                  <span className={styles.footerStaticItem}>Privacy &amp; Safety</span>
+                  <Link href="/privacy" className={styles.footerLink}>Privacy Policy</Link>
                 </li>
                 <li>
-                  <span className={styles.footerStaticItem}>Community Guidelines</span>
+                  <Link href="/refunds" className={styles.footerLink}>Refund Policy</Link>
                 </li>
               </ul>
             </div>
@@ -1470,7 +1549,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           {/* Bottom Bar: Copyright & Back to Top */}
           <div className={styles.footerBottomBar}>
             <div className={styles.footerCopy}>
-              <span>© 2026 TeemChat Inc. All rights reserved.</span>
+              <span>© 2026 {LEGAL.companyName}. All rights reserved.</span>
               <span className={styles.footerCopyTag}>
                 • Crafted with <HeartIcon size={13} color="#EF4444" style={{ display: 'inline-flex', verticalAlign: 'middle', margin: '0 2px' }} /> for cozy virtual spaces.
               </span>

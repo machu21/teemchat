@@ -46,6 +46,18 @@ serve(async (req: Request) => {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   try {
+    // AI add-on access follows the Stripe subscription status. past_due keeps the flag
+    // while Stripe retries the card; has_active_ai_addon() only grants access for
+    // active/trialing, so the 5-hour AI window pauses until the payment succeeds.
+    const addonFields = (subscription: StripeSubscription) => ({
+      status: subscription.status,
+      has_ai_addon: ["active", "trialing", "past_due"].includes(subscription.status),
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      updated_at: new Date().toISOString(),
+    });
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as StripeSession;
@@ -55,72 +67,56 @@ serve(async (req: Request) => {
 
         if (userId && subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-          await supabaseAdmin.from("user_subscriptions").upsert({
+          const { error } = await supabaseAdmin.from("user_subscriptions").upsert({
             user_id: userId,
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
-            plan_id: session.metadata?.planId || "ai_unlimited_monthly",
-            status: subscription.status,
-            has_ai_unlimited: true,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            updated_at: new Date().toISOString(),
+            plan_id: session.metadata?.planId || "ai_addon_monthly",
+            ...addonFields(subscription),
           }, { onConflict: "user_id" });
+          if (error) throw error;
         }
         break;
       }
 
-      case "invoice.payment_succeeded": {
+      case "invoice.payment_succeeded":
+      case "invoice.payment_failed": {
         const invoice = event.data.object as StripeInvoice;
         const subscriptionId = invoice.subscription as string;
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from("user_subscriptions")
-            .update({
-              status: "active",
-              has_ai_unlimited: true,
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .update(addonFields(subscription))
             .eq("stripe_subscription_id", subscriptionId);
+          if (error) throw error;
         }
         break;
       }
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as StripeSubscription;
-        const isActive = subscription.status === "active" || subscription.status === "trialing";
-
-        await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from("user_subscriptions")
-          .update({
-            status: subscription.status,
-            has_ai_unlimited: isActive,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            updated_at: new Date().toISOString(),
-          })
+          .update(addonFields(subscription))
           .eq("stripe_subscription_id", subscription.id);
+        if (error) throw error;
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as StripeSubscription;
-
-        await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from("user_subscriptions")
           .update({
             status: "canceled",
-            has_ai_unlimited: false,
+            has_ai_addon: false,
+            cancel_at_period_end: false,
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id);
+        if (error) throw error;
         break;
       }
 

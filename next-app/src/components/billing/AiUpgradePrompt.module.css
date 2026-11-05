@@ -1,0 +1,49 @@
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+@media (max-width: 360px) {
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fineprint {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.fineprint a {
+  color: var(--text-main);
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.note,
+.error {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--text-main);
+  padding: 6px 8px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  background: rgba(214, 69, 69, 0.15);
+}

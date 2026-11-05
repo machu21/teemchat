@@ -334,7 +334,38 @@ describe('POST /api/companion/chat', () => {
 
       const data = await res.json();
       expect(data.quotaExceeded).toBe(true);
-      expect(data.response).toContain("free daily trial limit (5/5 messages)");
+      expect(data.response).toContain("used your 5 free AI messages");
+      expect(data.upgradeRequired).toBe(true);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('returns the 5-hour window message when an AI add-on holder hits their window limit', async () => {
+      const resetsAt = new Date(Date.now() + (2 * 60 + 15) * 60000 - 1000).toISOString();
+      mockRpc.mockImplementation((rpcName: string) => {
+        if (rpcName === 'check_and_increment_ai_usage') {
+          return Promise.resolve({
+            data: { allowed: false, is_trial: false, limit_type: 'window', resets_at: resetsAt },
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      const req = new NextRequest('http://localhost:3000/api/companion/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer valid-jwt-token',
+        },
+        body: JSON.stringify(validPayload()),
+      });
+
+      const res = await POST(req);
+      const data = await res.json();
+      expect(data.quotaExceeded).toBe(true);
+      expect(data.response).toContain('5-hour window');
+      expect(data.upgradeRequired).toBe(false);
+      expect(data.response).toContain('in 2h 15m');
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });
   });
