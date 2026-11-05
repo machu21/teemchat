@@ -457,7 +457,7 @@
 .messageRow {
   display: flex;
   gap: 10px;
-  align-items: flex-end;
+  align-items: flex-start;
   max-width: 85%;
 }
 
@@ -466,46 +466,48 @@
   flex-direction: row-reverse;
 }
 
+/* Matches the landing-page chat preview (page.module.css .chatAvatar) */
+.messageAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-border);
+  background: var(--card-inner);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Others: soft inner bubble, no shadow (landing .chatBubble) */
 .messageBubble {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   padding: 10px 14px;
-  border: 2px solid var(--card-border);
-  border-radius: var(--neo-radius);
+  border: 1.5px solid var(--card-border);
+  border-radius: 16px;
   background-color: var(--card-inner);
-  box-shadow: 2px 2px 0px var(--card-border);
 }
 
+/* Mine: CTA-colored pill with offset shadow (landing .chatBubbleUser) */
 .messageRow.myMessage .messageBubble {
-  background-color: #EDE9FE;
-  border-color: #6D28D9;
-  box-shadow: 2px 2px 0px #6D28D9;
+  background-color: var(--cta-btn);
+  border: 1.8px solid var(--card-border);
+  border-radius: 14px;
+  box-shadow: 1.5px 2px 0px var(--card-border);
+  padding: 8px 16px;
 }
 
-/* Own bubble is light lavender in light mode; keep its text dark so it stays readable */
 .messageRow.myMessage .messageContent {
-  color: #18181B;
+  color: var(--cta-text);
+  font-weight: 700;
 }
 
-.messageRow.myMessage .messageSender,
 .messageRow.myMessage .messageTime {
-  color: #52525B;
-}
-
-[data-theme='dark'] .messageRow.myMessage .messageBubble {
-  background-color: rgba(139, 92, 246, 0.28);
-  border-color: var(--primary-hover);
-  box-shadow: 2px 2px 0px #000000;
-}
-
-[data-theme='dark'] .messageRow.myMessage .messageContent {
-  color: var(--text-main);
-}
-
-[data-theme='dark'] .messageRow.myMessage .messageSender,
-[data-theme='dark'] .messageRow.myMessage .messageTime {
-  color: var(--text-muted);
+  color: var(--cta-text);
+  opacity: 0.65;
 }
 
 .messageSender {
@@ -515,15 +517,15 @@
 }
 
 .messageContent {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
   word-break: break-word;
   color: var(--text-main);
 }
 
 .messageTime {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--text-subtle);
   align-self: flex-end;

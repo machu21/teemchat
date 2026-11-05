@@ -305,7 +305,9 @@ export function MessengerDrawer() {
                       className={`${styles.messageRow} ${isMine ? styles.myMessage : ''}`}
                     >
                       {!isMine && m.senderAvatar && (
-                        <PixelAvatar config={m.senderAvatar} size={28} />
+                        <span className={styles.messageAvatar}>
+                          <PixelAvatar config={m.senderAvatar} size={26} />
+                        </span>
                       )}
                       <div className={styles.messageBubble}>
                         {!isMine && (
