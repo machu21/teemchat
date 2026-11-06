@@ -73,7 +73,7 @@ export class DirectMessageService {
             displayName: profile?.display_name || profile?.username || 'Explorer',
             username: profile?.username || 'explorer',
             avatarConfig: profile?.avatar_config || defaultAvatarConfig,
-            isOnline: true,
+            isOnline: false, // overlaid from dashboard presence in the social store
             status: (profile?.status as FriendModel['status']) || 'available',
             statusMessage: profile?.status_message || undefined,
           },

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { UserSession, createGuestSession } from '@/lib/models/user';
 import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
 import { SpaceService } from '@/lib/services/spaces';
+import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
 import {
   AvatarConfig,
   Gender,
@@ -557,6 +558,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   signOut: async () => {
     const current = get().session;
+    // Leave dashboard presence first, while the socket and JWT are still valid,
+    // so friends see this user go offline immediately.
+    await DashboardPresenceService.leave();
     try {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('teem_guest_session');

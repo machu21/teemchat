@@ -1,0 +1,41 @@
+# Progress — worker_m2_1
+
+Last visited: 2026-11-06T03:45:00Z
+
+- [x] Initial dispatch received & environment initialized
+- [x] BRIEFING.md and progress.md created
+- [x] Review ORIGINAL_REQUEST.md, PROJECT.md, TEST_INFRA.md, and Explorer handoffs 1, 2, 3
+- [x] Implement Database Schema & Security Fixes (`supabase/migrations/20261109_admin_dashboard_backend.sql`, `supabase/schema.sql`):
+  - `guard_profile_system_role()` updated for `BEFORE INSERT OR UPDATE` with `TG_OP` checks
+  - `is_system_admin` and `get_admin_overview_metrics` secured with `set search_path = public, pg_temp`
+  - Access control and privilege checks added to `get_admin_overview_metrics` and revoked from public/anon
+  - Covering indexes added for `profiles(created_at)`, `user_subscriptions(status)`, `billing_invoices(status, amount_cents)`, and `ai_usage(usage_date)`
+- [x] Update Database TypeScript Types (`next-app/src/lib/database.types.ts`):
+  - Verified `profiles.system_role`, `profiles.gender`, and `guest_provision_log`
+  - Added `get_admin_overview_metrics` under `Functions`
+- [x] Implement Admin Auth & Client remediations:
+  - `next-app/src/lib/admin/adminAuth.ts`: added `crypto.timingSafeEqual` and `banned`/`suspended` status check
+  - `next-app/src/lib/services/adminClient.ts`: default `space_roles` sorting to `priority`
+- [x] Implement Route Handler remediations & UI Fix:
+  - `metrics/route.ts`: clean typed rpc
+  - `users/route.ts`: search sanitization (comma/parens), rollback auth user on profile upsert error
+  - `users/[id]/route.ts`: parallel `Promise.all` queries for dossier, superadmin protection in PATCH, password reset audit logging, soft-ban error checking, typed updates
+  - `payments/subscriptions/route.ts`: search filtering, typed updates
+  - `payments/invoices/route.ts`: search filtering
+  - `logs/route.ts`: search sanitization, `ai_usage` search support
+  - `crud/[entity]/route.ts`: `space_roles` default sorting to `priority`, typed `DynamicTableClient`
+  - `crud/[entity]/[id]/route.ts`: dynamic PK (`space_id` for `space_settings`), conditional `updated_at`, typed `DynamicTableClient`
+  - `LogsTab.tsx`: `endDate` converted to end of day (`23:59:59.999Z`)
+- [x] Implement & Expand Vitest Test Suites:
+  - [x] `tests/api/admin_metrics.test.ts`: Created new test suite (11/11 tests passing)
+  - [x] `tests/api/admin_auth.test.ts`: Expanded test suite (12/12 tests passing)
+  - [x] `tests/api/admin_users.test.ts`: Expanded test suite (21/21 tests passing)
+  - [x] `tests/api/admin_payments.test.ts`: Expanded test suite (13/13 tests passing)
+  - [x] `tests/api/admin_logs.test.ts`: Expanded test suite (16/16 tests passing)
+  - [x] `tests/api/admin_crud.test.ts`: Expanded test suite (15/15 tests passing)
+- [x] Run full test verification (`npm test`), lint (`npm run lint`), type-check (`npx tsc --noEmit`), build (`npm run build`)
+  - Vitest: 53 test files passed, 715 tests passed, 0 failures
+  - ESLint: 0 errors, 0 warnings
+  - TypeScript: 0 errors, 0 warnings
+  - Next.js Build: Compiled successfully, 29 static pages generated
+- [x] Write handoff.md and send completion message to parent

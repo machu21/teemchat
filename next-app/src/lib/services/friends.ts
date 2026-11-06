@@ -255,7 +255,7 @@ export class FriendService {
           status: (profile.status as FriendModel['status']) || 'available',
           statusMessage: profile.status_message || undefined,
           avatarConfig: profile.avatar_config || defaultAvatarConfig,
-          isOnline: true,
+          isOnline: false, // overlaid from dashboard presence in the social store
         }];
       });
 
@@ -545,7 +545,7 @@ export class FriendService {
         displayName: tempReq?.sender?.displayName || fallbackRequest?.senderName || 'Explorer',
         status: 'available',
         avatarConfig: tempReq?.sender?.avatarConfig || fallbackRequest?.senderAvatar || defaultAvatarConfig,
-        isOnline: true,
+        isOnline: false, // overlaid from dashboard presence in the social store
         isTemporary: true,
       };
       this.saveTemporaryFriend(newFriend);
@@ -652,7 +652,7 @@ export class FriendService {
               displayName: (payload.receiverName as string) || 'Explorer',
               status: 'available',
               avatarConfig: normalizeAvatarConfig(payload.receiverAvatar),
-              isOnline: true,
+              isOnline: false, // overlaid from dashboard presence in the social store
               isTemporary: true,
             };
             FriendService.saveTemporaryFriend(newFriend);

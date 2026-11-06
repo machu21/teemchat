@@ -206,7 +206,13 @@ export function MessengerDrawer() {
               )}
               <div className={styles.chatHeaderInfo}>
                 <span className={styles.chatHeaderTitle}>{activeChat.title}</span>
-                <span className={styles.chatHeaderStatus}>{activeChat.statusText}</span>
+                <span
+                  className={`${styles.chatHeaderStatus} ${
+                    activeChat.type === 'dm' && !activeChat.isOnline ? styles.chatHeaderStatusOffline : ''
+                  }`}
+                >
+                  {activeChat.statusText}
+                </span>
               </div>
 
               {/* Call Action Buttons in Header */}

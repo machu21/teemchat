@@ -338,6 +338,11 @@
   color: #34D399;
 }
 
+.chatHeaderStatus.chatHeaderStatusOffline,
+[data-theme='dark'] .chatHeaderStatus.chatHeaderStatusOffline {
+  color: var(--text-muted);
+}
+
 .chatHeaderActions {
   margin-left: auto;
   display: flex;

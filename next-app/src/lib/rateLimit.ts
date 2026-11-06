@@ -33,6 +33,10 @@ export const RATE_LIMITS = {
   GUEST_CREATE: { max: 10, windowMs: 15 * 60 * 1000 } as const,
   // Standard API routes limit
   DEFAULT_API: { max: 60, windowMs: 60 * 1000 } as const,
+  // Admin API reading limit
+  ADMIN_API: { max: 120, windowMs: 60 * 1000 } as const,
+  // Admin API write/mutation limit
+  ADMIN_MUTATION: { max: 40, windowMs: 60 * 1000 } as const,
 };
 
 export class RateLimiter {

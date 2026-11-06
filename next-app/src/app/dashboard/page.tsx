@@ -200,16 +200,23 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   });
 
+  // Auth events (token refresh, tab refocus) replace the session object for the same user.
+  // initSocial only updates presence for an already-connected user, so this is cheap.
   useEffect(() => {
     if (session) {
       loadSpaces();
       initSocial(session.id, session.displayName, session.avatarConfig);
     }
+  }, [session, loadSpaces, initSocial]);
 
+  // Tear the social sockets down only when the user changes or the page unmounts;
+  // tearing down on every session object change made friends see us leave and rejoin.
+  const sessionUserId = session?.id;
+  useEffect(() => {
     return () => {
       cleanupSocial();
     };
-  }, [session, loadSpaces, initSocial, cleanupSocial]);
+  }, [sessionUserId, cleanupSocial]);
 
   const togglePinSpace = (spaceId: string) => {
     setPinnedSpaceIds((prev) => {

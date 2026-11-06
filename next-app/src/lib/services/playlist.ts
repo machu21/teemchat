@@ -87,6 +87,37 @@ function getLocalCustomTracks(spaceId: string): PlaylistTrack[] {
   }
 }
 
+const AUDIO_BUCKET = 'space-audio';
+
+/**
+ * Normalize a stored cloud audio URL into one that is valid right now.
+ * - `blob:` URLs are tab-local and returned unchanged (callers restore them from IndexedDB).
+ * - Supabase signed URLs (`/object/sign/space-audio/<path>?token=...`) expire, so they are
+ *   rewritten to the bucket's permanent public URL.
+ * - Bare storage paths (`<space_id>/<file>.mp3` or `space-audio/<...>`) are resolved to a public URL.
+ */
+export function resolveStoredAudioUrl(rawUrl: string): string {
+  const url = (rawUrl || '').trim();
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return url;
+
+  let storagePath: string | null = null;
+  const marker = `/storage/v1/object/sign/${AUDIO_BUCKET}/`;
+  const signIdx = url.indexOf(marker);
+  if (signIdx !== -1) {
+    storagePath = decodeURIComponent(url.slice(signIdx + marker.length).split('?')[0]);
+  } else if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+    storagePath = url.replace(/^\/+/, '').replace(new RegExp(`^${AUDIO_BUCKET}/`), '');
+  }
+
+  if (!storagePath) return url;
+  try {
+    const { data } = supabase.storage.from(AUDIO_BUCKET).getPublicUrl(storagePath);
+    return data?.publicUrl || url;
+  } catch {
+    return url;
+  }
+}
+
 function saveLocalCustomTracks(spaceId: string, tracks: PlaylistTrack[]): void {
   if (typeof window === 'undefined') return;
   try {
@@ -98,6 +129,7 @@ export class PlaylistService {
   private static audio: HTMLAudioElement | null = null;
   private static memoryBlobs = new Map<string, Blob>();
   private static liveObjectUrls = new Set<string>();
+  private static healAttempted = new Set<string>();
   static currentTrack: PlaylistTrack | null = null;
   static isPlaying: boolean = false;
   static volume: number = 0.7;
@@ -173,6 +205,46 @@ export class PlaylistService {
     }
   }
 
+  /**
+   * Upload a locally cached blob for a cloud track whose audio_url is a dead `blob:` URL,
+   * then point the space_playlists row at the permanent public Storage URL.
+   * RLS limits the row update to the track creator or space owner; others no-op.
+   */
+  private static async healBlobBackedCloudTrack(track: PlaylistTrack, blob: Blob): Promise<void> {
+    if (this.healAttempted.has(track.id) || !UUID_REGEX.test(track.id) || !UUID_REGEX.test(track.spaceId)) {
+      return;
+    }
+    this.healAttempted.add(track.id);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid || (track.createdBy && track.createdBy !== uid)) return;
+
+      const storagePath = `${track.spaceId}/${track.id}.mp3`;
+      const { error: upErr } = await supabase.storage
+        .from(AUDIO_BUCKET)
+        .upload(storagePath, blob, { contentType: 'audio/mpeg', upsert: true });
+      if (upErr) {
+        console.warn('Could not re-upload playlist audio to Storage:', upErr.message);
+        return;
+      }
+
+      const { data: pubData } = supabase.storage.from(AUDIO_BUCKET).getPublicUrl(storagePath);
+      const publicUrl = pubData?.publicUrl;
+      if (!publicUrl) return;
+
+      const { error: updErr } = await supabase
+        .from('space_playlists')
+        .update({ audio_url: publicUrl })
+        .eq('id', track.id);
+      if (updErr) {
+        console.warn('Could not repair playlist track URL:', updErr.message);
+      }
+    } catch (e) {
+      console.warn('Playlist track repair failed:', e);
+    }
+  }
+
   static async loadPlaylist(spaceId: string): Promise<void> {
     this.init();
     let cloudTracks: PlaylistTrack[] = [];
@@ -196,7 +268,7 @@ export class PlaylistService {
             spaceId: String(d.space_id),
             title: String(d.title),
             artist: String(d.artist || 'Space Artist'),
-            audioUrl: String(d.audio_url),
+            audioUrl: resolveStoredAudioUrl(String(d.audio_url || '')),
             durationSeconds: Number(d.duration_seconds) || 180,
             createdBy: String(d.created_by || ''),
             createdAt: String(d.created_at || ''),
@@ -233,9 +305,18 @@ export class PlaylistService {
       if (blob) {
         await saveTrackAudioBlob(cTrack.id, blob);
         await saveTrackAudioBlob(metaKey, blob);
-        if (cTrack.audioUrl.startsWith('blob:') && !this.liveObjectUrls.has(cTrack.audioUrl)) {
-          cTrack.audioUrl = this.createLiveObjectUrl(blob);
+        if (cTrack.audioUrl.startsWith('blob:')) {
+          // The DB row holds a tab-local blob: URL (storage upload failed at upload time).
+          // We still have the audio locally, so push it to Storage and repair the row.
+          void this.healBlobBackedCloudTrack(cTrack, blob);
+          if (!this.liveObjectUrls.has(cTrack.audioUrl)) {
+            cTrack.audioUrl = this.createLiveObjectUrl(blob);
+          }
         }
+      } else if (cTrack.audioUrl.startsWith('blob:')) {
+        console.warn(
+          `Playlist track "${cTrack.title}" has no cloud audio file and no local copy in this browser; re-upload it to play.`
+        );
       }
     }
 
@@ -619,27 +700,31 @@ export class PlaylistService {
     // so newTrack.id is finalized BEFORE saving to IndexedDB and localStorage
     if (session && !session.isGuest && UUID_REGEX.test(spaceId)) {
       try {
-        let cloudAudioUrl = objectUrl;
-
-        // Try Supabase Storage upload
+        // Upload to Supabase Storage and keep the permanent public URL (never a signed or blob: URL)
+        let cloudAudioUrl: string | null = null;
         try {
           const storagePath = `${spaceId}/${trackId}.mp3`;
           const { data: stData, error: stErr } = await supabase.storage
-            .from('space-audio')
+            .from(AUDIO_BUCKET)
             .upload(storagePath, file, {
               contentType: 'audio/mpeg',
               upsert: true,
             });
 
           if (!stErr && stData) {
-            const { data: pubData } = supabase.storage.from('space-audio').getPublicUrl(storagePath);
+            const { data: pubData } = supabase.storage.from(AUDIO_BUCKET).getPublicUrl(storagePath);
             if (pubData?.publicUrl) {
               cloudAudioUrl = pubData.publicUrl;
             }
+          } else if (stErr) {
+            console.warn('Track audio upload to Storage failed; keeping track local-only:', stErr.message);
           }
         } catch {}
 
-        // Insert into space_playlists table
+        // Only share the track via space_playlists when its audio is actually in Storage.
+        // A tab-local blob: URL in the DB stops playing after a reload and for everyone else.
+        if (!cloudAudioUrl) throw new Error('Storage upload unavailable');
+
         const { data: insertedData } = await supabase
           .from('space_playlists')
           .insert({
@@ -748,6 +833,13 @@ export class PlaylistService {
     if (session && !session.isGuest && UUID_REGEX.test(trackId)) {
       try {
         await supabase.from('space_playlists').delete().eq('id', trackId);
+        const marker = `/storage/v1/object/public/${AUDIO_BUCKET}/`;
+        const url = trackToDelete?.audioUrl || '';
+        const idx = url.indexOf(marker);
+        if (idx !== -1) {
+          const path = decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+          await supabase.storage.from(AUDIO_BUCKET).remove([path]);
+        }
       } catch (e) {
         console.warn('Notice deleting track from Supabase:', e);
       }

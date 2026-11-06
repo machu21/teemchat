@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string | null
+          changes_after: Json | null
+          changes_before: Json | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          target_id: string | null
+          target_table: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          changes_after?: Json | null
+          changes_before?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_table?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          changes_after?: Json | null
+          changes_before?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_table?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_companions: {
         Row: {
           avatar_style: string
@@ -541,6 +588,24 @@ export type Database = {
           },
         ]
       }
+      guest_provision_log: {
+        Row: {
+          client_ip: string
+          created_at: string
+          id: number
+        }
+        Insert: {
+          client_ip: string
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          client_ip?: string
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
       friendships: {
         Row: {
           created_at: string
@@ -941,11 +1006,13 @@ export type Database = {
           avatar_config: Json
           created_at: string
           display_name: string
+          gender: string | null
           has_ai_companion: boolean
           id: string
           is_paid: boolean
           status: string
           status_message: string | null
+          system_role: string
           tier: string
           updated_at: string
           username: string | null
@@ -954,11 +1021,13 @@ export type Database = {
           avatar_config?: Json
           created_at?: string
           display_name?: string
+          gender?: string | null
           has_ai_companion?: boolean
           id: string
           is_paid?: boolean
           status?: string
           status_message?: string | null
+          system_role?: string
           tier?: string
           updated_at?: string
           username?: string | null
@@ -967,11 +1036,13 @@ export type Database = {
           avatar_config?: Json
           created_at?: string
           display_name?: string
+          gender?: string | null
           has_ai_companion?: boolean
           id?: string
           is_paid?: boolean
           status?: string
           status_message?: string | null
+          system_role?: string
           tier?: string
           updated_at?: string
           username?: string | null
@@ -1965,6 +2036,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_admin_overview_metrics: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      is_system_admin: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       check_and_increment_ai_usage: {
         Args: { p_daily_limit?: number }
         Returns: Json

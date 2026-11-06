@@ -4,7 +4,7 @@ import { AvatarConfig } from '../lib/models/avatar';
 import { FriendService } from '../lib/services/friends';
 import { DirectMessageService } from '../lib/services/directMessages';
 import { GroupChatService } from '../lib/services/groupChat';
-import { DashboardPresenceService } from '../lib/services/dashboardPresence';
+import { DashboardPresenceService, PresenceUser } from '../lib/services/dashboardPresence';
 
 interface ActiveChatSession {
   type: 'dm' | 'group';
@@ -14,6 +14,8 @@ interface ActiveChatSession {
   otherUserId?: string;
   avatarConfig?: AvatarConfig;
   statusText?: string;
+  /** The friend's saved profile status message, used when presence has none. */
+  statusMessage?: string;
   isOnline?: boolean;
 }
 
@@ -51,6 +53,56 @@ interface SocialStoreState {
 }
 
 let presenceUnsubscribe: (() => void) | null = null;
+
+/**
+ * Online status comes only from the dashboard presence channel. The DB has no
+ * notion of "online", so anything loaded from it is overlaid with the current
+ * presence snapshot — otherwise a refresh would mark closed sessions online.
+ */
+function applyPresenceToFriends(friends: FriendModel[], onlineMap: Map<string, PresenceUser>): FriendModel[] {
+  return friends.map((f) => {
+    const presence = onlineMap.get(f.userId);
+    return {
+      ...f,
+      isOnline: Boolean(presence),
+      currentSpace: presence ? presence.currentSpace : undefined,
+      status: presence?.status || f.status,
+      statusMessage: presence?.statusMessage || f.statusMessage,
+    };
+  });
+}
+
+function applyPresenceToConversations(
+  conversations: DirectConversationModel[],
+  onlineMap: Map<string, PresenceUser>
+): DirectConversationModel[] {
+  return conversations.map((c) => ({
+    ...c,
+    otherUser: { ...c.otherUser, isOnline: onlineMap.has(c.otherUser.id) },
+  }));
+}
+
+function dmStatusText(presence: PresenceUser | undefined, fallbackStatusMessage?: string): string {
+  if (presence?.currentSpace) return `In ${presence.currentSpace.name}`;
+  return presence?.statusMessage || fallbackStatusMessage || (presence ? 'Online' : 'Offline');
+}
+
+/** Keeps an open DM header in step with the other user's live presence. */
+function applyPresenceToActiveChat(
+  chat: ActiveChatSession | null,
+  onlineMap: Map<string, PresenceUser>
+): ActiveChatSession | null {
+  if (!chat || chat.type !== 'dm' || !chat.otherUserId) return chat;
+  const presence = onlineMap.get(chat.otherUserId);
+  const isOnline = Boolean(presence);
+  const statusText = dmStatusText(presence, chat.statusMessage);
+  if (chat.isOnline === isOnline && chat.statusText === statusText) return chat;
+  return { ...chat, isOnline, statusText };
+}
+
+function currentOnlineMap(): Map<string, PresenceUser> {
+  return new Map(DashboardPresenceService.getOnlineUsers().map((u) => [u.userId, u]));
+}
 
 export const useSocialStore = create<SocialStoreState>((set, get) => ({
   friends: [],
@@ -97,21 +149,11 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
     // 2. Presence listener to update online status & current space of friends
     presenceUnsubscribe = DashboardPresenceService.subscribe((onlineUsers) => {
       const onlineMap = new Map(onlineUsers.map((u) => [u.userId, u]));
-      const currentFriends = get().friends;
-
-      if (currentFriends.length > 0) {
-        const updated = currentFriends.map((f) => {
-          const presence = onlineMap.get(f.userId);
-          return {
-            ...f,
-            isOnline: Boolean(presence),
-            currentSpace: presence?.currentSpace || f.currentSpace,
-            status: presence?.status || f.status,
-            statusMessage: presence?.statusMessage || f.statusMessage,
-          };
-        });
-        set({ friends: updated });
-      }
+      set({
+        friends: applyPresenceToFriends(get().friends, onlineMap),
+        conversations: applyPresenceToConversations(get().conversations, onlineMap),
+        activeChat: applyPresenceToActiveChat(get().activeChat, onlineMap),
+      });
     });
 
     // 3. Load initial datasets
@@ -142,7 +184,7 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
 
   refreshFriends: async (userId: string) => {
     const data = await FriendService.getFriends(userId);
-    set({ friends: data });
+    set({ friends: applyPresenceToFriends(data, currentOnlineMap()) });
   },
 
   refreshRequests: async (userId: string) => {
@@ -156,7 +198,7 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
 
   refreshConversations: async (userId: string) => {
     const list = await DirectMessageService.getConversations(userId);
-    set({ conversations: list });
+    set({ conversations: applyPresenceToConversations(list, currentOnlineMap()) });
   },
 
   refreshGroups: async (userId: string) => {
@@ -182,18 +224,19 @@ export const useSocialStore = create<SocialStoreState>((set, get) => ({
   openDirectChat: async (friend: FriendModel, currentUserId: string) => {
     const conversationId = await DirectMessageService.getOrCreateConversation(currentUserId, friend.userId);
 
+    // Status comes from live presence, not the caller's (possibly stale) copy of the friend.
+    const chat: ActiveChatSession = {
+      type: 'dm',
+      id: conversationId,
+      title: friend.displayName,
+      otherUserId: friend.userId,
+      avatarConfig: friend.avatarConfig,
+      statusMessage: friend.statusMessage,
+    };
     set({
       isDrawerOpen: true,
       activeDrawerTab: 'dms',
-      activeChat: {
-        type: 'dm',
-        id: conversationId,
-        title: friend.displayName,
-        otherUserId: friend.userId,
-        avatarConfig: friend.avatarConfig,
-        statusText: friend.currentSpace ? `In ${friend.currentSpace.name}` : friend.statusMessage || (friend.isOnline ? 'Online' : 'Offline'),
-        isOnline: friend.isOnline,
-      },
+      activeChat: applyPresenceToActiveChat(chat, currentOnlineMap()),
     });
   },
 

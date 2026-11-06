@@ -57,7 +57,7 @@ vi.mock('../src/lib/supabase', () => {
   };
 });
 
-import { PlaylistService } from '../src/lib/services/playlist';
+import { PlaylistService, resolveStoredAudioUrl } from '../src/lib/services/playlist';
 import { SpaceService } from '../src/lib/services/spaces';
 import { WorldSyncService } from '../src/lib/services/worldSync';
 import { renderVillageMap } from '../src/game/map/maps/villageMap';
@@ -360,5 +360,21 @@ describe('Space Service & Live Theme Synchronization', () => {
     sync.broadcastMapTheme('nightclub');
 
     expect(themeChangedSpy).toHaveBeenCalledWith('nightclub');
+  });
+});
+
+describe('resolveStoredAudioUrl', () => {
+  it('rewrites expiring Supabase signed URLs and bare storage paths to the public URL', () => {
+    expect(
+      resolveStoredAudioUrl(
+        'https://x.supabase.co/storage/v1/object/sign/space-audio/space-1/track.mp3?token=abc'
+      )
+    ).toBe('https://storage.test/test.mp3');
+    expect(resolveStoredAudioUrl('space-1/track.mp3')).toBe('https://storage.test/test.mp3');
+  });
+
+  it('leaves blob: URLs and permanent https URLs untouched', () => {
+    expect(resolveStoredAudioUrl('blob:http://localhost:3000/abc')).toBe('blob:http://localhost:3000/abc');
+    expect(resolveStoredAudioUrl('https://cdn.example.com/a.mp3')).toBe('https://cdn.example.com/a.mp3');
   });
 });

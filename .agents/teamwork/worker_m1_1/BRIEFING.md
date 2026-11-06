@@ -1,64 +1,66 @@
-# BRIEFING — 2026-11-03T20:50:00Z
+# BRIEFING — 2026-11-05T22:33:00Z
 
 ## Mission
-Implement robust, comprehensive automated test suites for all 5 Next.js API route handlers in `next-app/tests/api/` and author an exhaustive API Behavior Audit Report in `next-app/API_BEHAVIOR_AUDIT.md`.
+Implement complete production Admin Dashboard UI at `/admin` for TeemChat with Neo-brutalist design system, zero emojis, capability-gated navigation, 5 tab views, typed client service, and comprehensive unit/integration test suites.
 
 ## 🔒 My Identity
 - Archetype: teamwork_worker
-- Roles: implementer, qa, specialist (API Test & Audit Worker)
+- Roles: implementer, qa, specialist
 - Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\
-- Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
-- Milestone: milestone_1
+- Original parent: b94baafd-665a-4ce2-870b-448b49783b93
+- Milestone: Milestone 1: Production Admin Dashboard UI Implementation & Test Suite
 
 ## 🔒 Key Constraints
-- Exclusive write ownership:
-  - `next-app/tests/api/` (and all files inside)
-  - `next-app/API_BEHAVIOR_AUDIT.md`
-  - Working directory: `.agents/teamwork/worker_m1_1/`
-- Never modify source files outside ownership without permission.
-- DO NOT CHEAT: all tests and implementations must be genuine, maintain real state, assert real logic.
-- All tests must pass (existing 154+ unit tests + 105 new API tests = 282 total tests passing).
-- Must reset rate limiters and mocks between tests for complete test isolation.
+- DO NOT CHEAT. All implementations must be genuine.
+- Zero emojis across all admin UI elements (100% SVG vector icons).
+- Adhere strictly to TeemChat Neo-brutalist design system (2.5px solid borders, 3.5px hard zero-blur drop shadows, Plus Jakarta Sans, light/dark dual themes).
+- 0 ESLint errors and 0 warnings on `npm run lint`.
+- 100% test pass on `npm test` (all existing 515 tests + new admin tests).
+- Guard routes on mount with `GET /api/admin/auth/verify`.
+- Specific edge case handling for `space_settings` (PK `space_id`, sort `updated_at`) and `space_members` (sort `joined_at`).
+- Protection against self-deletion and unauthorized role promotion.
 
 ## Current Parent
-- Conversation ID: f7d714a1-bf43-49e6-b994-19f708dca4d9
-- Updated: 2026-11-03T20:50:00Z
+- Conversation ID: b94baafd-665a-4ce2-870b-448b49783b93
+- Updated: not yet
 
 ## Task Summary
-- **What to build**: 5 Vitest test suites in `next-app/tests/api/` (`guest_identity.test.ts`, `register.test.ts`, `chat.test.ts`, `screen_help.test.ts`, `livekit_token.test.ts`) covering all 5 Next.js route handlers with thorough status code, payload, rate limit, anti-bot, auth, and error handling coverage.
-- **Audit report**: Exhaustive `next-app/API_BEHAVIOR_AUDIT.md` (and copies in worker & orchestrator dirs).
-- **Success criteria**: All tests pass, 100% genuine logic, clean exit 0 on `vitest run tests/api/` (105 tests) and `npm test` (282 tests), clean ESLint (0 errors), comprehensive documentation.
-- **Interface contracts**: `PROJECT.md`, `TEST_INFRA.md`, API route implementations in `src/app/api/`.
-
-## Key Decisions Made
-- [Decision 1]: Authored 5 isolated, self-contained test files in `next-app/tests/api/` using in-memory direct route invocation with `NextRequest`.
-- [Decision 2]: Used `vi.hoisted` to initialize mock constructors (`GoogleGenAI`, `AccessToken`) and environment variables prior to module evaluation.
-- [Decision 3]: Used `vi.mock` to resolve `@/` internal library aliases cleanly for Vitest.
-- [Decision 4]: Covered all status codes: 200, 400, 401, 403, 429, 500 across all endpoints with both success and failure payloads.
-- [Decision 5]: Produced a 490-line comprehensive `API_BEHAVIOR_AUDIT.md` documenting architecture, schemas, edge cases, and verification results.
-
-## Artifact Index
-- `next-app/tests/api/guest_identity.test.ts` — Test suite for `GET /api/auth/guest-identity` (12 tests)
-- `next-app/tests/api/register.test.ts` — Test suite for `POST /api/auth/register` (35 tests)
-- `next-app/tests/api/chat.test.ts` — Test suite for `POST /api/companion/chat` (16 tests)
-- `next-app/tests/api/screen_help.test.ts` — Test suite for `POST /api/companion/screen-help` (20 tests)
-- `next-app/tests/api/livekit_token.test.ts` — Test suite for `POST /api/livekit/token` (22 tests)
-- `next-app/API_BEHAVIOR_AUDIT.md` — Full API Behavior & Security Audit Report
-- `.agents/teamwork/worker_m1_1/handoff.md` — Handoff report
+- **What to build**:
+  1. `next-app/src/lib/services/adminClient.ts`
+  2. `next-app/src/app/admin/admin.module.css`
+  3. `next-app/src/app/admin/components/AdminIcons.tsx`
+  4. `next-app/src/app/admin/components/AdminNav.tsx`
+  5. `next-app/src/app/admin/page.tsx`
+  6. `next-app/src/app/admin/components/OverviewTab.tsx`
+  7. `next-app/src/app/admin/components/UsersTab.tsx`
+  8. `next-app/src/app/admin/components/PaymentsTab.tsx`
+  9. `next-app/src/app/admin/components/LogsTab.tsx`
+  10. `next-app/src/app/admin/components/CrudTab.tsx`
+  11. `next-app/tests/admin_client.test.ts`
+  12. `next-app/tests/admin_guard.test.ts`
+- **Success criteria**: 0 ESLint errors, 100% test pass, full feature compliance.
+- **Interface contracts**: PROJECT.md, client_service_plan.md, ui_shell_users_plan.md, payments_logs_crud_plan.md
+- **Code layout**: PROJECT.md § Code Layout
 
 ## Change Tracker
-- **Files modified**: None outside ownership.
-- **Files created**:
-  - `next-app/tests/api/guest_identity.test.ts`
-  - `next-app/tests/api/register.test.ts`
-  - `next-app/tests/api/chat.test.ts`
-  - `next-app/tests/api/screen_help.test.ts`
-  - `next-app/tests/api/livekit_token.test.ts`
-  - `next-app/API_BEHAVIOR_AUDIT.md`
-- **Build status**: `npm test` passed (282/282 tests green). `npm run lint` passed (0 errors).
-- **Pending issues**: None. All requirements fulfilled.
+- **Files modified**: none yet
+- **Build status**: baseline running
+- **Pending issues**: none
 
 ## Quality Status
-- **Build/test result**: Pass. 24 test files passed (282 tests). Execution time ~6.2s.
-- **Lint status**: 0 ESLint errors/warnings.
-- **Tests added/modified**: 105 tests added across 5 test suites. All passing.
+- **Build/test result**: baseline running
+- **Lint status**: 0 outstanding
+- **Tests added/modified**: pending creation
+
+## Loaded Skills
+- None requested to load locally
+
+## Key Decisions Made
+- Strictly use vector SVGs across all admin UI elements (ZERO emojis).
+- Adhere to the design system CSS variables and NeoCard/NeoButton/NeoBadge/NeoInput/NeoModal patterns.
+- Implement robust typed AdminClientService with custom error handling (`AdminApiError`).
+- Write node-compatible Vitest unit tests in `admin_client.test.ts` and `admin_guard.test.ts`.
+
+## Artifact Index
+- `handoff.md` — 5-component completion report
+- `progress.md` — liveness heartbeat

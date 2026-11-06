@@ -1,58 +1,41 @@
-## 2026-11-03T20:31:00Z
-You are worker_m1_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\
-Your identity is: teamwork_worker
-Your role is: API Test & Audit Worker
+# Task Assignment: Complete Production Admin Dashboard UI Implementation & Test Suite
 
-MANDATORY FIRST STEP:
-Read the user's original request file at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
-Also read the project architecture, test infrastructure, and explorer handoffs at:
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_1\handoff.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_2\handoff.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_spec_miner_survey_3\handoff.md
+**Role**: teamwork_worker
+**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\
+**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
 
-MANDATORY INTEGRITY WARNING:
+## Mandatory Integrity Warning
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-The team must NOT: copy code from existing open-source projects for core logic.
 
-EXCLUSIVE WRITE OWNERSHIP:
-You own exclusively:
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app\tests\api\` (and all files inside it)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app\API_BEHAVIOR_AUDIT.md`
-- Your working directory: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\`
+## Objective
+Implement the complete, production-grade Admin Dashboard UI at `/admin` for TeemChat, strictly following the architectural specifications and blueprints prepared by the survey and explorer agents. Ensure 0 ESLint errors and 100% green tests with zero regressions.
 
-OBJECTIVES & REQUIREMENTS:
-1. Implement automated test suites in `next-app/tests/api/` covering all five (5) Next.js route handlers:
-   - `tests/api/guest_identity.test.ts` (`GET /api/auth/guest-identity`)
-   - `tests/api/register.test.ts` (`POST /api/auth/register`)
-   - `tests/api/chat.test.ts` (`POST /api/companion/chat`)
-   - `tests/api/screen_help.test.ts` (`POST /api/companion/screen-help`)
-   - `tests/api/livekit_token.test.ts` (`POST /api/livekit/token`)
+### Reference Documents
+1. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
+3. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_1\client_service_plan.md` (Client SDK & admin_client.test.ts)
+5. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md` (CSS, Icons, Nav, Page guard, OverviewTab, UsersTab)
+6. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md` (PaymentsTab, LogsTab, CrudTab, admin_guard.test.ts)
+7. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\design_system_report.md` (CSS Tokens, Components, Zero Emojis)
+8. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md` (API Schemas & Endpoints)
 
-2. Test Coverage Requirements:
-   - Cover every endpoint with both valid input scenarios and error/edge cases.
-   - Assert exact status codes: 200, 400, 401, 403, 429, 500.
-   - Assert response payload structures (both success JSON and error JSON).
-   - Test rate limiting, anti-bot honeypots, form timing, disposable email filters, guest restrictions, quota exhaustion, and room authorization rules.
-   - Ensure test isolation: reset `defaultRateLimiter.reset()` in `beforeEach()`, mock `@supabase/supabase-js`, `@google/genai`, and `livekit-server-sdk` cleanly.
+### Files to Implement (Exclusive Write Ownership)
+1. `next-app/src/lib/services/adminClient.ts`: Admin API client service
+2. `next-app/src/app/admin/admin.module.css`: Neo-brutalist styling (2.5px solid borders, 3.5px hard zero-blur drop shadows, dark mode overrides)
+3. `next-app/src/app/admin/components/AdminIcons.tsx`: 100% pure inline SVG icons (STRICTLY ZERO EMOJIS anywhere)
+4. `next-app/src/app/admin/components/AdminNav.tsx`: Capability-gated navigation pills (`canManageUsers`, `canViewPaymentLogs`, `canViewSystemLogs`, `canExecuteCrud`, `canAssignSuperadmin`)
+5. `next-app/src/app/admin/page.tsx`: Route guard on mount (`GET /api/admin/auth/verify`), handling `CHECKING`, `UNAUTHENTICATED` (with optional dev key input), `FORBIDDEN`, and `AUTHORIZED` admin portal
+6. `next-app/src/app/admin/components/OverviewTab.tsx`: Summary metric cards matching backend RPC `get_admin_overview_metrics`, quick actions
+7. `next-app/src/app/admin/components/UsersTab.tsx`: User list, search, role/tier/status filters, pagination, Create User modal, Edit User modal, Delete modal (soft vs hard delete, self-deletion guarded), User Dossier modal
+8. `next-app/src/app/admin/components/PaymentsTab.tsx`: Subscriptions table with status/tier patch, Invoices table with status badges and manual invoice creation modal
+9. `next-app/src/app/admin/components/LogsTab.tsx`: Multi-category selector (`payments`, `admin_audit`, `space_audit`, `ai_usage`, `guest_security`, `reports`), search input, date range filters, JSON diff modal
+10. `next-app/src/app/admin/components/CrudTab.tsx`: 15 whitelisted table explorer, dynamic columns, record grid, JSON/field modal editor, record deletion. Handle `space_settings` (`space_id` PK, `updated_at` sort) and `space_members` (`joined_at` sort)
+11. `next-app/tests/admin_client.test.ts`: Vitest unit test suite covering `AdminClientService` methods, error mapping, and headers
+12. `next-app/tests/admin_guard.test.ts`: Vitest integration test suite covering capability gating, auth verification, and unauthorized state transitions
 
-3. Execute Test Verification:
-   - Run the tests via terminal (`npm test` and `cd next-app && npx vitest run tests/api/`).
-   - Ensure ALL tests run to completion and exit 0 without any unhandled runtime crashes or regressions.
-   - Verify that all existing 154 unit tests also continue to pass.
-
-4. Produce the API Behavior Audit Report:
-   - Write a comprehensive audit report in `next-app/API_BEHAVIOR_AUDIT.md` (and copy to your working directory).
-   - Document:
-     - All 5 endpoints with routes, methods, and auth requirements.
-     - Audited status codes and conditions.
-     - Success and error payload schemas with concrete examples.
-     - Error handling, security validations, and edge case resilience.
-     - Full test execution summary: test files, test counts, execution time, pass rate.
-
-5. Deliverable:
-   - Write `handoff.md` in `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\handoff.md` with Observation, Logic Chain, Caveats, Conclusion, and Verification Method.
-   - Send a message to parent when complete.
+### Verification Requirements
+- Execute `npm run lint` in `next-app`: Must pass with 0 ESLint errors and 0 warnings.
+- Execute `npm test` in `next-app`: Must pass 100% of tests with 0 failures (including existing 515 tests plus the new admin tests).
+- Document all executed commands, test results, and file layout compliance in your `handoff.md`.
+Report back when complete.
