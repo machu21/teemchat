@@ -63,7 +63,13 @@ export function JsonLd({ faqItems = defaultFaqItems }: JsonLdProps) {
     '@type': 'Organization',
     name: SITE_NAME,
     url: siteUrl,
-    logo: `${siteUrl}/icon.png`,
+    logo: {
+      '@type': 'ImageObject',
+      url: `${siteUrl}/icons/Icon-512.png`,
+      width: 512,
+      height: 512,
+    },
+    image: `${siteUrl}/icons/Icon-512.png`,
     sameAs: ['https://x.com/teemchat'],
   };
 
