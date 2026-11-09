@@ -4,6 +4,25 @@ import { AvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { ChatMessageModel } from '../models/chat';
 import { normalizeSpecies, oneLine } from '../companion/normalize';
 import type { CompanionSpecies } from '../companion/types';
+import {
+  EmoteId,
+  PlayerStatus,
+  createEmoteThrottle,
+  emoteDef,
+  isEmoteId,
+  isPlayerStatus,
+} from '../world/emotes';
+import { ROOM_EVENT_NAMES, RoomEvent, RoomEventName, parseRoomEvent } from '../world/rooms';
+import type { FocusTimerState } from '../world/focusTimer';
+
+/** Long-lived per-player state carried on presence (re-tracked only on change). */
+export interface PresenceExtras {
+  handRaised: boolean;
+  sitting: boolean;
+  status: PlayerStatus;
+}
+
+const DEFAULT_EXTRAS: PresenceExtras = { handRaised: false, sitting: false, status: 'available' };
 
 export interface RemotePlayerState {
   userId: string;
@@ -18,6 +37,11 @@ export interface RemotePlayerState {
   speechExpiresAt?: number;
   /** Public companion badge (name + sprite only — never memories or chat). */
   companion?: { name: string; species: CompanionSpecies };
+  emote?: EmoteId;
+  emoteExpiresAt?: number;
+  handRaised?: boolean;
+  sitting?: boolean;
+  status?: PlayerStatus;
   lastSeen: number;
 }
 
@@ -54,9 +78,22 @@ export class WorldSyncService {
   readonly displayName: string;
   readonly avatarConfig: AvatarConfig;
   private companionBadge: { name: string; species: CompanionSpecies } | null = null;
+  private extras: PresenceExtras = { ...DEFAULT_EXTRAS };
+  private emoteThrottle = createEmoteThrottle();
+  private lastKnockAt = 0;
+
+  /** Lock / knock events for private rooms (already validated and addressed to us). */
+  onRoomEvent?: (event: RoomEvent) => void;
+  /** Someone new appeared in presence (used to send them current room lock state). */
+  onPeerJoined?: (userId: string) => void;
 
   onRemotePlayersChanged?: (players: Map<string, RemotePlayerState>) => void;
   onChatMessage?: (message: ChatMessageModel) => void;
+  /**
+   * A host says they moderated us. The payload is client-supplied: the receiver must
+   * confirm with SafetyService.myRestrictions() before acting on it.
+   */
+  onModerationNotice?: (notice: { action: string; actorId: string }) => void;
   onFriendRequestReceived?: (request: {
     requestId: string;
     senderId: string;
@@ -244,6 +281,48 @@ export class WorldSyncService {
         }
       });
 
+      this.channel.on('broadcast', { event: 'emote' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const effectiveId = this.resolvePeerId(data.user_id as string, data.client_id as string);
+          if (!effectiveId || !isEmoteId(data.emote)) return;
+          const player = this.remotePlayers.get(effectiveId);
+          if (!player) return;
+          player.emote = data.emote;
+          player.emoteExpiresAt = Date.now() + emoteDef(data.emote).durationMs;
+          this.notifyPlayersChanged();
+        } catch (e) {
+          console.warn('[WorldSync] Emote broadcast error:', e);
+        }
+      });
+
+      for (const event of ROOM_EVENT_NAMES) {
+        this.channel.on('broadcast', { event }, (envelope) => {
+          try {
+            const raw = envelope.payload || envelope;
+            const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+            if (data.client_id === this.clientInstanceId) return;
+            const parsed = parseRoomEvent(event, data, this.currentUserId);
+            if (parsed) this.onRoomEvent?.(parsed);
+          } catch (e) {
+            console.warn('[WorldSync] Room event error:', e);
+          }
+        });
+      }
+
+      this.channel.on('broadcast', { event: 'moderation' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          if (data.target_user_id !== this.currentUserId) return;
+          if (typeof data.action !== 'string' || typeof data.actor_id !== 'string') return;
+          this.onModerationNotice?.({ action: data.action, actorId: data.actor_id });
+        } catch (e) {
+          console.warn('[WorldSync] Moderation broadcast error:', e);
+        }
+      });
+
       this.channel.on('broadcast', { event: 'friend_response' }, (envelope) => {
         try {
           const raw = envelope.payload || envelope;
@@ -300,15 +379,7 @@ export class WorldSyncService {
           }
 
           try {
-            await this.channel?.track({
-              user_id: this.currentUserId,
-              client_id: this.clientInstanceId,
-              display_name: this.displayName,
-              avatar_config: this.avatarConfig,
-              x: this.lastKnownX,
-              y: this.lastKnownY,
-              companion: this.companionBadge,
-            });
+            await this.channel?.track(this.presencePayload());
 
             this.handlePresenceUpdate();
 
@@ -375,6 +446,9 @@ export class WorldSyncService {
           const presenceDir = (p.direction as 'up' | 'down' | 'left' | 'right') || 'down';
           const cfg = normalizeAvatarConfig(p.avatar_config);
           const companion = parseCompanionBadge(p.companion);
+          const handRaised = p.hand_raised === true;
+          const sitting = p.sitting === true;
+          const status = isPlayerStatus(p.status) ? p.status : 'available';
 
           const actualUserId = userId || effectiveId;
           const existing = this.remotePlayers.get(effectiveId);
@@ -389,14 +463,21 @@ export class WorldSyncService {
               direction: presenceDir,
               isMoving: false,
               companion,
+              handRaised,
+              sitting,
+              status,
               lastSeen: Date.now(),
             });
+            this.onPeerJoined?.(actualUserId);
           } else {
             existing.userId = actualUserId;
             existing.clientId = clientId;
             existing.displayName = name;
             existing.avatarConfig = cfg;
             existing.companion = companion;
+            existing.handRaised = handRaised;
+            existing.sitting = sitting;
+            existing.status = status;
             // Live broadcasts are fresher than presence; never let a stale
             // presence snapshot snap a player back to an old spot.
             if (!existing.isMoving && !this.broadcastPositioned.has(effectiveId)) {
@@ -503,19 +584,121 @@ export class WorldSyncService {
       this.presenceTrackTimer = null;
       if (!this.channel || !this.isSubscribed || this.isDisposed) return;
       this.lastPresenceTrackTime = Date.now();
-      this.channel
-        .track({
-          user_id: this.currentUserId,
-          client_id: this.clientInstanceId,
-          display_name: this.displayName,
-          avatar_config: this.avatarConfig,
-          x: this.lastKnownX,
-          y: this.lastKnownY,
-          direction: this.lastBroadcastDir,
-          companion: this.companionBadge,
-        })
-        .catch(() => {});
+      this.channel.track(this.presencePayload()).catch(() => {});
     }, wait);
+  }
+
+  private presencePayload(): Record<string, unknown> {
+    return {
+      user_id: this.currentUserId,
+      client_id: this.clientInstanceId,
+      display_name: this.displayName,
+      avatar_config: this.avatarConfig,
+      x: this.lastKnownX,
+      y: this.lastKnownY,
+      direction: this.lastBroadcastDir,
+      companion: this.companionBadge,
+      hand_raised: this.extras.handRaised,
+      sitting: this.extras.sitting,
+      status: this.extras.status,
+    };
+  }
+
+  /** Registers room lock/knock listeners; returns a cleanup that removes them. */
+  setRoomHandlers(handlers: {
+    onRoomEvent?: (event: RoomEvent) => void;
+    onPeerJoined?: (userId: string) => void;
+  }): () => void {
+    this.onRoomEvent = handlers.onRoomEvent;
+    this.onPeerJoined = handlers.onPeerJoined;
+    return () => {
+      if (this.onRoomEvent === handlers.onRoomEvent) this.onRoomEvent = undefined;
+      if (this.onPeerJoined === handlers.onPeerJoined) this.onPeerJoined = undefined;
+    };
+  }
+
+  getPresenceExtras(): PresenceExtras {
+    return { ...this.extras };
+  }
+
+  /** Raise hand / sit / status. Re-tracks presence only when something changed. */
+  updatePresenceState(patch: Partial<PresenceExtras>): void {
+    const next = { ...this.extras, ...patch };
+    if (!isPlayerStatus(next.status)) next.status = 'available';
+    if (
+      next.handRaised === this.extras.handRaised &&
+      next.sitting === this.extras.sitting &&
+      next.status === this.extras.status
+    ) {
+      return;
+    }
+    this.extras = next;
+    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack();
+  }
+
+  /** One-shot emote (throttled). Returns false when dropped by the cooldown. */
+  broadcastEmote(emote: EmoteId): boolean {
+    if (!isEmoteId(emote) || !this.emoteThrottle()) return false;
+    if (!this.channel || !this.isSubscribed) return true;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'emote',
+      payload: { user_id: this.currentUserId, client_id: this.clientInstanceId, emote },
+    });
+    return true;
+  }
+
+  /** Private room lock / knock messages. Knocks are limited to one every 3 seconds. */
+  broadcastRoomEvent(
+    event: RoomEventName,
+    payload: {
+      roomId: string;
+      locked?: boolean;
+      targetId?: string;
+      allow?: boolean;
+      timer?: FocusTimerState | null;
+      on?: boolean;
+      notesOn?: boolean;
+    }
+  ): boolean {
+    if (event === 'knock') {
+      const now = Date.now();
+      if (now - this.lastKnockAt < 3000) return false;
+      this.lastKnockAt = now;
+    }
+    if (!this.channel || !this.isSubscribed) return false;
+    this.channel.send({
+      type: 'broadcast',
+      event,
+      payload: {
+        room_id: payload.roomId,
+        actor_id: this.currentUserId,
+        actor_name: this.displayName,
+        client_id: this.clientInstanceId,
+        locked: payload.locked,
+        target_id: payload.targetId,
+        allow: payload.allow,
+        ...(payload.timer !== undefined ? { timer: payload.timer } : {}),
+        on: payload.on,
+        notes_on: payload.notesOn,
+        sent_at: Date.now(),
+      },
+    });
+    return true;
+  }
+
+  /** Tells a moderated player to re-check their restrictions (kick / ban / mute). */
+  broadcastModeration(targetUserId: string, action: string): void {
+    if (!this.channel || !this.isSubscribed) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'moderation',
+      payload: {
+        target_user_id: targetUserId,
+        actor_id: this.currentUserId,
+        action,
+      },
+    });
   }
 
   broadcastFriendRequest(targetUserId: string): void {

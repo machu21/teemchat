@@ -75,70 +75,6 @@
   white-space: nowrap;
 }
 
-/* Video PiP Overlay */
-.pipGrid {
-  position: absolute;
-  top: calc(76px + env(safe-area-inset-top, 0px));
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 40;
-  pointer-events: auto;
-}
-
-.pipCard {
-  width: 180px;
-  height: 120px;
-  background-color: #000;
-  border: 2px solid var(--card-border);
-  border-radius: var(--neo-radius-sm);
-  box-shadow: var(--neo-shadow);
-  overflow: hidden;
-  position: relative;
-  transition: transform 0.15s ease;
-}
-
-.pipLocalCard {
-  border: 2.5px solid #38BDF8;
-  box-shadow: 2px 2px 0px #0284C7;
-}
-
-.pipVideo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.pipVideoMirrored {
-  transform: scaleX(-1);
-}
-
-.pipLabel {
-  position: absolute;
-  bottom: 4px;
-  left: 6px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  backdrop-filter: blur(4px);
-}
-
-.pipLiveDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #22C55E;
-  display: inline-block;
-  box-shadow: 0 0 6px #22C55E;
-}
-
 /* Status Feedback Pill / Toast */
 .mediaStatusPill {
   position: absolute;
@@ -237,13 +173,6 @@
   box-shadow: 1.5px 1.5px 0px #14532D !important;
 }
 
-.dockBtnActiveCam {
-  background-color: #38BDF8 !important;
-  color: #082F49 !important;
-  border-color: #0284C7 !important;
-  box-shadow: 1.5px 1.5px 0px #0369A1 !important;
-}
-
 .dockIndicatorDot {
   position: absolute;
   top: 1px;
@@ -257,11 +186,6 @@
 .dockDotGreen {
   background-color: #22C55E;
   box-shadow: 0 0 6px #22C55E;
-}
-
-.dockDotBlue {
-  background-color: #38BDF8;
-  box-shadow: 0 0 6px #38BDF8;
 }
 
 .dockDivider {
@@ -851,22 +775,6 @@
     display: none;
   }
 
-  .pipGrid {
-    top: calc(104px + env(safe-area-inset-top, 0px));
-    right: 10px;
-    gap: 8px;
-  }
-
-  .pipCard {
-    width: 116px;
-    height: 78px;
-  }
-
-  .pipLabel {
-    font-size: 0.64rem;
-    padding: 1px 4px;
-  }
-
   .mediaStatusPill {
     top: calc(104px + env(safe-area-inset-top, 0px));
   }
@@ -998,18 +906,6 @@
 
   .hudTeleportBtn {
     display: none;
-  }
-
-  .pipGrid {
-    top: calc(54px + env(safe-area-inset-top, 0px));
-    right: max(12px, env(safe-area-inset-right, 0px));
-    flex-direction: row;
-    gap: 8px;
-  }
-
-  .pipCard {
-    width: 104px;
-    height: 70px;
   }
 
   .mediaStatusPill {
@@ -1576,7 +1472,6 @@
   }
 
   .dockBtn,
-  .pipCard,
   .chatNotifyBanner,
   .sendBtn,
   .genderBtn,

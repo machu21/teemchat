@@ -14,7 +14,7 @@ interface Props {
 
 type Tab = 'keyboard' | 'touch';
 
-const GROUPS = ['Movement', 'Survival', 'Doors & windows'] as const;
+const GROUPS = ['Movement', 'Survival', 'Doors & windows', 'Social'] as const;
 
 /** Segmented single-choice control (radio group semantics). */
 function Segmented<T extends string>({

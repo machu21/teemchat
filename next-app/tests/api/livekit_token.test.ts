@@ -32,6 +32,7 @@ vi.mock('livekit-server-sdk', () => ({
     addGrant = mockAddGrant;
     toJwt = mockToJwt;
   },
+  TrackSource: { MICROPHONE: 2, SCREEN_SHARE: 3, SCREEN_SHARE_AUDIO: 4 },
 }));
 
 // 4. Mock @supabase/supabase-js
@@ -107,6 +108,8 @@ describe('POST /api/livekit/token', () => {
         canPublish: true,
         canSubscribe: true,
         canPublishData: true,
+        // Spaces: microphone + screen share (shown only in private rooms); never camera
+        canPublishSources: [2, 3, 4],
       });
     });
 
@@ -189,6 +192,8 @@ describe('POST /api/livekit/token', () => {
           room: `call-dm-${dmConvId}`,
         })
       );
+      // Calls keep camera + screen share: no source restriction
+      expect(mockAddGrant.mock.calls[0][0]).not.toHaveProperty('canPublishSources');
     });
 
     it('generates token for group call when caller is group member', async () => {

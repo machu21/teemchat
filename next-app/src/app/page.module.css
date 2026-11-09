@@ -1747,6 +1747,14 @@
   box-shadow: 2px 2px 0px var(--card-border);
 }
 
+/* ── Birth date hint (signup) ── */
+.birthDateHint {
+  margin-top: -6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* ── Gender Selection & Avatar Preview ── */
 .genderSection {
   display: flex;

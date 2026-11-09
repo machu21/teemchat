@@ -576,6 +576,17 @@ export const SpaceService = {
     };
   },
 
+  /** Replaces a placed object's properties (e.g. sticky note text). Hosts only (RLS). */
+  async updateWorldObject(objectId: string, properties: Record<string, unknown>): Promise<boolean> {
+    if (!UUID_REGEX.test(objectId)) return false;
+    const { data, error } = await supabase
+      .from('world_objects')
+      .update({ properties })
+      .eq('id', objectId)
+      .select('id');
+    return !error && Array.isArray(data) && data.length > 0;
+  },
+
   async deleteWorldObject(objectId: string): Promise<boolean> {
     const { error } = await supabase.from('world_objects').delete().eq('id', objectId);
     return !error;

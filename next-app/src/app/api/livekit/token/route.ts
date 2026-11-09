@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, TrackSource } from 'livekit-server-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rateLimit';
 import { defaultHQ } from '@/lib/models/space';
@@ -59,6 +59,44 @@ async function canJoinRoom(db: ScopedClient, userId: string, room: string): Prom
   return false;
 }
 
+interface RoomSafety {
+  /** Refuse the token outright (banned from the space, or a blocked DM partner). */
+  denied: boolean;
+  /** Join and listen, but publish nothing (host voice-mute). */
+  listenOnly: boolean;
+}
+
+// Space bans / voice mutes and DM blocks. Fails open if the safety RPCs are not
+// deployed yet: the RLS checks in canJoinRoom still apply.
+async function roomSafety(db: ScopedClient, userId: string, room: string): Promise<RoomSafety> {
+  try {
+    const space = room.match(SPACE_ROOM);
+    if (space) {
+      const { data, error } = await db.rpc('my_space_restrictions', { p_space: space[1] });
+      if (error || !data) return { denied: false, listenOnly: false };
+      const r = data as { banned?: boolean; voice_muted?: boolean };
+      return { denied: r.banned === true, listenOnly: r.voice_muted === true };
+    }
+    const call = room.match(CALL_ROOM);
+    if (call && call[1].toLowerCase() === 'dm') {
+      const { data: convo } = await db
+        .from('buddy_conversations')
+        .select('user_one, user_two')
+        .eq('id', call[2])
+        .maybeSingle();
+      const row = convo as { user_one: string; user_two: string } | null;
+      if (!row) return { denied: false, listenOnly: false };
+      const other = row.user_one === userId ? row.user_two : row.user_one;
+      const { data, error } = await db.rpc('contact_permissions', { p_other: other });
+      if (error || !data) return { denied: false, listenOnly: false };
+      return { denied: (data as { can_message?: boolean }).can_message === false, listenOnly: false };
+    }
+  } catch {
+    // Safety RPCs unavailable
+  }
+  return { denied: false, listenOnly: false };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -104,6 +142,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not allowed to join this room' }, { status: 403 });
     }
 
+    const safety = await roomSafety(supabase, userId, targetRoom);
+    if (safety.denied) {
+      return NextResponse.json({ error: 'Not allowed to join this room' }, { status: 403 });
+    }
+
     if (!livekitApiKey || !livekitApiSecret) {
       return NextResponse.json({ error: 'LiveKit server credentials unconfigured' }, { status: 500 });
     }
@@ -114,12 +157,20 @@ export async function POST(req: NextRequest) {
       ttl: '2h',
     });
 
+    // Spaces never publish cameras; camera is reserved for DM/group calls.
+    const isCallRoom = CALL_ROOM.test(targetRoom);
     at.addGrant({
       room: targetRoom,
       roomJoin: true,
-      canPublish: true,
+      canPublish: !safety.listenOnly,
       canSubscribe: true,
       canPublishData: true,
+      // Spaces: voice plus screen share (shown only inside private rooms by the client).
+      ...(isCallRoom
+        ? {}
+        : {
+            canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
+          }),
     });
 
     const jwt = await at.toJwt();

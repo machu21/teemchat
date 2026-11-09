@@ -65,6 +65,17 @@ interface GameCanvasProps {
     y: number;
   }) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
+  /** Blocked / muted users: hidden from the world and out of earshot. */
+  hiddenUserIds?: Set<string>;
+  /** Viewer's chat filter for remote names and speech bubbles. */
+  textFilter?: (text: string) => string;
+  /** Hands the page the running game (emotes, rooms) and null on teardown. */
+  onGameReady?: (game: WorldGame | null) => void;
+  onRoomChanged?: WorldGame['onRoomChanged'];
+  onSitChanged?: WorldGame['onSitChanged'];
+  onSocialAction?: WorldGame['onSocialAction'];
+  onObjectPrompt?: WorldGame['onObjectPrompt'];
+  onOpenObject?: WorldGame['onOpenObject'];
   onZoneChanged?: (zoneName: string) => void;
   /** Make the companion say something / emote. A new `seq` replays the cue. */
   companionCue?: { text: string; emote?: CompanionEmote; mood?: CompanionMood; seq: number } | null;
@@ -91,6 +102,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onCompanionTap,
   onRemotePlayerTap,
   onProximityChanged,
+  hiddenUserIds,
+  textFilter,
+  onGameReady,
+  onRoomChanged,
+  onSitChanged,
+  onSocialAction,
+  onObjectPrompt,
+  onOpenObject,
   onZoneChanged,
   companionCue,
   companionGuide,
@@ -224,6 +243,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (onProximityChanged) {
       game.onProximityChanged = onProximityChanged;
     }
+    if (hiddenUserIds) {
+      game.hiddenUserIds = hiddenUserIds;
+    }
+    if (textFilter) {
+      game.textFilter = textFilter;
+    }
+    game.onRoomChanged = onRoomChanged;
+    game.onSitChanged = onSitChanged;
+    game.onSocialAction = onSocialAction;
+    game.onObjectPrompt = onObjectPrompt;
+    game.onOpenObject = onOpenObject;
     if (onZoneChanged) {
       game.onZoneChanged = onZoneChanged;
     }
@@ -259,6 +289,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     game.start();
 
     gameRef.current = game;
+    onGameReady?.(game);
 
     return () => {
       window.removeEventListener('resize', updateSize);
@@ -276,8 +307,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       game.onDoorPromptMove = undefined;
       game.onFloorChanged = undefined;
       game.onZombieHud = undefined;
+      game.onRoomChanged = undefined;
+      game.onSitChanged = undefined;
+      game.onSocialAction = undefined;
+      game.onObjectPrompt = undefined;
+      game.onOpenObject = undefined;
       game.dispose();
       gameRef.current = null;
+      onGameReady?.(null);
       setDoorPrompt(null);
       setFloorInfo(null);
       setZombieHud(null);
@@ -297,6 +334,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameRef.current.onRemotePlayerTap = onRemotePlayerTap;
     }
   }, [onRemotePlayerTap]);
+
+  useEffect(() => {
+    if (gameRef.current) {
+      gameRef.current.hiddenUserIds = hiddenUserIds || new Set();
+    }
+  }, [hiddenUserIds]);
+
+  useEffect(() => {
+    if (gameRef.current) {
+      gameRef.current.textFilter = textFilter || ((text: string) => text);
+    }
+  }, [textFilter]);
+
+  useEffect(() => {
+    if (!gameRef.current) return;
+    gameRef.current.onRoomChanged = onRoomChanged;
+    gameRef.current.onSitChanged = onSitChanged;
+    gameRef.current.onSocialAction = onSocialAction;
+    gameRef.current.onObjectPrompt = onObjectPrompt;
+    gameRef.current.onOpenObject = onOpenObject;
+  }, [onRoomChanged, onSitChanged, onSocialAction, onObjectPrompt, onOpenObject]);
 
   useEffect(() => {
     if (gameRef.current && onProximityChanged) {

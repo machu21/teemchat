@@ -87,6 +87,7 @@ vi.mock('livekit-server-sdk', () => ({
     addGrant = mockAddGrant;
     toJwt = mockToJwt;
   },
+  TrackSource: { MICROPHONE: 2, SCREEN_SHARE: 3, SCREEN_SHARE_AUDIO: 4 },
 }));
 
 import { GET as getGuestIdentity } from '../../src/app/api/auth/guest-identity/route';

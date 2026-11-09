@@ -650,3 +650,16 @@
     min-height: 40px;
   }
 }
+
+/* DM refused by safety rules (block / friends-only / Family Mode) */
+.sendError {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: #fee2e2;
+  color: #7f1d1d;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}

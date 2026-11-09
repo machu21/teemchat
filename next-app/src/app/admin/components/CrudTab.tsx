@@ -6,6 +6,7 @@ import {
   WhitelistedCrudEntity,
   WHITELISTED_CRUD_ENTITIES,
 } from '@/lib/services/adminClient';
+import { crudPrimaryKey } from '@/lib/admin/schemas';
 import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoModal } from '@/components/neo/NeoModal';
@@ -62,14 +63,12 @@ export const CrudTab: React.FC<CrudTabProps> = ({ capabilities, onNotify }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Determine Primary Key for active entity
-  const getPrimaryKey = (entity: WhitelistedCrudEntity): string => {
-    return entity === 'space_settings' ? 'space_id' : 'id';
-  };
+  const getPrimaryKey = (entity: WhitelistedCrudEntity): string => crudPrimaryKey(entity);
 
   const getRecordId = useCallback(
     (record: Record<string, unknown>, entity: WhitelistedCrudEntity): string => {
       const pk = getPrimaryKey(entity);
-      return String(record[pk] || record.id || record.space_id || '');
+      return String(record[pk] || record.id || '');
     },
     []
   );

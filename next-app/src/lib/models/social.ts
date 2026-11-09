@@ -5,7 +5,7 @@ export interface FriendModel {
   userId: string;
   username: string;
   displayName: string;
-  status: 'available' | 'away' | 'busy' | 'offline';
+  status: 'available' | 'away' | 'busy' | 'focus' | 'offline';
   statusMessage?: string;
   avatarConfig: AvatarConfig;
   currentSpace?: {
@@ -68,7 +68,7 @@ export interface DirectConversationModel {
     username: string;
     avatarConfig: AvatarConfig;
     isOnline: boolean;
-    status: 'available' | 'away' | 'busy' | 'offline';
+    status: 'available' | 'away' | 'busy' | 'focus' | 'offline';
     statusMessage?: string;
   };
   lastMessageAt: string;

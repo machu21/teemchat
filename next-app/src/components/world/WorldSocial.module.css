@@ -1,0 +1,241 @@
+/* Emote wheel, status picker and room HUD (Neo-brutalist: 2px borders, hard 3px 3.5px shadows). */
+
+.popover {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: max-content;
+  max-width: min(92vw, 340px);
+  padding: 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.emoteGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 56px);
+  gap: 6px;
+}
+
+.emoteBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 4px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+  touch-action: manipulation;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.emoteBtn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--card-border);
+}
+
+.emoteBtn:focus-visible,
+.toggle:focus-visible,
+.statusOption:focus-visible,
+.statusButton:focus-visible,
+.hudBtn:focus-visible {
+  outline: 3px solid var(--focus-ring, #6d28d9);
+  outline-offset: 2px;
+}
+
+.emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.emoteLabel {
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.toggleRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.toggle {
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.toggleOn {
+  background: #fde047;
+  color: #18181b;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Status picker */
+.statusButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-full, 9999px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.statusMenu {
+  top: calc(100% + 10px);
+  bottom: auto;
+  left: auto;
+  right: 0;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 230px;
+}
+
+.statusOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.statusOptionOn {
+  background: #fde047;
+  color: #18181b;
+}
+
+.statusText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.statusText small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* Room HUD */
+.roomHud {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+
+.roomBadge,
+.knockPrompt,
+.knockCard {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.knockCard {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.hudBtn {
+  min-height: 30px;
+  padding: 3px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.hudBtnPrimary {
+  background: #22c55e;
+  color: #052e16;
+}
+
+@media (max-width: 380px) {
+  .emoteGrid {
+    grid-template-columns: repeat(4, 48px);
+  }
+  .roomHud {
+    top: 104px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emoteBtn {
+    transition: none;
+  }
+}

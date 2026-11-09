@@ -19,6 +19,8 @@ export const RATE_LIMITS = {
   // Companion Screen Help: each request carries a screenshot, so it is throttled harder
   AI_SCREEN_HELP: { max: 8, windowMs: 60 * 1000 } as const,
   USER_AI_SCREEN_HELP: { max: 6, windowMs: 60 * 1000 } as const,
+  // AI meeting notes: one summary per minute per user
+  USER_MEETING_NOTES: { max: 1, windowMs: 60 * 1000 } as const,
   // LiveKit WebRTC access token generation
   LIVEKIT_TOKEN: { max: 20, windowMs: 60 * 1000 } as const,
   // Authenticated user limit for LiveKit token

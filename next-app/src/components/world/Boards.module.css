@@ -1,0 +1,279 @@
+/* Sticky notes, task board, meetings and meeting notes (Neo-brutalist). */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.muted {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-main);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible,
+.btn:focus-visible,
+.swatch:focus-visible,
+.iconBtn:focus-visible {
+  outline: 3px solid var(--focus-ring, #6d28d9);
+  outline-offset: 2px;
+}
+
+.btn,
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+  text-decoration: none;
+}
+
+.iconBtn {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 2px 6px;
+}
+
+.btn:disabled,
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.danger {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.swatch {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--card-border);
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.swatchOn {
+  outline: 3px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.notePreview {
+  padding: 14px;
+  min-height: 120px;
+  border: 2px solid #18181b;
+  border-radius: 4px;
+  color: #18181b;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 3px 3.5px 0 #18181b;
+}
+
+/* Task board */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  padding: 8px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+}
+
+.columnTitle {
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid var(--card-border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.cardTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.cardMeta {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Meetings */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+}
+
+.itemTitle {
+  font-weight: 900;
+  font-size: 0.92rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.tab {
+  flex: 1;
+  min-height: 36px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tabOn {
+  background: #fde047;
+  color: #18181b;
+}
+
+.banner {
+  position: absolute;
+  top: 112px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 12px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+  font-weight: 800;
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bullets {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 560px) {
+  .columns,
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3,6 +3,14 @@ import { DirectConversationModel, SocialMessageModel, FriendModel } from '../mod
 import { defaultAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+/** The recipient does not accept messages from this sender (block, privacy or Family Mode). */
+export class DirectMessageNotAllowedError extends Error {
+  constructor() {
+    super('This player only accepts messages from friends.');
+    this.name = 'DirectMessageNotAllowedError';
+  }
+}
+
 export class DirectMessageService {
   private static localMessageCache: Map<string, SocialMessageModel[]> = new Map();
 
@@ -148,6 +156,7 @@ export class DirectMessageService {
     const current = this.localMessageCache.get(conversationId) || [];
     this.localMessageCache.set(conversationId, [...current, localMsg]);
 
+    let notAllowed = false;
     try {
       const { data, error } = await supabase
         .from('direct_messages')
@@ -158,6 +167,9 @@ export class DirectMessageService {
         })
         .select('id, created_at')
         .single();
+
+      // 42501 = RLS rejected the insert (blocked, or a friends-only / Family Mode recipient)
+      if (error?.code === '42501') notAllowed = true;
 
       if (!error && data) {
         localMsg.id = data.id;
@@ -176,7 +188,16 @@ export class DirectMessageService {
       console.warn('Direct message sent locally (DB sync notice):', e);
     }
 
-    // Always broadcast message across realtime topic for instant peer delivery
+    if (notAllowed) {
+      // Never deliver over broadcast what the database refused to store.
+      this.localMessageCache.set(
+        conversationId,
+        (this.localMessageCache.get(conversationId) || []).filter((m) => m.id !== localMsg.id)
+      );
+      throw new DirectMessageNotAllowedError();
+    }
+
+    // Broadcast message across realtime topic for instant peer delivery
     const dmTopic = `direct_messages:${conversationId}`;
     const dmChan = supabase.channel(dmTopic);
     dmChan.subscribe((status) => {

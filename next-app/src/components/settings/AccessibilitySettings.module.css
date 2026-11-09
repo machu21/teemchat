@@ -1,0 +1,180 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  font-family: var(--font-plus-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--text-main);
+}
+
+.lead {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupTitle {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Segmented text-size control */
+.segmented {
+  display: flex;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+  overflow: hidden;
+  background-color: var(--card-inner);
+}
+
+.segment {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-main);
+  background: transparent;
+  border: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 80ms ease-out;
+}
+
+.segment + .segment {
+  border-left: 2px solid var(--card-border);
+}
+
+.segmentOn {
+  color: #18181b;
+  background-color: #fde047;
+}
+
+/* Toggle rows */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--card-border);
+}
+
+.rowLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.rowLabel small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--text-main);
+  background-color: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: 9999px;
+  box-shadow: 3px 3.5px 0 var(--card-border);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease-out;
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 50%;
+  transition: transform 120ms ease-out;
+}
+
+.switchOn {
+  justify-content: flex-start;
+  color: #18181b;
+  background-color: #86efac;
+}
+
+.switchOn .knob {
+  transform: translateX(32px);
+}
+
+.switchText {
+  line-height: 1;
+}
+
+.reset {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-main);
+  background-color: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.reset:active {
+  transform: translate(3px, 3.5px);
+  box-shadow: 0 0 0 var(--card-border);
+}
+
+.segment:focus-visible,
+.switch:focus-visible,
+.reset:focus-visible {
+  outline: 3px solid var(--focus-ring, #6d28d9);
+  outline-offset: 2px;
+}
+
+@media (max-width: 360px) {
+  .segment {
+    font-size: 0.78rem;
+  }
+  .rowLabel small {
+    font-size: 0.66rem;
+  }
+}

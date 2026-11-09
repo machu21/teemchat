@@ -32,7 +32,8 @@ interface SessionState {
       website_url?: string;
       phone_alt?: string;
       renderedAt?: number;
-    }
+    },
+    birthDate?: string
   ) => Promise<{ error?: string; code?: string }>;
   updateProfile: (
     displayName: string,
@@ -407,7 +408,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       website_url?: string;
       phone_alt?: string;
       renderedAt?: number;
-    }
+    },
+    birthDate?: string
   ) => {
     const defaultCfg = gender === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig;
     const avatarConfig: AvatarConfig = {
@@ -428,6 +430,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           website_url: antiBot?.website_url,
           phone_alt: antiBot?.phone_alt,
           renderedAt: antiBot?.renderedAt,
+          birthDate,
         }),
       });
 

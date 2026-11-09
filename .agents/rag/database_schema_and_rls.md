@@ -54,14 +54,21 @@ create table if not exists public.messages (
    public.is_member_of_space(space_id)
    or exists (select 1 from public.spaces s where s.id = space_id and s.visibility = 'public')
    ```
-2. **Insert (`insert`)**:
+2. **Insert (`insert`)** (since `20261110_safety_family_mode.sql`; the old sender-less
+   "Anyone can insert room messages into public spaces" policy was dropped):
    ```sql
    auth.uid() = sender_id
    and (
      public.is_member_of_space(space_id)
-     or exists (select 1 from public.spaces s where s.id = space_id and s.visibility = 'public')
+     or exists (select 1 from public.spaces s where s.id = space_id and s.visibility in ('public', 'unlisted'))
    )
+   and not private.has_space_restriction(space_id, auth.uid(), 'ban')
+   and not private.has_space_restriction(space_id, auth.uid(), 'chat')
    ```
+   Safety helpers live in the `private` schema (not exposed via PostgREST): `age_band_of`,
+   `is_blocked_between`, `are_friends`, `can_befriend`, `can_contact`, `has_space_restriction`.
+   They also gate `friend_requests`, `buddy_conversations`, `direct_messages` and `space_members` inserts.
+   Birth dates live in `public.user_safety` (owner-read only, written via `set_my_birth_date()` once).
 3. **Delete (`delete`)**:
    ```sql
    auth.uid() = sender_id or public.is_admin_of_space(space_id)

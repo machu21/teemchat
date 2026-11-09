@@ -7,6 +7,9 @@ import {
   RemoteAudioTrack,
   LocalVideoTrack,
   LocalTrackPublication,
+  RemoteParticipant,
+  RemoteTrack,
+  RemoteTrackPublication,
 } from 'livekit-client';
 import * as log from 'loglevel';
 import { supabase } from '../supabase';
@@ -69,6 +72,16 @@ export class LiveKitService {
 
   activeSpeakerIds: Set<string> = new Set();
   remoteVideoFeeds: VideoFeedModel[] = [];
+
+  /**
+   * Safety hook: return false to silence a participant (blocked, muted, or a non-friend
+   * in Family Mode). Applied on subscribe and on every proximity update.
+   */
+  isAudible?: (identity: string) => boolean;
+  /** Same private room: full volume regardless of distance (meeting rooms are large). */
+  inSharedRoom?: (identity: string) => boolean;
+  /** Screen shares are only subscribed while this returns true (same room as the sharer). */
+  isScreenVisible?: (identity: string) => boolean;
 
   // Local tracks
   localVideoTrack: VideoTrack | MediaStreamTrack | null = null;
@@ -213,7 +226,16 @@ export class LiveKitService {
         this.activeSpeakerIds = new Set(speakers.map((s) => s.identity));
         this.notify();
       })
-      .on(RoomEvent.TrackSubscribed, () => this.updateTracks())
+      .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+        if (track.kind === Track.Kind.Audio && this.isAudible && !this.isAudible(participant.identity)) {
+          try {
+            (track as RemoteAudioTrack).setVolume(0);
+          } catch {
+            // Track may already be detached
+          }
+        }
+        this.updateTracks();
+      })
       .on(RoomEvent.TrackUnsubscribed, () => this.updateTracks())
       .on(RoomEvent.LocalTrackPublished, () => this.updateTracks())
       .on(RoomEvent.LocalTrackUnpublished, () => this.updateTracks())
@@ -396,7 +418,11 @@ export class LiveKitService {
       if (!participant) continue;
 
       let volume = 0.0;
-      if (distance <= 80) {
+      if (this.isAudible && !this.isAudible(userId)) {
+        volume = 0.0;
+      } else if (this.inSharedRoom?.(userId)) {
+        volume = 1.0;
+      } else if (distance <= 80) {
         volume = 1.0;
       } else if (distance < 260) {
         volume = 1.0 - (distance - 80) / 180;
@@ -411,6 +437,17 @@ export class LiveKitService {
           } catch {
             // Ignore volume adjustment errors on transient tracks
           }
+        }
+      }
+
+      // Only download screen shares you can actually see (same room as the sharer).
+      const wantScreen = !this.isScreenVisible || this.isScreenVisible(userId);
+      for (const pub of participant.videoTrackPublications.values()) {
+        if (pub.source !== Track.Source.ScreenShare || pub.isSubscribed === wantScreen) continue;
+        try {
+          pub.setSubscribed(wantScreen);
+        } catch {
+          // Publication may be mid-teardown
         }
       }
     }

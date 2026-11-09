@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { validateBirthDate } from '@/lib/safety/ageBand';
 import {
   checkRateLimit,
   getClientIp,
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       username,
       displayName,
       gender = 'male',
+      birthDate,
       // Anti-Bot Honeypots: Humans leave these empty; bots fill them
       website_url,
       company_site_field,
@@ -105,6 +107,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Birth date drives Family Mode. Optional here (Google/guest users are asked by the
+    // in-app age gate instead); when given it must be valid. Stored as auth metadata and
+    // claimed into user_safety by set_my_birth_date() on first load.
+    let cleanBirthDate: string | undefined;
+    if (birthDate !== undefined && birthDate !== null && birthDate !== '') {
+      const birthDateError = typeof birthDate === 'string' ? validateBirthDate(birthDate) : 'Invalid birth date.';
+      if (birthDateError) {
+        return NextResponse.json({ error: birthDateError, code: 'invalid_birth_date' }, { status: 400 });
+      }
+      cleanBirthDate = (birthDate as string).trim();
+    }
+
     const cleanGender = gender === 'female' ? 'female' : 'male';
     const cleanDisplayName = (displayName && typeof displayName === 'string')
       ? displayName.trim().slice(0, 32)
@@ -142,6 +156,7 @@ export async function POST(req: NextRequest) {
           username: cleanUsername,
           display_name: cleanDisplayName,
           gender: cleanGender,
+          ...(cleanBirthDate ? { birth_date: cleanBirthDate } : {}),
         },
       },
     });

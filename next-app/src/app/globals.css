@@ -103,3 +103,69 @@ input, textarea, select {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Accessibility (stores/accessibility.ts sets these on <html>) ── */
+
+/* Text size: rem-based UI scales with the root font size */
+html[data-text-scale='1.15'] {
+  font-size: 115%;
+}
+html[data-text-scale='1.3'] {
+  font-size: 130%;
+}
+
+/* High contrast: pure ink on paper, stronger muted text and borders */
+:root[data-contrast='high'] {
+  --bg: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --card-inner: #FFFFFF;
+  --card-border: #000000;
+  --text-main: #000000;
+  --text-muted: #27272A;
+  --text-subtle: #3F3F46;
+  --primary: #4C1D95;
+  --primary-hover: #2E1065;
+  --cta-btn: #FBBF24;
+  --cta-btn-hover: #F59E0B;
+  --cta-text: #000000;
+  --hero-highlight: #9A3412;
+  --neo-border-width: 3px;
+  --neo-shadow: 3px 3.5px 0px #000000;
+  --neo-shadow-hover: 1.5px 1.5px 0px #000000;
+  --focus-ring: #000000;
+}
+
+[data-theme='dark'][data-contrast='high'] {
+  --bg: #000000;
+  --card-bg: #000000;
+  --card-inner: #111111;
+  --card-border: #FFFFFF;
+  --text-main: #FFFFFF;
+  --text-muted: #F4F4F5;
+  --text-subtle: #E4E4E7;
+  --primary: #C4B5FD;
+  --primary-hover: #DDD6FE;
+  --cta-btn: #E2F952;
+  --cta-btn-hover: #F0FF7A;
+  --cta-text: #000000;
+  --hero-highlight: #F5D0FE;
+  --neo-border-width: 3px;
+  --neo-shadow: 3px 3.5px 0px #FFFFFF;
+  --neo-shadow-hover: 1.5px 1.5px 0px #FFFFFF;
+  --focus-ring: #E2F952;
+}
+
+[data-contrast='high'] :where(a, button, input, select, textarea, summary, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline-width: 3.5px;
+  outline-offset: 3px;
+}
+
+/* Reduced motion: in-app toggle mirrors the OS preference above */
+[data-reduced-motion] *,
+[data-reduced-motion] *::before,
+[data-reduced-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

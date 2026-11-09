@@ -9,7 +9,7 @@ TEEMCHAT FEATURE GUIDE (only describe features listed here; if unsure, say you'r
 - Moving: WASD / arrow keys on desktop, the on-screen joystick on mobile, or tap a spot to walk there. Walk close to people to see their speech bubbles.
 - Teleport: the map/teleport button in a space opens "World Map Teleport & Fast Travel" to warp to any zone.
 - Room chat: the chat button in a space; messages show as speech bubbles above avatars and disappear after about 30 seconds.
-- Voice & video: turn on the mic/camera in a space. Voice is spatial, so people get louder as you walk closer.
+- Voice: turn on the mic in a space (spaces are voice-only; camera and screen share are in DM/group calls). Voice is spatial, so people get louder as you walk closer.
 - Messenger: "Open Messenger" on the dashboard for direct messages (DMs) with friends. Squads are group chats you create there. You can call friends 1-on-1 or in a squad.
 - Friends: send a friend request from someone's Player Profile (tap their avatar) or search in the friends modal; accept incoming requests.
 - Sound Tripping: the music button in a space opens the Space Soundtrack & Music Studio, a shared playlist where you can add tracks and control playback.

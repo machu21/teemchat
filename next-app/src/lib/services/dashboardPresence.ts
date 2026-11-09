@@ -6,7 +6,7 @@ export interface PresenceUser {
   userId: string;
   displayName: string;
   avatarConfig: AvatarConfig;
-  status: 'available' | 'away' | 'busy' | 'offline';
+  status: 'available' | 'away' | 'busy' | 'focus' | 'offline';
   statusMessage?: string;
   currentSpace?: {
     slug: string;
@@ -26,7 +26,7 @@ export class DashboardPresenceService {
     userId: string;
     displayName: string;
     avatarConfig: AvatarConfig;
-    status?: 'available' | 'away' | 'busy' | 'offline';
+    status?: 'available' | 'away' | 'busy' | 'focus' | 'offline';
     statusMessage?: string;
     currentSpace?: { slug: string; name: string };
   }): void {

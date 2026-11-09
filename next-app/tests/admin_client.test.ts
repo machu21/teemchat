@@ -671,8 +671,8 @@ describe('AdminClientService Unit Test Suite', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('whitelisted entities array contains all 15 expected tables', () => {
-      expect(WHITELISTED_CRUD_ENTITIES).toHaveLength(15);
+    it('whitelisted entities array contains all 16 expected tables', () => {
+      expect(WHITELISTED_CRUD_ENTITIES).toHaveLength(16);
       expect(WHITELISTED_CRUD_ENTITIES).toContain('spaces');
       expect(WHITELISTED_CRUD_ENTITIES).toContain('worlds');
       expect(WHITELISTED_CRUD_ENTITIES).toContain('space_settings');
@@ -688,6 +688,7 @@ describe('AdminClientService Unit Test Suite', () => {
       expect(WHITELISTED_CRUD_ENTITIES).toContain('world_objects');
       expect(WHITELISTED_CRUD_ENTITIES).toContain('billing_invoices');
       expect(WHITELISTED_CRUD_ENTITIES).toContain('user_subscriptions');
+      expect(WHITELISTED_CRUD_ENTITIES).toContain('user_safety');
     });
   });
 });

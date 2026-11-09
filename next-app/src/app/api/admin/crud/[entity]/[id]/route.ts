@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/admin/adminAuth';
 import { logAdminAction } from '@/lib/admin/auditLogger';
-import { isValidCrudEntity, WHITELISTED_CRUD_ENTITIES } from '@/lib/admin/schemas';
+import { crudPrimaryKey, isValidCrudEntity, WHITELISTED_CRUD_ENTITIES } from '@/lib/admin/schemas';
 
 interface RouteContext {
   params: Promise<{ entity: string; id: string }>;
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const pkColumn = entity === 'space_settings' ? 'space_id' : 'id';
+    const pkColumn = crudPrimaryKey(entity);
     const client = auth.supabaseAdmin as unknown as DynamicTableClient;
     const { data: record, error } = await client
       .from(entity)
@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Payload must be a valid JSON object.' }, { status: 400 });
     }
 
-    const pkColumn = entity === 'space_settings' ? 'space_id' : 'id';
+    const pkColumn = crudPrimaryKey(entity);
     const client = auth.supabaseAdmin as unknown as DynamicTableClient;
 
     // 1. Fetch current state for audit diff
@@ -97,7 +97,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     // 2. Perform update with safe updated_at injection
-    const hasUpdatedAt = ['spaces', 'space_settings', 'user_reports', 'ai_companions', 'user_subscriptions'].includes(entity);
+    const hasUpdatedAt = ['spaces', 'space_settings', 'user_reports', 'ai_companions', 'user_subscriptions', 'user_safety'].includes(entity);
     const updates = hasUpdatedAt
       ? { ...(body as Record<string, unknown>), updated_at: new Date().toISOString() }
       : (body as Record<string, unknown>);
@@ -151,7 +151,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const pkColumn = entity === 'space_settings' ? 'space_id' : 'id';
+    const pkColumn = crudPrimaryKey(entity);
     const client = auth.supabaseAdmin as unknown as DynamicTableClient;
 
     // 1. Fetch current state for audit diff

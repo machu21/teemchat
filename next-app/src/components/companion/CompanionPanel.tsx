@@ -5,6 +5,7 @@ import styles from './CompanionPanel.module.css';
 import { useSessionStore } from '@/stores/session';
 import { useSocialStore } from '@/stores/social';
 import { useCompanionChat, DEFAULT_COMPANION } from '@/lib/hooks/useCompanionChat';
+import { useChatAutoScroll } from '@/lib/hooks/useChatAutoScroll';
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
 import { CompanionPortrait } from '@/components/companion/CompanionPortrait';
 import { NeoButton } from '@/components/neo/NeoButton';
@@ -113,11 +114,8 @@ export function CompanionPanel({ isOpen, onClose, onUpgrade }: CompanionPanelPro
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isThinking, tab]);
+  // Open at the newest message; follow new ones only while the user is at the bottom
+  useChatAutoScroll(scrollRef, isOpen && !isGuest && tab === 'chat' ? 'chat' : null, [messages, isThinking]);
 
   if (!isOpen) return null;
 

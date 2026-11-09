@@ -1,0 +1,101 @@
+.stage {
+  position: absolute;
+  top: 112px;
+  right: 16px;
+  z-index: 45;
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.minimized {
+  width: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pill {
+  font-size: 0.8rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.btn:focus-visible,
+.chip:focus-visible {
+  outline: 3px solid var(--focus-ring, #6d28d9);
+  outline-offset: 2px;
+}
+
+.video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  object-fit: contain;
+}
+
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-full, 9999px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chipOn {
+  background: #fde047;
+  color: #18181b;
+}
+
+@media (max-width: 640px) {
+  .stage {
+    top: auto;
+    bottom: 96px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}

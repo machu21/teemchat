@@ -1,4 +1,5 @@
 import { Rect } from '../collision';
+import { parseStickyNote, wrapNoteText } from '@/lib/world/interactables';
 
 export type FurnitureType =
   | 'pineTree'
@@ -26,7 +27,10 @@ export type FurnitureType =
   | 'vendingMachine'
   | 'officePrinter'
   | 'wallTv'
-  | 'floorLamp';
+  | 'floorLamp'
+  | 'whiteboard'
+  | 'stickyNote'
+  | 'taskBoard';
 
 export class FurnitureEntity {
   id: string;
@@ -34,11 +38,17 @@ export class FurnitureEntity {
   x: number;
   y: number;
 
-  constructor(id: string, type: FurnitureType, x: number, y: number) {
+  /** world_objects.properties (e.g. sticky note text and colour). */
+  properties: Record<string, unknown>;
+  /** Note text after the viewer's chat filter (set by WorldGame before drawing). */
+  displayText?: string;
+
+  constructor(id: string, type: FurnitureType, x: number, y: number, properties: Record<string, unknown> = {}) {
     this.id = id;
     this.type = type;
     this.x = x;
     this.y = y;
+    this.properties = properties;
   }
 
   getHitbox(): Rect | null {
@@ -49,6 +59,12 @@ export class FurnitureEntity {
       case 'beanBagBlue':
       case 'beanBagYellow':
       case 'wallTv':
+        return null;
+      case 'whiteboard':
+        return { x: this.x + 4, y: this.y + 40, w: 56, h: 8 };
+      case 'taskBoard':
+        return { x: this.x + 4, y: this.y + 40, w: 56, h: 8 };
+      case 'stickyNote':
         return null;
       case 'pineTree':
         return { x: this.x + 20, y: this.y + 50, w: 20, h: 18 };
@@ -114,7 +130,7 @@ export class FurnitureEntity {
     };
 
     // Soft pixel drop shadow under solid props
-    if (this.type !== 'flowerPatch' && this.type !== 'tallGrass' && this.type !== 'wallTv') {
+    if (this.type !== 'flowerPatch' && this.type !== 'tallGrass' && this.type !== 'wallTv' && this.type !== 'stickyNote') {
       const w = this.getSize().w;
       const h = this.getSize().h;
       px(6, h - 6, w - 12, 6, 'rgba(0, 0, 0, 0.22)');
@@ -1108,6 +1124,109 @@ export class FurnitureEntity {
         break;
       }
 
+      case 'whiteboard': {
+        // Mobile whiteboard on an easel (32×25 grid → 64×50 px)
+        const out = '#18181B';
+        const frame = '#94A3B8';
+        const board = '#F8FAFC';
+        // Board with frame
+        span(1, 1, 30, out);
+        for (let y = 2; y <= 16; y++) {
+          p(1, y, out);
+          p(2, y, frame);
+          span(y, 3, 28, board);
+          p(29, y, frame);
+          p(30, y, out);
+        }
+        span(17, 1, 30, out);
+        // Scribbles: a sticky note, a chart line and marker strokes
+        span(4, 5, 8, '#FDE047');
+        span(5, 5, 8, '#FDE047');
+        span(6, 5, 8, '#FACC15');
+        span(5, 12, 20, '#2563EB');
+        span(8, 12, 24, '#DC2626');
+        p(14, 12, '#16A34A');
+        p(15, 11, '#16A34A');
+        p(16, 12, '#16A34A');
+        p(17, 10, '#16A34A');
+        p(18, 9, '#16A34A');
+        // Marker tray
+        span(18, 6, 25, '#64748B');
+        p(9, 18, '#DC2626');
+        p(12, 18, '#2563EB');
+        // Easel legs
+        for (let y = 19; y <= 24; y++) {
+          p(5 - Math.floor((y - 19) / 3), y, out);
+          p(26 + Math.floor((y - 19) / 3), y, out);
+        }
+        break;
+      }
+
+      case 'taskBoard': {
+        // Cork board with three columns of cards (32×25 grid → 64×50 px)
+        const out = '#18181B';
+        const cork = '#C08A4E';
+        const corkDk = '#A0703A';
+        span(1, 1, 30, out);
+        for (let y = 2; y <= 17; y++) {
+          p(1, y, out);
+          span(y, 2, 29, y % 3 === 0 ? corkDk : cork);
+          p(30, y, out);
+        }
+        span(18, 1, 30, out);
+        // Column dividers
+        for (let y = 3; y <= 16; y++) {
+          p(11, y, corkDk);
+          p(20, y, corkDk);
+        }
+        // Cards: to do (yellow), doing (blue), done (green)
+        const cards: [number, number, string][] = [
+          [3, 3, '#FDE047'], [3, 7, '#FDE047'], [3, 11, '#FDE047'],
+          [13, 3, '#93C5FD'], [13, 7, '#93C5FD'],
+          [22, 3, '#86EFAC'],
+        ];
+        for (const [cx, cy, col] of cards) {
+          span(cy, cx, cx + 6, col);
+          span(cy + 1, cx, cx + 6, col);
+          span(cy + 2, cx, cx + 6, col);
+          p(cx + 3, cy, '#DC2626');
+        }
+        // Stand legs
+        for (let y = 19; y <= 24; y++) {
+          p(5 - Math.floor((y - 19) / 3), y, out);
+          p(26 + Math.floor((y - 19) / 3), y, out);
+        }
+        break;
+      }
+
+      case 'stickyNote': {
+        // 40×40 note with a folded corner and up to 3 lines of text
+        const note = parseStickyNote(this.properties);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(3, 4, 38, 38);
+        ctx.fillStyle = note.color;
+        ctx.fillRect(0, 0, 38, 38);
+        ctx.strokeStyle = '#18181B';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, 36, 36);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.moveTo(30, 37);
+        ctx.lineTo(37, 30);
+        ctx.lineTo(37, 37);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#DC2626';
+        ctx.fillRect(16, -2, 6, 5);
+        const lines = wrapNoteText(this.displayText ?? note.text, 9, 3);
+        ctx.fillStyle = '#18181B';
+        ctx.font = 'bold 7px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        lines.forEach((line, i) => ctx.fillText(line, 4, 6 + i * 9));
+        break;
+      }
+
       case 'floorLamp': {
         const out = '#18181B';
         const shade = '#FEF08A';
@@ -1191,6 +1310,12 @@ export class FurnitureEntity {
         return { w: 54, h: 38 };
       case 'floorLamp':
         return { w: 22, h: 54 };
+      case 'whiteboard':
+        return { w: 64, h: 50 };
+      case 'taskBoard':
+        return { w: 64, h: 50 };
+      case 'stickyNote':
+        return { w: 40, h: 40 };
     }
   }
 }

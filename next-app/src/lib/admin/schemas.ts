@@ -31,7 +31,7 @@ export const UpdateUserSchema = z.object({
     .max(30)
     .regex(/^[a-zA-Z0-9_.-]+$/)
     .optional(),
-  status: z.enum(['available', 'away', 'busy', 'offline', 'banned']).optional(),
+  status: z.enum(['available', 'away', 'busy', 'focus', 'offline', 'banned']).optional(),
   statusMessage: z.string().trim().max(160).nullable().optional(),
   tier: z.enum(['free', 'pro', 'enterprise']).optional(),
   isPaid: z.boolean().optional(),
@@ -94,9 +94,20 @@ export const WHITELISTED_CRUD_ENTITIES = [
   'world_objects',
   'billing_invoices',
   'user_subscriptions',
+  'user_safety',
 ] as const;
 
 export type WhitelistedCrudEntity = (typeof WHITELISTED_CRUD_ENTITIES)[number];
+
+/** Tables keyed by something other than `id`. */
+const CRUD_PRIMARY_KEYS: Partial<Record<WhitelistedCrudEntity, string>> = {
+  space_settings: 'space_id',
+  user_safety: 'user_id',
+};
+
+export function crudPrimaryKey(entity: WhitelistedCrudEntity): string {
+  return CRUD_PRIMARY_KEYS[entity] ?? 'id';
+}
 
 export function isValidCrudEntity(entity: string): entity is WhitelistedCrudEntity {
   return (WHITELISTED_CRUD_ENTITIES as readonly string[]).includes(entity);

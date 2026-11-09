@@ -43,6 +43,7 @@ import { useRouter } from 'next/navigation';
 import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import { LEGAL } from '@/lib/constants/legal';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { validateBirthDate } from '@/lib/safety/ageBand';
 
 const TYPEWRITER_PHRASES = [
   'cozy 2D spaces.',
@@ -91,6 +92,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
   const [guestIdentity, setGuestIdentity] = useState<GuestIdentity | null>(null);
   const [guestGender, setGuestGender] = useState<Gender>('male');
   const [signUpGender, setSignUpGender] = useState<Gender>('male');
+  const [signUpBirthDate, setSignUpBirthDate] = useState('');
 
   // ── Deep Link State ──
   const [pendingCode] = useState<string | null>(() => {
@@ -224,6 +226,11 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           setAuthError('Please fill in all fields.');
           return;
         }
+        const birthDateError = validateBirthDate(signUpBirthDate);
+        if (birthDateError) {
+          setAuthError(birthDateError);
+          return;
+        }
         const res = await signUpWithPassword(
           email,
           password,
@@ -233,7 +240,8 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           {
             website_url: honeypot,
             renderedAt: formRenderedAt,
-          }
+          },
+          signUpBirthDate
         );
         if (res.error) {
           setAuthError(res.error);
@@ -390,6 +398,19 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
+                <NeoInput
+                  label="DATE OF BIRTH"
+                  id="signup-birth-date"
+                  type="date"
+                  value={signUpBirthDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setSignUpBirthDate(e.target.value)}
+                  aria-describedby="signup-birth-date-hint"
+                  required
+                />
+                <div id="signup-birth-date-hint" className={styles.birthDateHint}>
+                  Kept private. Under-13 accounts get Family Mode automatically.
+                </div>
                 <div className={styles.genderSection}>
                   <div className={styles.genderLabel}>SELECT GENDER</div>
                   <div className={styles.genderRow}>

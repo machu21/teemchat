@@ -18,7 +18,10 @@ export type ControlAction =
   | 'jump'
   | 'interact'
   | 'lock'
-  | 'barricade';
+  | 'barricade'
+  | 'emotes'
+  | 'raiseHand'
+  | 'sit';
 
 /** Up to two keys per action (KeyboardEvent.code values). */
 export type KeyBindings = Record<ControlAction, [string | null, string | null]>;
@@ -26,7 +29,7 @@ export type KeyBindings = Record<ControlAction, [string | null, string | null]>;
 export interface ActionInfo {
   id: ControlAction;
   label: string;
-  group: 'Movement' | 'Survival' | 'Doors & windows';
+  group: 'Movement' | 'Survival' | 'Doors & windows' | 'Social';
   /** Shown next to the action in settings. */
   hint?: string;
 }
@@ -45,6 +48,9 @@ export const CONTROL_ACTIONS: readonly ActionInfo[] = [
   { id: 'interact', label: 'Open / close / enter', group: 'Doors & windows' },
   { id: 'lock', label: 'Lock / unlock', group: 'Doors & windows' },
   { id: 'barricade', label: 'Board up', group: 'Doors & windows', hint: 'With Shift: pull a plank' },
+  { id: 'emotes', label: 'Emote menu', group: 'Social' },
+  { id: 'raiseHand', label: 'Raise / lower hand', group: 'Social' },
+  { id: 'sit', label: 'Sit / stand', group: 'Social' },
 ];
 
 export const DEFAULT_BINDINGS: KeyBindings = {
@@ -61,6 +67,9 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   interact: ['KeyE', null],
   lock: ['KeyL', null],
   barricade: ['KeyB', null],
+  emotes: ['KeyT', null],
+  raiseHand: ['KeyH', null],
+  sit: ['KeyX', null],
 };
 
 /** Keys that can't be bound: zoom, weapon slots, browser/system keys. */

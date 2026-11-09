@@ -1,0 +1,140 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.panel {
+  width: min(1100px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius, 12px);
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.saveState {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.closeBtn,
+.toolBtn,
+.textBtn {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  background: var(--card-inner);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textBtn {
+  font-size: 0.8rem;
+}
+
+.on {
+  background: #fde047;
+  color: #18181b;
+}
+
+.closeBtn:focus-visible,
+.toolBtn:focus-visible,
+.textBtn:focus-visible,
+.swatch:focus-visible {
+  outline: 3px solid var(--focus-ring, #6d28d9);
+  outline-offset: 2px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--card-border);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--card-border);
+}
+
+.swatchOn {
+  outline: 3px solid #fde047;
+  outline-offset: 1px;
+}
+
+.dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.boardWrap {
+  width: 100%;
+}
+
+.board {
+  display: block;
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm, 8px);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.readOnly {
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .overlay {
+    padding: 8px;
+  }
+  .panel {
+    padding: 8px;
+  }
+}

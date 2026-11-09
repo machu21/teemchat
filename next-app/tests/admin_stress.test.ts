@@ -245,7 +245,7 @@ describe('AdminClientService Adversarial Stress & Edge Case Test Suite', () => {
       }
     });
 
-    it('accepts all 15 valid entities and formats URLs correctly', async () => {
+    it('accepts all 16 valid entities and formats URLs correctly', async () => {
       mockFetch.mockImplementation(() =>
         Promise.resolve(mockJsonResponse(200, { entity: 'spaces', records: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }))
       );
@@ -255,7 +255,7 @@ describe('AdminClientService Adversarial Stress & Edge Case Test Suite', () => {
         await AdminClientService.getCrudRecords(entity);
       }
 
-      expect(mockFetch).toHaveBeenCalledTimes(15);
+      expect(mockFetch).toHaveBeenCalledTimes(16);
     });
 
     it('safely handles empty string or whitespace sortBy on whitelisted entity', async () => {

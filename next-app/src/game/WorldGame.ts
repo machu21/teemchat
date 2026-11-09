@@ -6,6 +6,15 @@ import { CompanionEntity } from './entities/companion';
 import { FurnitureEntity, FurnitureType } from './entities/furniture';
 import { createPreRenderedWorldMap } from './map/worldMap';
 import { getCurrentZone } from './map/zones';
+import { RoomDefinition, roomAt } from '@/lib/world/rooms';
+import { EmoteId, PlayerStatus, emoteDef } from '@/lib/world/emotes';
+
+import {
+  INTERACTABLES,
+  ObjectRef,
+  isInteractableType,
+  isPersistedObjectId,
+} from '@/lib/world/interactables';
 import { getBoundaryWallsForMap, getBuildingsForMap, getDefaultPropsForMap, getMapConfig, getMapSize } from './map/mapRegistry';
 import { ChunkedMapRenderer } from './map/chunkedMap';
 import {
@@ -182,8 +191,27 @@ export class WorldGame {
   onDoorPromptMove?: (screenX: number, screenY: number) => void;
   onFloorChanged?: (info: FloorInfo | null) => void;
   onZoneChanged?: (zoneName: string) => void;
+  /** Local player entered / left a private room (null = open area). */
+  onRoomChanged?: (room: RoomDefinition | null) => void;
+  /** Nearest openable object (whiteboard, task board, note) changed. */
+  onObjectPrompt?: (obj: ObjectRef | null) => void;
+  /** Open an object (E near it, or tap on it). */
+  onOpenObject?: (obj: ObjectRef) => void;
+  private objectPrompt: ObjectRef | null = null;
+  /** Emote menu / raise hand / sit shortcuts (the page owns that UI). */
+  onSocialAction?: (action: 'emotes' | 'raiseHand' | 'sit') => void;
+  /** Local player stood up by moving (UI keeps its sit toggle in step). */
+  onSitChanged?: (sitting: boolean) => void;
+  /** Rooms locked by their occupants; entering needs a pass (granted by a knock reply). */
+  lockedRoomIds: Set<string> = new Set();
+  private roomPasses: Map<string, number> = new Map();
+  private currentRoomId: string | null = null;
   onZoomChanged?: (zoom: number) => void;
   onProximityChanged?: (distances: Map<string, number>) => void;
+  /** Blocked / muted users: not drawn, not tappable, reported as out of earshot. */
+  hiddenUserIds: Set<string> = new Set();
+  /** Viewer's chat filter for remote names and speech bubbles (identity when off). */
+  textFilter: (text: string) => string = (text) => text;
   onRemotePlayerTap?: (player: {
     userId: string;
     displayName: string;
@@ -294,6 +322,115 @@ export class WorldGame {
       !!this.zombieMode?.isBlocked(box) ||
       (!airborne && this.lowWallIndex.hits(box))
     );
+  }
+
+  /** Closest saved whiteboard / task board / note within its reach of (x, y). */
+  private nearestInteractable(x: number, y: number): ObjectRef | null {
+    let best: ObjectRef | null = null;
+    let bestDist = Infinity;
+    for (const f of this.furniture) {
+      if (!isInteractableType(f.type) || !isPersistedObjectId(f.id)) continue;
+      const size = f.getSize();
+      const d = Math.hypot(x - (f.x + size.w / 2), y - (f.y + size.h * 0.8));
+      if (d <= INTERACTABLES[f.type].reach && d < bestDist) {
+        best = { id: f.id, type: f.type };
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  /** Properties for the next build-mode placement (e.g. sticky note text). */
+  placementProperties: Record<string, unknown> = {};
+
+  /** Updates a placed object in place (after an edit saved elsewhere). */
+  updateObjectProperties(id: string, properties: Record<string, unknown>): void {
+    const f = this.furniture.find((o) => o.id === id);
+    if (f) f.properties = properties;
+  }
+
+  /** Removes a placed object locally (after it was deleted). */
+  removeObject(id: string): void {
+    this.furniture = this.furniture.filter((o) => o.id !== id);
+    if (this.objectPrompt?.id === id) {
+      this.objectPrompt = null;
+      this.onObjectPrompt?.(null);
+    }
+  }
+
+  /** Saved objects of one type (e.g. task boards for "send action items to…"). */
+  objectsOfType(type: FurnitureType): { id: string; x: number; y: number }[] {
+    return this.furniture
+      .filter((f) => f.type === type && isPersistedObjectId(f.id))
+      .map((f) => ({ id: f.id, x: f.x, y: f.y }));
+  }
+
+  /** A locked room can't be walked into from outside without a knock pass. */
+  private blocksLockedEntry(x: number, y: number): boolean {
+    if (this.lockedRoomIds.size === 0) return false;
+    const room = roomAt(this.space.mapTheme, x + 16, y + 20);
+    if (!room || room.id === this.currentRoomId || !this.lockedRoomIds.has(room.id)) return false;
+    const pass = this.roomPasses.get(room.id);
+    return !(pass && pass > Date.now());
+  }
+
+  /** Lets the local player into a locked room for a while (after a knock is accepted). */
+  grantRoomPass(roomId: string, ms: number): void {
+    this.roomPasses.set(roomId, Date.now() + ms);
+  }
+
+  /** Room the local player is in right now (null = open area). */
+  myRoomId(): string | null {
+    return this.currentRoomId;
+  }
+
+  /** Room a remote player is in, from the position we already render. */
+  roomOf(userId: string): string | null {
+    if (this.zombieMode) return null;
+    for (const avatar of this.remoteAvatars.values()) {
+      if (avatar.userId === userId) {
+        return roomAt(this.space.mapTheme, avatar.x + 16, avatar.y + 20)?.id ?? null;
+      }
+    }
+    return null;
+  }
+
+  /** User ids of remote players in a room (for the HUD headcount and knock replies). */
+  occupantsOf(roomId: string): string[] {
+    const out: string[] = [];
+    for (const avatar of this.remoteAvatars.values()) {
+      if (roomAt(this.space.mapTheme, avatar.x + 16, avatar.y + 20)?.id === roomId) out.push(avatar.userId);
+    }
+    return out;
+  }
+
+  /** Plays an emote on the local avatar and broadcasts it. False when on cooldown. */
+  playEmote(emote: EmoteId): boolean {
+    const sent = this.syncService ? this.syncService.broadcastEmote(emote) : true;
+    if (!sent) return false;
+    this.player.overlay = {
+      ...this.player.overlay,
+      emote,
+      emoteExpiresAt: Date.now() + emoteDef(emote).durationMs,
+    };
+    return true;
+  }
+
+  setHandRaised(raised: boolean): void {
+    this.player.overlay = { ...this.player.overlay, handRaised: raised };
+    this.syncService?.updatePresenceState({ handRaised: raised });
+  }
+
+  setSitting(sitting: boolean): void {
+    if (this.player.isSitting === sitting) return;
+    this.player.isSitting = sitting;
+    this.syncService?.updatePresenceState({ sitting });
+    this.onSitChanged?.(sitting);
+  }
+
+  setStatus(status: PlayerStatus): void {
+    this.player.overlay = { ...this.player.overlay, status };
+    this.syncService?.updatePresenceState({ status });
   }
 
   /** Survival hop over fences, cars and bins (Space / jump button). */
@@ -491,7 +628,7 @@ export class WorldGame {
     const objs = await SpaceService.fetchWorldObjects(this.space.id);
     for (const obj of objs) {
       this.furniture.push(
-        new FurnitureEntity(obj.id, obj.objectType as FurnitureType, obj.x, obj.y)
+        new FurnitureEntity(obj.id, obj.objectType as FurnitureType, obj.x, obj.y, obj.properties)
       );
     }
   }
@@ -641,6 +778,7 @@ export class WorldGame {
           }
         }
       }
+      if (!collidesX && this.blocksLockedEntry(targetX, this.player.y)) collidesX = true;
       if (collidesX) targetX = this.player.x;
 
       // Collision Check Y
@@ -656,6 +794,7 @@ export class WorldGame {
           }
         }
       }
+      if (!collidesY && this.blocksLockedEntry(targetX, targetY)) collidesY = true;
       if (collidesY) targetY = this.player.y;
 
       // If obstructed while walking to a tap target, cancel target destination to avoid getting stuck
@@ -687,6 +826,24 @@ export class WorldGame {
       }
     }
 
+    // Private room membership (voice, screen share and locks follow it)
+    const room = this.zombieMode ? null : roomAt(this.space.mapTheme, this.player.x + 16, this.player.y + 20);
+    const roomId = room?.id ?? null;
+    if (roomId !== this.currentRoomId) {
+      this.currentRoomId = roomId;
+      this.onRoomChanged?.(room);
+    }
+
+    // Walking stands you up
+    if (isMoving && this.player.isSitting) this.setSitting(false);
+
+    // Openable object within reach (only persisted objects can be opened)
+    const near = this.nearestInteractable(this.player.x + 16, this.player.y + 20);
+    if (near?.id !== this.objectPrompt?.id) {
+      this.objectPrompt = near;
+      this.onObjectPrompt?.(near);
+    }
+
     // Broadcast movement to peers
     if (isMoving || prevMoving) {
       this.syncService?.broadcastMovement(
@@ -709,11 +866,19 @@ export class WorldGame {
       const peerDistances = new Map<string, number>();
 
       for (const [id, state] of peers.entries()) {
+        if (this.hiddenUserIds.has(state.userId || id)) {
+          this.remoteAvatars.delete(id);
+          this.remoteCompanions.delete(id);
+          peerDistances.set(id, Number.POSITIVE_INFINITY);
+          continue;
+        }
+        const safeName = this.textFilter(state.displayName);
+        const safeSpeech = state.speechBubble ? this.textFilter(state.speechBubble) : undefined;
         let avatar = this.remoteAvatars.get(id);
         if (!avatar) {
           avatar = new RemotePlayerEntity(
             id,
-            state.displayName,
+            safeName,
             state.avatarConfig,
             state.x,
             state.y
@@ -723,14 +888,21 @@ export class WorldGame {
           this.remoteAvatars.set(id, avatar);
         } else {
           avatar.userId = state.userId || avatar.userId || id;
-          avatar.displayName = state.displayName;
+          avatar.displayName = safeName;
           avatar.avatarConfig = state.avatarConfig;
           avatar.updateState({
             x: state.x,
             y: state.y,
             direction: state.direction,
             isMoving: state.isMoving,
-            speechBubble: state.speechBubble,
+            overlay: {
+              emote: state.emote,
+              emoteExpiresAt: state.emoteExpiresAt,
+              handRaised: state.handRaised,
+              status: state.status,
+            },
+            sitting: state.sitting,
+            speechBubble: safeSpeech,
             speechExpiresAt: state.speechExpiresAt,
           });
         }
@@ -1105,6 +1277,10 @@ export class WorldGame {
         f.y + size.h >= viewTop &&
         f.y <= viewBottom
       ) {
+        if (f.type === 'stickyNote') {
+          const raw = typeof f.properties.text === 'string' ? f.properties.text : '';
+          f.displayText = this.textFilter(raw);
+        }
         renderList.push({ y: f.y + 16, draw: () => f.render(this.ctx) });
       }
     }
@@ -1290,7 +1466,8 @@ export class WorldGame {
       `obj-${Date.now()}`,
       this.selectedFurniture,
       Math.floor(worldX),
-      Math.floor(worldY)
+      Math.floor(worldY),
+      { ...this.placementProperties }
     );
     this.furniture.push(newObj);
 
@@ -1301,8 +1478,13 @@ export class WorldGame {
         x: newObj.x,
         y: newObj.y,
         rotation: 0,
-        properties: {},
-      }).then();
+        properties: { ...this.placementProperties },
+      })
+        .then((saved) => {
+          // Use the database id so the object (e.g. a whiteboard) can be referenced right away.
+          if (saved?.id) newObj.id = saved.id;
+        })
+        .catch(() => {});
     }
   }
 
@@ -1380,6 +1562,16 @@ export class WorldGame {
             e.preventDefault();
             return;
           }
+        }
+        if (bound === 'interact' && !e.repeat && this.objectPrompt && this.onOpenObject) {
+          e.preventDefault();
+          this.onOpenObject(this.objectPrompt);
+          return;
+        }
+        if ((bound === 'emotes' || bound === 'raiseHand' || bound === 'sit') && !e.repeat && this.onSocialAction) {
+          e.preventDefault();
+          this.onSocialAction(bound);
+          return;
         }
         if (bound === 'interact' && !e.repeat && this.doorPrompt) {
           e.preventDefault();
@@ -1519,6 +1711,18 @@ export class WorldGame {
               x: avatar.x,
               y: avatar.y,
             });
+            return;
+          }
+        }
+      }
+
+      // 2b. Tap on a whiteboard / task board / note (outside build mode)
+      if (!this.buildModeEnabled && this.onOpenObject) {
+        for (const f of this.furniture) {
+          if (!isInteractableType(f.type) || !isPersistedObjectId(f.id)) continue;
+          const size = f.getSize();
+          if (worldClickX >= f.x && worldClickX <= f.x + size.w && worldClickY >= f.y && worldClickY <= f.y + size.h) {
+            this.onOpenObject({ id: f.id, type: f.type });
             return;
           }
         }

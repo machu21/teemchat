@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { NativeAuthListener } from "@/components/auth/NativeAuthListener";
+import { AccessibilityBoot } from "@/components/settings/AccessibilitySettings";
 import {
   SITE_NAME,
   SITE_TITLE,
@@ -94,6 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={plusJakartaSans.variable}>
       <body>
         <NativeAuthListener />
+        <AccessibilityBoot />
         {children}
         {gtmId && (
           <script

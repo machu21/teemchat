@@ -1,6 +1,7 @@
 import { AvatarConfig } from '@/lib/models/avatar';
 import { renderPixelAvatar, AvatarDirection } from '../render/avatar';
 import { isPositionInWater } from '../map/zones';
+import { PresenceOverlayState, danceOffset, renderPresenceOverlay } from '../render/presenceOverlay';
 
 export class PlayerEntity {
   x: number;
@@ -14,6 +15,8 @@ export class PlayerEntity {
   role: 'captain' | 'developer' = 'captain'; // (C) or (D) badge like Image 1
   speechBubble?: string;
   speechExpiresAt?: number;
+  /** Own emote, raised hand and status (mirrors what others see). */
+  overlay: PresenceOverlayState = {};
 
   // Tap-to-move / Click-to-move target destination (for PC click & Phone touchscreen tap)
   targetDestination: { x: number; y: number } | null = null;
@@ -115,7 +118,7 @@ export class PlayerEntity {
     // 3. Render Pixel Chibi Avatar with Walk Cycle & Direction (lifted while jumping; shadow stays)
     const walkFrame = this.isMoving && this.jumpHeight === 0 ? Math.floor(this.animTimer) % 4 : 0;
     ctx.save();
-    ctx.translate(0, -Math.round(this.jumpHeight));
+    ctx.translate(0, -Math.round(this.jumpHeight) - danceOffset(this.overlay));
     renderPixelAvatar(
       ctx,
       this.avatarConfig,
@@ -139,9 +142,11 @@ export class PlayerEntity {
     this.renderNameTag(ctx);
 
     // 5. Retro Speech Bubble with Downward Pointer Tail (Matching Image 1)
-    if (this.speechBubble && this.speechExpiresAt && Date.now() < this.speechExpiresAt) {
-      this.renderSpeechBubble(ctx, this.speechBubble);
+    const bubbleShown = Boolean(this.speechBubble && this.speechExpiresAt && Date.now() < this.speechExpiresAt);
+    if (bubbleShown) {
+      this.renderSpeechBubble(ctx, this.speechBubble!);
     }
+    renderPresenceOverlay(ctx, this.overlay, bubbleShown);
 
     ctx.restore();
   }

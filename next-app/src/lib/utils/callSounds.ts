@@ -142,3 +142,13 @@ export function stopCallRing(): void {
     ringInterval = null;
   }
 }
+
+/**
+ * Focus timer phase change: rising two-note chime into a focus block,
+ * falling one into a break.
+ */
+export function playFocusPhaseSound(phase: 'focus' | 'break'): void {
+  const [a, b] = phase === 'focus' ? [523, 784] : [784, 523];
+  playTone(a, 0.18, 'sine', 0.12);
+  setTimeout(() => playTone(b, 0.28, 'sine', 0.12), 160);
+}

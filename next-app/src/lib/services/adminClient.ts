@@ -88,7 +88,7 @@ export interface AdminUserProfile {
   id: string;
   username: string;
   display_name: string;
-  status: 'available' | 'away' | 'busy' | 'offline' | 'banned';
+  status: 'available' | 'away' | 'busy' | 'focus' | 'offline' | 'banned';
   status_message: string | null;
   gender: 'male' | 'female';
   tier: 'free' | 'pro' | 'enterprise';

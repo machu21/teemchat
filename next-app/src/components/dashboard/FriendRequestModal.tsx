@@ -8,6 +8,7 @@ import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { useSocialStore } from '@/stores/social';
 import { useSessionStore } from '@/stores/session';
 import { FriendService } from '@/lib/services/friends';
+import { useSafetyStore } from '@/stores/safety';
 
 import { AvatarConfig } from '@/lib/models/avatar';
 
@@ -40,7 +41,9 @@ export function FriendRequestModal() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       const results = await FriendService.searchUsers(searchQuery, session.id);
-      setSearchResults(results);
+      // Players I blocked never show up in search.
+      const { blockedIds } = useSafetyStore.getState();
+      setSearchResults(results.filter((r) => !blockedIds.has(r.id)));
       setIsSearching(false);
     }, 250);
 

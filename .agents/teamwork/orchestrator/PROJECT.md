@@ -67,7 +67,7 @@ Every requirement from ORIGINAL_REQUEST.md is enumerated and assigned below.
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | 1 | Production Admin Dashboard UI & Test Verification | Complete implementation of `/admin`, `adminClient.ts`, `admin.module.css`, all 5 tab views, SVG icons, and baseline test suites | none | DONE |
-| 2 | Admin Endpoints & Workflows Testing, Bug Remediation, and Quality Verification | Remediate SEC-01 to SEC-05, BUG-PK, BUG-UPDATED_AT, BUG-SPACE_ROLES, BUG-OR-COMMA, BUG-DATE-RANGE, BUG-SEARCH-IGNORED, BUG-GHOST-USER, BUG-SOFT-BAN, PERF-USER-DOSSIER; expand Vitest suites to 100% endpoint coverage with audit assertions; achieve 0 ESLint errors | M1 | IN_PROGRESS |
+| 2 | Admin Endpoints & Workflows Testing, Bug Remediation, and Quality Verification | Remediate SEC-01 to SEC-05, BUG-PK, BUG-UPDATED_AT, BUG-SPACE_ROLES, BUG-OR-COMMA, BUG-DATE-RANGE, BUG-SEARCH-IGNORED, BUG-GHOST-USER, BUG-SOFT-BAN, PERF-USER-DOSSIER; expand Vitest suites to 100% endpoint coverage with audit assertions; achieve 0 ESLint errors | M1 | DONE (803 tests pass, 0 lint errors, build clean) |
 
 ## Interface Contracts
 

@@ -1733,6 +1733,41 @@ export type Database = {
           },
         ]
       }
+      user_safety: {
+        Row: {
+          birth_date: string | null
+          chat_filter: boolean
+          created_at: string
+          dm_privacy: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          birth_date?: string | null
+          chat_filter?: boolean
+          created_at?: string
+          dm_privacy?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          birth_date?: string | null
+          chat_filter?: boolean
+          created_at?: string
+          dm_privacy?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_safety_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_reports: {
         Row: {
           created_at: string
@@ -2036,6 +2071,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      am_i_space_moderator: { Args: { p_space: string }; Returns: boolean }
+      contact_permissions: { Args: { p_other: string }; Returns: Json }
+      get_my_safety: { Args: never; Returns: Json }
+      moderate_space_member: {
+        Args: {
+          p_space: string
+          p_user: string
+          p_action: string
+          p_minutes?: number | null
+          p_reason?: string | null
+        }
+        Returns: Json
+      }
+      my_space_restrictions: { Args: { p_space: string }; Returns: Json }
+      set_my_birth_date: { Args: { p_date?: string | null }; Returns: Json }
+      update_my_safety: {
+        Args: { p_chat_filter?: boolean | null; p_dm_privacy?: string | null }
+        Returns: Json
+      }
       get_admin_overview_metrics: {
         Args: Record<string, never>
         Returns: Json

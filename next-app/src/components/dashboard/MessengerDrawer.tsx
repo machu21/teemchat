@@ -4,7 +4,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import styles from './MessengerDrawer.module.css';
 import { useSocialStore } from '@/stores/social';
 import { useSessionStore } from '@/stores/session';
-import { DirectMessageService } from '@/lib/services/directMessages';
+import { DirectMessageNotAllowedError, DirectMessageService } from '@/lib/services/directMessages';
+import { useSafeText, useSafetyStore } from '@/stores/safety';
+import { ReportModal } from '@/components/safety/ReportModal';
 import { GroupChatService } from '@/lib/services/groupChat';
 import { SocialMessageModel } from '@/lib/models/social';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
@@ -27,6 +29,12 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function MessengerDrawer() {
   const { session } = useSessionStore();
+  const safeText = useSafeText();
+  const blockedIds = useSafetyStore((s) => s.blockedIds);
+  const blockUser = useSafetyStore((s) => s.block);
+  const unblockUser = useSafetyStore((s) => s.unblock);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const {
     friends,
     conversations,
@@ -135,12 +143,16 @@ export function MessengerDrawer() {
     }
   }, [messages]);
 
+  const otherUserId = activeChat?.type === 'dm' ? activeChat.otherUserId : undefined;
+  const otherBlocked = Boolean(otherUserId && blockedIds.has(otherUserId));
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || inputText;
     if (!text.trim() || !activeChat || !session || isSending) return;
 
     setIsSending(true);
     setInputText('');
+    setSendError(null);
 
     try {
       if (activeChat.type === 'dm') {
@@ -161,7 +173,12 @@ export function MessengerDrawer() {
         setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       }
     } catch (e) {
-      console.warn('Error sending message:', e);
+      if (e instanceof DirectMessageNotAllowedError) {
+        setSendError(e.message);
+        setInputText(text);
+      } else {
+        console.warn('Error sending message:', e);
+      }
     } finally {
       setIsSending(false);
     }
@@ -205,7 +222,7 @@ export function MessengerDrawer() {
                 <span style={{ fontSize: '1.5rem' }}>{activeChat.icon || '👥'}</span>
               )}
               <div className={styles.chatHeaderInfo}>
-                <span className={styles.chatHeaderTitle}>{activeChat.title}</span>
+                <span className={styles.chatHeaderTitle}>{safeText(activeChat.title)}</span>
                 <span
                   className={`${styles.chatHeaderStatus} ${
                     activeChat.type === 'dm' && !activeChat.isOnline ? styles.chatHeaderStatusOffline : ''
@@ -248,6 +265,32 @@ export function MessengerDrawer() {
                     </button>
                   </>
                 )}
+                {activeChat.type === 'dm' && otherUserId && session && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.callHeaderBtn}
+                      onClick={() => setReportOpen(true)}
+                      title="Report this player"
+                      aria-label="Report this player"
+                    >
+                      🚩
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.callHeaderBtn}
+                      onClick={() => {
+                        if (otherBlocked) unblockUser(otherUserId).catch(() => {});
+                        else blockUser(otherUserId).catch(() => {});
+                      }}
+                      aria-pressed={otherBlocked}
+                      title={otherBlocked ? 'Unblock this player' : 'Block this player'}
+                      aria-label={otherBlocked ? 'Unblock this player' : 'Block this player'}
+                    >
+                      {otherBlocked ? '✅' : '🚫'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -265,7 +308,7 @@ export function MessengerDrawer() {
                   </div>
                 </div>
               ) : (
-                messages.map((m) => {
+                messages.filter((m) => !blockedIds.has(m.senderId)).map((m) => {
                   const isMine = m.senderId === session?.id;
                   const isCallEvent =
                     m.content.includes('Started a voice call') ||
@@ -317,9 +360,9 @@ export function MessengerDrawer() {
                       )}
                       <div className={styles.messageBubble}>
                         {!isMine && (
-                          <span className={styles.messageSender}>{m.senderName}</span>
+                          <span className={styles.messageSender}>{safeText(m.senderName)}</span>
                         )}
-                        <span className={styles.messageContent}>{m.content}</span>
+                        <span className={styles.messageContent}>{isMine ? m.content : safeText(m.content)}</span>
                         <span className={styles.messageTime}>
                           {new Date(m.createdAt).toLocaleTimeString([], {
                             hour: '2-digit',
@@ -332,6 +375,25 @@ export function MessengerDrawer() {
                 })
               )}
             </div>
+
+            {sendError && (
+              <div className={styles.sendError} role="alert">
+                {sendError}
+              </div>
+            )}
+
+            {activeChat.type === 'dm' && otherUserId && session && (
+              <ReportModal
+                isOpen={reportOpen}
+                onClose={() => setReportOpen(false)}
+                reporterId={session.id}
+                reportedUserId={otherUserId}
+                reportedName={safeText(activeChat.title)}
+                onBlock={async () => {
+                  await blockUser(otherUserId);
+                }}
+              />
+            )}
 
             {/* Quick Reactions */}
             <div className={styles.quickReactions}>

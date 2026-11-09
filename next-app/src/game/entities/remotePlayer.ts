@@ -1,6 +1,7 @@
 import { AvatarConfig } from '@/lib/models/avatar';
 import { renderPixelAvatar, AvatarDirection } from '../render/avatar';
 import { isPositionInWater } from '../map/zones';
+import { PresenceOverlayState, danceOffset, renderPresenceOverlay } from '../render/presenceOverlay';
 
 export class RemotePlayerEntity {
   userId: string;
@@ -17,6 +18,8 @@ export class RemotePlayerEntity {
   role: 'captain' | 'developer' = 'developer'; // (D) badge for peers
   speechBubble?: string;
   speechExpiresAt?: number;
+  /** Emote, raised hand and status from presence (drawn above the head). */
+  overlay: PresenceOverlayState = {};
 
   private animTimer: number = 0;
   private swimTimer: number = 0;
@@ -44,7 +47,12 @@ export class RemotePlayerEntity {
     isMoving: boolean;
     speechBubble?: string;
     speechExpiresAt?: number;
+    overlay?: PresenceOverlayState;
+    sitting?: boolean;
   }) {
+    if (params.overlay) this.overlay = params.overlay;
+    // Moving always stands the avatar up.
+    this.isSitting = Boolean(params.sitting) && !params.isMoving;
     this.targetX = params.x;
     this.targetY = params.y;
     this.direction = params.direction;
@@ -105,6 +113,8 @@ export class RemotePlayerEntity {
 
     // Render 4-Direction Pixel Chibi Avatar
     const walkFrame = this.isMoving ? Math.floor(this.animTimer) % 4 : 0;
+    const bounce = danceOffset(this.overlay);
+    if (bounce) ctx.translate(0, -bounce);
     renderPixelAvatar(
       ctx,
       this.avatarConfig,
@@ -113,6 +123,7 @@ export class RemotePlayerEntity {
       walkFrame,
       this.isSitting
     );
+    if (bounce) ctx.translate(0, bounce);
 
     if (this.isSwimming) {
       ctx.fillStyle = 'rgba(37, 99, 235, 0.65)';
@@ -126,9 +137,11 @@ export class RemotePlayerEntity {
     this.renderNameTag(ctx);
 
     // Retro Speech Bubble (Matching Image 1)
-    if (this.speechBubble && this.speechExpiresAt && Date.now() < this.speechExpiresAt) {
-      this.renderSpeechBubble(ctx, this.speechBubble);
+    const bubbleShown = Boolean(this.speechBubble && this.speechExpiresAt && Date.now() < this.speechExpiresAt);
+    if (bubbleShown) {
+      this.renderSpeechBubble(ctx, this.speechBubble!);
     }
+    renderPresenceOverlay(ctx, this.overlay, bubbleShown);
 
     ctx.restore();
   }

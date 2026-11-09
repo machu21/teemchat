@@ -40,6 +40,15 @@ import { MapSelector } from '@/components/neo/MapSelector';
 import { getMapConfig, MapThemeId } from '@/game/map/mapRegistry';
 import { TrashIcon } from '@/components/icons/LandingIcons';
 import { useRouter } from 'next/navigation';
+import { SafetyGate } from '@/components/safety/SafetyGate';
+import { SafetySettingsModal } from '@/components/settings/SafetySettingsModal';
+import { StatusPicker } from '@/components/world/StatusPicker';
+import { MeetingService, MeetingWithSpace } from '@/lib/services/meetings';
+import { startsIn } from '@/lib/calendar/ics';
+import boardStyles from '@/components/world/Boards.module.css';
+import { PlayerStatus } from '@/lib/world/emotes';
+import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
+import { supabase } from '@/lib/supabase';
 
 const SPACES_PAGE_SIZE = 8;
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -74,6 +83,33 @@ export default function DashboardPage() {
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [companionOpen, setCompanionOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [myStatus, setMyStatus] = useState<PlayerStatus>('available');
+  const [myMeetings, setMyMeetings] = useState<MeetingWithSpace[]>([]);
+  const meetingsUserId = session?.id;
+  useEffect(() => {
+    if (!meetingsUserId) return;
+    let cancelled = false;
+    const load = () =>
+      MeetingService.listMineUpcoming(meetingsUserId)
+        .then((list) => {
+          if (!cancelled) setMyMeetings(list.slice(0, 5));
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [meetingsUserId]);
+  const changeStatus = (next: PlayerStatus) => {
+    setMyStatus(next);
+    DashboardPresenceService.updatePresence({ status: next });
+    if (session?.id && /^[0-9a-f-]{36}$/i.test(session.id)) {
+      supabase.from('profiles').update({ status: next }).eq('id', session.id).then(() => undefined);
+    }
+  };
 
   // Form states
   const [newSpaceName, setNewSpaceName] = useState('');
@@ -437,6 +473,8 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.page}>
+      <SafetyGate userId={session.id} />
+      <SafetySettingsModal isOpen={safetyOpen} onClose={() => setSafetyOpen(false)} />
       {/* Top Navbar */}
       <header className={styles.header}>
         <button type="button" className={styles.brand} onClick={() => router.push('/')} aria-label="TeemChat home">
@@ -446,6 +484,8 @@ export default function DashboardPage() {
 
         <div className={styles.userProfile}>
           <ThemeToggle />
+
+          <StatusPicker status={myStatus} onChange={changeStatus} compact />
 
           <NotificationBell />
 
@@ -469,6 +509,16 @@ export default function DashboardPage() {
             aria-pressed={companionOpen}
           >
             <BotIcon size={18} /> Companion
+          </NeoButton>
+
+          <NeoButton
+            variant="secondary"
+            size="sm"
+            onClick={() => setSafetyOpen(true)}
+            title="Safety settings: chat filter, who can message you, blocked players"
+            className={styles.headerMessengerBtn}
+          >
+            🛡️ Safety
           </NeoButton>
 
           {session && (
@@ -531,6 +581,28 @@ export default function DashboardPage() {
             ⚠️ Your guest session couldn&apos;t reach the server, so friends and chats are saved on
             this device only. Sign out and join again to get a full guest account.
           </div>
+        )}
+
+        {myMeetings.length > 0 && (
+          <section className={boardStyles.item} aria-label="Upcoming meetings" style={{ marginBottom: 16 }}>
+            <span className={boardStyles.itemTitle}>📅 Upcoming meetings</span>
+            {myMeetings.map((m) => (
+              <div key={m.id} className={boardStyles.row} style={{ justifyContent: 'space-between' }}>
+                <span className={boardStyles.muted}>
+                  <strong>{m.title}</strong> · {m.spaceName} ·{' '}
+                  {m.startsAt.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} ·{' '}
+                  {startsIn(m.startsAt, m.durationMin)}
+                </span>
+                <button
+                  type="button"
+                  className={`${boardStyles.btn} ${boardStyles.primary}`}
+                  onClick={() => router.push(`/space/${m.spaceSlug || m.spaceId}?meeting=${m.id}`)}
+                >
+                  Join
+                </button>
+              </div>
+            ))}
+          </section>
         )}
 
         {/* Friends & Live Presence Strip */}

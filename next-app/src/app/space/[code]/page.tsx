@@ -11,7 +11,7 @@ import { SpaceModel, defaultHQ } from '@/lib/models/space';
 import { InviteLinkService } from '@/lib/services/invite';
 import { getMapConfig, getZonesForMap, ZoneDefinition, MAP_REGISTRY } from '@/game/map/mapRegistry';
 import { WorldSyncService } from '@/lib/services/worldSync';
-import { LiveKitService, VideoFeedModel, attachTrackToElement } from '@/lib/services/livekit';
+import { LiveKitService, VideoFeedModel } from '@/lib/services/livekit';
 import { ChatService } from '@/lib/services/chat';
 import { PlaylistService } from '@/lib/services/playlist';
 import { ChatMessageModel } from '@/lib/models/chat';
@@ -29,14 +29,11 @@ import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig, AvatarConfi
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { FriendService } from '@/lib/services/friends';
 import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
-import { playMuteSound, playUnmuteSound, playScreenShareSound, playChatNotificationSound } from '@/lib/utils/callSounds';
+import { playMuteSound, playUnmuteSound, playChatNotificationSound } from '@/lib/utils/callSounds';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   MicIcon,
   MicOffIcon,
-  VideoIcon,
-  VideoOffIcon,
-  ScreenShareIcon,
   ChatBubbleIcon,
   HammerIcon,
   MusicIcon,
@@ -45,8 +42,32 @@ import {
 } from '@/components/icons/DockIcons';
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
 import { useSpaceCompanion } from '@/lib/hooks/useSpaceCompanion';
+import { useChatAutoScroll } from '@/lib/hooks/useChatAutoScroll';
 import { ControlsSettingsModal } from '@/components/settings/ControlsSettingsModal';
 import { AiUpgradePrompt } from '@/components/billing/AiUpgradePrompt';
+import { SafetyGate } from '@/components/safety/SafetyGate';
+import { PlayerSafetyPanel } from '@/components/safety/PlayerSafetyPanel';
+import { SafetySettingsModal } from '@/components/settings/SafetySettingsModal';
+import safetyStyles from '@/components/safety/Safety.module.css';
+import { cachedTextFilter, isHiddenUser, useSafeText, useSafetyStore } from '@/stores/safety';
+import { NO_RESTRICTIONS, SafetyService, SpaceRestrictions } from '@/lib/services/safety';
+import { filterText } from '@/lib/safety/profanity';
+import { useWorldSocial } from '@/lib/hooks/useWorldSocial';
+import { EmoteWheel } from '@/components/world/EmoteWheel';
+import { StatusPicker } from '@/components/world/StatusPicker';
+import { RoomHud } from '@/components/world/RoomHud';
+import { RoomStage } from '@/components/world/RoomStage';
+import { WhiteboardModal } from '@/components/world/WhiteboardModal';
+import { StickyNoteEditor } from '@/components/world/StickyNoteEditor';
+import { FocusTimer } from '@/components/world/FocusTimer';
+import { MeetingsPanel } from '@/components/world/MeetingsPanel';
+import { MeetingNotesModal } from '@/components/world/MeetingNotesModal';
+import { useMeetings } from '@/lib/hooks/useMeetings';
+import boardStyles from '@/components/world/Boards.module.css';
+import worldStyles from '@/components/world/WorldSocial.module.css';
+import { TaskBoardModal, PlayerOption } from '@/components/world/TaskBoardModal';
+import { INTERACTABLES, ObjectRef, StickyNoteProps, parseStickyNote } from '@/lib/world/interactables';
+import { canHear } from '@/lib/world/rooms';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -60,6 +81,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const initialTargetZone = searchParams?.get('zone') || null;
   const urlTheme = searchParams?.get('theme') || undefined;
   const urlName = searchParams?.get('name') || undefined;
+  const meetingParam = searchParams?.get('meeting') || null;
+  const linkedMeetingId =
+    meetingParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(meetingParam)
+      ? meetingParam
+      : null;
   // Dev-only override: ?mode=zombie forces survival mode on any space for testing.
   const devZombieOverride =
     process.env.NODE_ENV !== 'production' && searchParams?.get('mode') === 'zombie';
@@ -86,9 +112,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   // Media toggles
   const [isMicOn, setIsMicOn] = useState(false);
-  const [isCamOn, setIsCamOn] = useState(false);
-  const [isScreenShareOn, setIsScreenShareOn] = useState(false);
-  const [videoFeeds, setVideoFeeds] = useState<VideoFeedModel[]>([]);
+  // Screen shares in private rooms (remote ones are only subscribed when in your room)
+  const [screenFeeds, setScreenFeeds] = useState<VideoFeedModel[]>([]);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [mediaStatusToast, setMediaStatusToast] = useState<{ icon: string; message: string; color: string } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -284,6 +310,82 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [friendReqSent, setFriendReqSent] = useState(false);
   const [friendReqStatus, setFriendReqStatus] = useState<string | null>(null);
   const socialFriends = useSocialStore((s) => s.friends);
+
+  // Safety: blocks, session mutes, Family Mode and host moderation
+  const safetyRestrictions = useSafetyStore((s) => s.restrictions);
+  const blockedIds = useSafetyStore((s) => s.blockedIds);
+  const mutedIds = useSafetyStore((s) => s.mutedIds);
+  const hiddenUserIds = useMemo(() => new Set([...blockedIds, ...mutedIds]), [blockedIds, mutedIds]);
+  const safeText = useSafeText();
+  // The canvas filters names and bubbles every frame: cache results per string.
+  const canvasTextFilter = useMemo(() => cachedTextFilter(safeText), [safeText]);
+  const [spaceRestrictions, setSpaceRestrictions] = useState<SpaceRestrictions>(NO_RESTRICTIONS);
+  const [isSpaceModerator, setIsSpaceModerator] = useState(false);
+  const [contactPerms, setContactPerms] = useState<{ userId: string; canBefriend: boolean } | null>(null);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const familyBlocked = space?.mode === 'zombie' && !safetyRestrictions.zombieAllowed;
+  const joinBlocked = spaceRestrictions.banned || familyBlocked;
+  // Emotes, raise hand, status and private rooms (locks / knocking)
+  const social = useWorldSocial({
+    syncService,
+    userId: session?.id,
+    mapTheme: space?.mapTheme,
+    onToast: showMediaStatus,
+  });
+  const { gameRef: worldGameRef, statusRef: worldStatusRef } = social;
+
+  // Placed objects: whiteboards, task boards and sticky notes
+  const [objectPrompt, setObjectPrompt] = useState<ObjectRef | null>(null);
+  const [openObject, setOpenObject] = useState<(ObjectRef & { note?: StickyNoteProps; players?: PlayerOption[] }) | null>(null);
+  const [composingNote, setComposingNote] = useState(false);
+  const handleObjectPrompt = useCallback((obj: ObjectRef | null) => setObjectPrompt(obj), []);
+  const handleOpenObject = useCallback(
+    (obj: ObjectRef) => {
+      const game = worldGameRef.current;
+      if (obj.type === 'stickyNote') {
+        const f = game?.furniture.find((o) => o.id === obj.id);
+        setOpenObject({ ...obj, note: parseStickyNote(f?.properties) });
+        return;
+      }
+      if (obj.type === 'taskBoard') {
+        // Assignable people: everyone in the space right now, plus me.
+        const players: PlayerOption[] = [];
+        if (session) players.push({ userId: session.id, name: `${session.displayName} (you)` });
+        for (const p of syncService?.getRemotePlayers().values() ?? []) {
+          players.push({ userId: p.userId, name: p.displayName });
+        }
+        setOpenObject({ ...obj, players });
+        return;
+      }
+      setOpenObject(obj);
+    },
+    [worldGameRef, session, syncService]
+  );
+  const canEditObjects = isSpaceModerator || isMapOwner;
+
+  // Meetings calendar + AI meeting notes
+  const teleportTo = useCallback((x: number, y: number, name: string) => {
+    setTargetTeleport((prev) => ({ x, y, name, seq: (prev?.seq || 0) + 1 }));
+  }, []);
+  const meetings = useMeetings({
+    spaceId: space?.id,
+    mapTheme: space?.mapTheme,
+    linkedMeetingId,
+    gameRef: worldGameRef,
+    syncService,
+    doNotDisturb: social.doNotDisturb,
+    setTakingNotes: social.setTakingNotes,
+    teleport: teleportTo,
+    onToast: showMediaStatus,
+  });
+  const recordChatRef = useRef(meetings.recordChat);
+  useEffect(() => {
+    recordChatRef.current = meetings.recordChat;
+  }, [meetings.recordChat]);
+
+  const canBefriendSelected =
+    !selectedPlayer || contactPerms?.userId !== selectedPlayer.userId || contactPerms.canBefriend;
+
   const isSelectedPlayerFriend = Boolean(
     selectedPlayer && socialFriends.some((f) => f.userId === selectedPlayer.userId)
   );
@@ -484,6 +586,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   }, [showMediaStatus]);
 
   const handleToggleMic = async () => {
+    if (!isMicOn && spaceRestrictions.voiceMuted) {
+      showMediaStatus('🔇', 'A host muted your voice in this space.', '#EF4444');
+      return;
+    }
     const wasOn = isMicOn;
     const nowOn = await getLiveKit().toggleMicrophone();
     if (nowOn === wasOn) {
@@ -497,38 +603,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     }
   };
 
-  const handleToggleCam = async () => {
-    const wasOn = isCamOn;
-    const nowOn = await getLiveKit().toggleCamera();
-    if (nowOn === wasOn) {
-      showMediaStatus('⚠️', 'Camera unavailable. Check browser permissions.', '#EF4444');
-    } else if (nowOn) {
-      playScreenShareSound();
-      showMediaStatus('📷', 'Camera is ON (Preview in PiP)', '#38BDF8');
-    } else {
-      playMuteSound();
-      showMediaStatus('🚫', 'Camera Turned Off', '#94A3B8');
-    }
-  };
-
-  const handleToggleScreenShare = async () => {
-    const wasOn = isScreenShareOn;
-    const nowOn = await getLiveKit().toggleScreenShare();
-    if (nowOn === wasOn) {
-      // Cancelling the browser's share picker lands here too, so keep the message soft
-      if (!wasOn) showMediaStatus('📺', 'Screen share was not started', '#94A3B8');
-    } else if (nowOn) {
-      playScreenShareSound();
-      showMediaStatus('📺', 'Screen Share Active', '#F59E0B');
-    } else {
-      playMuteSound();
-      showMediaStatus('🛑', 'Screen Share Stopped', '#94A3B8');
-    }
-  };
-
   // 2. Initialize WorldSync & LiveKit when session and space are loaded
   useEffect(() => {
-    if (!session || !space) return;
+    if (!session || !space || joinBlocked) return;
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const syncRoomId = (space.id && UUID_REGEX.test(space.id))
@@ -543,6 +620,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     });
 
     const handleIncomingRoomMessage = (msg: ChatMessageModel) => {
+      // Blocked or muted senders: drop silently (no banner, no sound).
+      if (isHiddenUser(msg.senderId)) return;
+      if (msg.senderId !== session.id) recordChatRef.current(msg);
       const isAlreadySeen = seenMessageIdsRef.current.has(msg.id);
       seenMessageIdsRef.current.add(msg.id);
 
@@ -554,6 +634,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         !isViewingRoomChatRef.current
       ) {
         setUnreadChatCount((c) => c + 1);
+        // Busy / Focus: count it, but no pop-up or sound.
+        if (worldStatusRef.current === 'busy' || worldStatusRef.current === 'focus') return;
         setChatBanner({
           senderName: msg.senderName || 'Explorer',
           content: msg.content,
@@ -571,6 +653,22 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     sync.onChatMessage = (msg) => {
       handleIncomingRoomMessage(msg);
+    };
+
+    // Host moderation notices are client-supplied: confirm with the database first.
+    sync.onModerationNotice = () => {
+      SafetyService.myRestrictions(space.id)
+        .then((r) => {
+          setSpaceRestrictions(r);
+          if (r.banned) {
+            showMediaStatus('⛔', 'A host removed you from this space.', '#EF4444');
+          } else if (r.voiceMuted) {
+            showMediaStatus('🔇', 'A host muted your voice.', '#EF4444');
+          } else if (r.chatMuted) {
+            showMediaStatus('💬', 'A host muted your chat.', '#EF4444');
+          }
+        })
+        .catch(() => {});
     };
 
     // Broadcast payloads are client-supplied and can name any sender. For account-backed users,
@@ -662,43 +760,51 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     const livekit = getLiveKit();
 
+    // Blocked / muted players and (in Family Mode) non-friends are silenced.
+    livekit.isAudible = (identity: string) => {
+      if (isHiddenUser(identity)) return false;
+      // Private rooms: voices stay inside. Focus: only your own room is audible.
+      const game = worldGameRef.current;
+      if (game) {
+        const mine = game.myRoomId();
+        if (!canHear(mine, game.roomOf(identity))) return false;
+        if (worldStatusRef.current === 'focus' && !mine) return false;
+      }
+      if (useSafetyStore.getState().restrictions.voiceFriendsOnly) {
+        return useSocialStore.getState().friends.some((f) => f.userId === identity);
+      }
+      return true;
+    };
+
     // Initial LiveKit room connection
     livekit.joinSpaceRoom(syncRoomId, session.displayName).catch((err) => {
       console.warn('LiveKit room connection notice:', err);
     });
 
+    // Same private room: full volume, and their screen share is visible.
+    const sameRoom = (identity: string) => {
+      const game = worldGameRef.current;
+      const mine = game?.myRoomId();
+      return Boolean(game && mine && game.roomOf(identity) === mine);
+    };
+    livekit.inSharedRoom = sameRoom;
+    livekit.isScreenVisible = sameRoom;
+
     livekit.onStateChanged = () => {
+      // Spaces never use cameras; screen share is allowed inside private rooms.
       setIsMicOn(livekit.isMicEnabled);
-      setIsCamOn(livekit.isCameraEnabled);
-      setIsScreenShareOn(livekit.isScreenShareEnabled);
-
-      const allFeeds: VideoFeedModel[] = [];
-
-      // If local camera is active and track is available, add local preview feed
-      if (livekit.isCameraEnabled && livekit.localVideoTrack) {
-        allFeeds.push({
-          track: livekit.localVideoTrack,
-          participantName: `${session.displayName} (You)`,
-          participantId: `local-cam-${session.id}`,
-          isScreenShare: false,
-          isLocal: true,
-        });
-      }
-
-      // If local screen share is active, add local screen share feed
+      setIsSharingScreen(livekit.isScreenShareEnabled);
+      const feeds = livekit.remoteVideoFeeds.filter((f) => f.isScreenShare);
       if (livekit.isScreenShareEnabled && livekit.localScreenShareTrack) {
-        allFeeds.push({
+        feeds.unshift({
           track: livekit.localScreenShareTrack,
-          participantName: `${session.displayName}'s Screen (You)`,
-          participantId: `local-screen-${session.id}`,
+          participantName: 'You',
+          participantId: session.id,
           isScreenShare: true,
           isLocal: true,
         });
       }
-
-      // Add remote feeds
-      allFeeds.push(...livekit.remoteVideoFeeds);
-      setVideoFeeds(allFeeds);
+      setScreenFeeds(feeds);
     };
 
     // Load initial 30s room chat (scoped to this space)
@@ -719,13 +825,17 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     );
 
     return () => {
+      sync.onModerationNotice = undefined;
+      livekit.isAudible = undefined;
+      livekit.inSharedRoom = undefined;
+      livekit.isScreenVisible = undefined;
       sync.disconnect();
       livekit.leaveSpaceRoom().catch(() => {});
       if (roomSub) {
         removeRealtimeChannel(roomSub);
       }
     };
-  }, [session, space, spaceCode, getLiveKit, showMediaStatus]);
+  }, [session, space, spaceCode, getLiveKit, showMediaStatus, joinBlocked, worldGameRef, worldStatusRef, recordChatRef]);
 
   // Playlist lifecycle is keyed on ids, not the session/space objects: auth token refreshes
   // and map-theme changes replace those objects, and resetting then would cut the music.
@@ -746,6 +856,67 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     if (!sessionId) return;
     useSocialStore.getState().refreshFriends(sessionId).catch(() => {});
   }, [sessionId]);
+
+  // Ban / mute state and host rights for this space
+  useEffect(() => {
+    if (!sessionId || !playlistSpaceId) return;
+    let cancelled = false;
+    Promise.all([
+      SafetyService.myRestrictions(playlistSpaceId),
+      SafetyService.amIModerator(playlistSpaceId),
+    ])
+      .then(([restrictions, moderator]) => {
+        if (cancelled) return;
+        setSpaceRestrictions(restrictions);
+        setIsSpaceModerator(moderator);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, playlistSpaceId]);
+
+  // Screen share only lives inside a private room: leaving stops it.
+  const inPrivateRoom = Boolean(social.room);
+  useEffect(() => {
+    if (inPrivateRoom) return;
+    const livekit = getLiveKit();
+    if (livekit.isScreenShareEnabled) livekit.toggleScreenShare().catch(() => {});
+  }, [inPrivateRoom, getLiveKit]);
+
+  const handleToggleScreenShare = async () => {
+    if (!social.room) return;
+    if (spaceRestrictions.voiceMuted) {
+      showMediaStatus('🔇', 'A host muted you, so you cannot share right now.', '#EF4444');
+      return;
+    }
+    const nowOn = await getLiveKit().toggleScreenShare();
+    showMediaStatus('🖥️', nowOn ? `Sharing your screen in ${social.room.name}` : 'Stopped sharing', nowOn ? '#22C55E' : '#71717A');
+  };
+  const canShareScreen =
+    typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+
+  // A host voice-mute turns the mic off right away
+  useEffect(() => {
+    if (!spaceRestrictions.voiceMuted) return;
+    const livekit = getLiveKit();
+    if (livekit.isMicEnabled) livekit.toggleMicrophone().catch(() => {});
+  }, [spaceRestrictions.voiceMuted, getLiveKit]);
+
+  // Child <-> adult can't befriend: hide "Add Friend" before the insert would fail
+  useEffect(() => {
+    if (!selectedPlayer) return;
+    let cancelled = false;
+    const userId = selectedPlayer.userId;
+    SafetyService.contactPermissions(userId)
+      .then((p) => {
+        if (!cancelled) setContactPerms({ userId, canBefriend: p.canBefriend });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlayer]);
 
   // 3. 30-Second TTL chat auto-pruner
   useEffect(() => {
@@ -770,17 +941,19 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     };
   }, []);
 
-  // Scroll to bottom on new message
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, [roomMessages, companionMessages, activeChannel]);
+  // Open at the newest message; follow new ones only while the user is at the bottom
+  useChatAutoScroll(chatScrollRef, chatOpen ? activeChannel : null, [roomMessages, companionMessages, isAiThinking]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || !session || !space) return;
-    const text = chatInput.trim();
+    if (activeChannel === 'room' && spaceRestrictions.chatMuted) {
+      showMediaStatus('💬', 'A host muted your chat in this space.', '#EF4444');
+      return;
+    }
+    // Family Mode filters what a child sends, not only what they see.
+    const raw = chatInput.trim();
+    const text = useSafetyStore.getState().restrictions.familyMode ? filterText(raw) : raw;
     setChatInput('');
 
     if (activeChannel === 'room') {
@@ -792,6 +965,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       });
 
       if (msg) {
+        meetings.recordChat(msg, true);
         seenMessageIdsRef.current.add(msg.id);
         setRoomMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
         syncService?.broadcastChatMessage(msg);
@@ -813,6 +987,30 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   }, [getLiveKit, companionHandleProximity]);
 
   const handleCompanionTap = companionOnTap;
+
+  if (session && space && joinBlocked) {
+    return (
+      <div className={safetyStyles.blockedScreen}>
+        <SafetyGate userId={session.id} />
+        <div className={safetyStyles.blockedCard} role="alert">
+          <div className={safetyStyles.blockedEmoji} aria-hidden="true">
+            {spaceRestrictions.banned ? '⛔' : '🛡️'}
+          </div>
+          <h1 className={safetyStyles.blockedTitle}>
+            {spaceRestrictions.banned ? 'You cannot join this space right now' : 'Not available in Family Mode'}
+          </h1>
+          <p className={safetyStyles.muted}>
+            {spaceRestrictions.banned
+              ? 'A host removed you from this space. You can try again later or join another space.'
+              : 'Zombie Survival spaces are for players 13 and older. Pick another space to explore!'}
+          </p>
+          <NeoButton variant="primary" onClick={() => router.push('/dashboard')}>
+            Back to dashboard
+          </NeoButton>
+        </div>
+      </div>
+    );
+  }
 
   if (!session || !space || !syncService) {
     return (
@@ -891,7 +1089,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           targetTeleport={targetTeleport}
           initialTargetZone={zombieMode ? null : initialTargetZone}
           isMicOn={isMicOn}
-          isCamOn={isCamOn}
           onCompanionTap={companionEnabled ? handleCompanionTap : undefined}
           onRemotePlayerTap={(player) => {
             setSelectedPlayer(player);
@@ -899,6 +1096,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             setFriendReqStatus(null);
           }}
           onProximityChanged={handleProximityChanged}
+          hiddenUserIds={hiddenUserIds}
+          textFilter={canvasTextFilter}
+          onGameReady={social.onGameReady}
+          onRoomChanged={social.onRoomChanged}
+          onSitChanged={social.onSitChanged}
+          onSocialAction={social.onSocialAction}
+          onObjectPrompt={handleObjectPrompt}
+          onOpenObject={handleOpenObject}
           onZoneChanged={setCurrentZone}
           {...(companionEnabled ? companionCanvasProps : {})}
           zombieMode={zombieMode}
@@ -924,6 +1129,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <span className={styles.spaceName}>{space.name}</span>
           </div>
           <NeoBadge color={mapConfig.badgeColor}>{currentZone}</NeoBadge>
+          {safetyRestrictions.familyMode && (
+            <span className={safetyStyles.familyBadge} title="Family Mode is on for this account">
+              🛡️ <span className={styles.hudBtnLabel}>Family Mode</span>
+            </span>
+          )}
         </div>
 
         <div className={styles.hudRight}>
@@ -949,6 +1159,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               🚀 <span className={styles.hudBtnLabel}>Teleport</span>
             </NeoButton>
           )}
+          <StatusPicker status={social.status} onChange={(s) => social.setStatus(s)} />
           <NeoButton
             size="sm"
             variant="secondary"
@@ -958,39 +1169,223 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           >
             ⚙️ <span className={styles.hudBtnLabel}>Controls</span>
           </NeoButton>
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            onClick={() => setSafetyOpen(true)}
+            title="Safety & accessibility: chat filter, blocked players, text size"
+            aria-label="Safety and accessibility settings"
+          >
+            🛡️ <span className={styles.hudBtnLabel}>Safety</span>
+          </NeoButton>
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            onClick={() => meetings.setPanelOpen(true)}
+            title="Meetings: schedule, invite and past notes"
+            aria-label="Meetings"
+          >
+            📅 <span className={styles.hudBtnLabel}>Meetings</span>
+          </NeoButton>
           <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
             🎟️ <span className={styles.hudBtnLabel}>Invite Friends</span>
           </NeoButton>
         </div>
       </header>
 
-      <ControlsSettingsModal isOpen={controlsOpen} onClose={() => setControlsOpen(false)} />
+      {social.room && (
+        <RoomStage feeds={screenFeeds} roomName={social.room.name} safeText={safeText} />
+      )}
 
-      {/* Video PiP Overlay */}
-      {videoFeeds.length > 0 && (
-        <div className={styles.pipGrid}>
-          {videoFeeds.map((feed) => (
-            <div
-              key={feed.participantId}
-              className={`${styles.pipCard} ${feed.isLocal ? styles.pipLocalCard : ''}`}
+      {objectPrompt && !openObject && (
+        <button
+          type="button"
+          className={safetyStyles.whiteboardPrompt}
+          onClick={() => handleOpenObject(objectPrompt)}
+        >
+          {INTERACTABLES[objectPrompt.type].icon} {INTERACTABLES[objectPrompt.type].label} <kbd>E</kbd>
+        </button>
+      )}
+
+      {openObject?.type === 'whiteboard' && (
+        <WhiteboardModal
+          spaceId={space.id}
+          boardId={openObject.id}
+          userId={session.id}
+          canClear={canEditObjects}
+          readOnly={spaceRestrictions.banned || spaceRestrictions.chatMuted}
+          hiddenUserIds={hiddenUserIds}
+          onClose={() => setOpenObject(null)}
+        />
+      )}
+
+      {openObject?.type === 'taskBoard' && (
+        <TaskBoardModal
+          spaceId={space.id}
+          boardId={openObject.id}
+          userId={session.id}
+          canEdit={canEditObjects}
+          players={openObject.players ?? []}
+          safeText={safeText}
+          onClose={() => setOpenObject(null)}
+        />
+      )}
+
+      {openObject?.type === 'stickyNote' && (
+        <StickyNoteEditor
+          key={openObject.id}
+          isOpen
+          mode="view"
+          initial={openObject.note}
+          canEdit={canEditObjects}
+          safeText={safeText}
+          onClose={() => setOpenObject(null)}
+          onSave={async (props) => {
+            const ok = await SpaceService.updateWorldObject(openObject.id, { ...props });
+            if (ok) worldGameRef.current?.updateObjectProperties(openObject.id, { ...props });
+            return ok;
+          }}
+          onDelete={async () => {
+            const ok = await SpaceService.deleteWorldObject(openObject.id);
+            if (ok) worldGameRef.current?.removeObject(openObject.id);
+            return ok;
+          }}
+        />
+      )}
+
+      {composingNote && (
+        <StickyNoteEditor
+          isOpen
+          mode="compose"
+          canEdit
+          safeText={safeText}
+          onClose={() => setComposingNote(false)}
+          onSave={(props) => {
+            const game = worldGameRef.current;
+            if (!game) return false;
+            game.placementProperties = { ...props };
+            setSelectedFurniture('stickyNote');
+            return true;
+          }}
+        />
+      )}
+
+      <RoomHud
+        room={social.room}
+        roomCount={social.roomCount}
+        roomLocked={social.roomLocked}
+        onToggleLock={social.toggleLock}
+        knockTarget={social.knockTarget}
+        onKnock={social.knock}
+        knocks={social.knocks}
+        onAnswerKnock={social.answerKnock}
+        safeText={safeText}
+      >
+        <FocusTimer
+          key={social.timer ? `${social.timer.endsAt}-${social.timer.running}-${social.timer.phase}` : 'none'}
+          timer={social.timer}
+          onAction={social.timerAction}
+          autoFocusStatus={social.autoFocusStatus}
+          onToggleAutoFocus={social.toggleAutoFocus}
+        />
+        {meetings.takingNotes ? (
+          <div className={worldStyles.roomBadge}>
+            <span>
+              📝 Taking notes · {meetings.takingNotes.lines} message{meetings.takingNotes.lines === 1 ? '' : 's'}
+            </span>
+            <button
+              type="button"
+              className={`${worldStyles.hudBtn} ${worldStyles.hudBtnPrimary}`}
+              disabled={meetings.summarizing}
+              onClick={() => meetings.endNotes()}
             >
-              <video
-                ref={(el) => {
-                  attachTrackToElement(feed.track, el);
-                }}
-                autoPlay
-                playsInline
-                muted={feed.isLocal}
-                className={`${styles.pipVideo} ${feed.isLocal && !feed.isScreenShare ? styles.pipVideoMirrored : ''}`}
-              />
-              <span className={styles.pipLabel}>
-                {feed.isLocal && <span className={styles.pipLiveDot} />}
-                {feed.participantName} {feed.isScreenShare ? '📺' : ''}
-              </span>
+              {meetings.summarizing ? 'Summarizing…' : '✨ End & summarize'}
+            </button>
+            <button type="button" className={worldStyles.hudBtn} onClick={meetings.cancelNotes} disabled={meetings.summarizing}>
+              Discard
+            </button>
+          </div>
+        ) : social.roomNotesBy ? (
+          <div className={worldStyles.roomBadge}>
+            <span>📝 Notes on · {safeText(social.roomNotesBy)} is taking notes</span>
+          </div>
+        ) : (
+          social.room && (
+            <div className={worldStyles.roomBadge}>
+              <button
+                type="button"
+                className={worldStyles.hudBtn}
+                onClick={() => social.room && meetings.startNotes(social.room, session.displayName)}
+                title="AI notes from the agenda and room chat (no audio is recorded)"
+              >
+                📝 Take notes
+              </button>
             </div>
-          ))}
+          )
+        )}
+      </RoomHud>
+
+      {meetings.banner && (
+        <div className={boardStyles.banner} role="status">
+          <span>
+            📅 {safeText(meetings.banner.title)}{' '}
+            {meetings.bannerStarted ? 'is starting now' : 'starts soon'}
+          </span>
+          <button
+            type="button"
+            className={`${boardStyles.btn} ${boardStyles.primary}`}
+            onClick={() => meetings.banner && meetings.join(meetings.banner)}
+          >
+            Join
+          </button>
+          <button
+            type="button"
+            className={boardStyles.btn}
+            onClick={() => meetings.banner && meetings.dismissBanner(meetings.banner.id)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
+
+      {meetings.panelOpen && (
+        <MeetingsPanel
+          spaceId={space.id}
+          spaceCode={spaceCode}
+          spaceName={space.name}
+          mapTheme={space.mapTheme}
+          userId={session.id}
+          canSchedule={canEditObjects}
+          safeText={safeText}
+          onJoin={meetings.join}
+          onOpenNote={(n) => {
+            meetings.setPanelOpen(false);
+            meetings.setOpenNote(n);
+          }}
+          onClose={() => meetings.setPanelOpen(false)}
+        />
+      )}
+
+      {meetings.openNote && (
+        <MeetingNotesModal
+          note={meetings.openNote}
+          userId={session.id}
+          getTaskBoards={() =>
+            (worldGameRef.current?.objectsOfType('taskBoard') ?? []).map((b, i) => ({
+              id: b.id,
+              label: `Task board ${i + 1}`,
+            }))
+          }
+          canSendToBoard={canEditObjects}
+          safeText={safeText}
+          onClose={() => meetings.setOpenNote(null)}
+        />
+      )}
+
+      <ControlsSettingsModal isOpen={controlsOpen} onClose={() => setControlsOpen(false)} />
+      <SafetySettingsModal isOpen={safetyOpen} onClose={() => setSafetyOpen(false)} />
+      <SafetyGate userId={session.id} />
 
       {/* Bottom Dock */}
       <footer className={styles.bottomDock}>
@@ -1005,26 +1400,42 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           {isMicOn && <span className={`${styles.dockIndicatorDot} ${styles.dockDotGreen}`} />}
         </button>
 
-        <button
-          className={`${styles.dockBtn} ${isCamOn ? styles.dockBtnActiveCam : ''}`}
-          onClick={handleToggleCam}
-          aria-pressed={isCamOn}
-          title={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
-          aria-label={isCamOn ? 'Camera: ON (Broadcasting) - Click to Turn Off' : 'Camera: OFF - Click to Turn On'}
-        >
-          {isCamOn ? <VideoIcon size={20} /> : <VideoOffIcon size={20} />}
-          {isCamOn && <span className={`${styles.dockIndicatorDot} ${styles.dockDotBlue}`} />}
-        </button>
+        {social.room && canShareScreen && (
+          <button
+            type="button"
+            className={`${styles.dockBtn} ${isSharingScreen ? styles.dockBtnActiveMic : ''}`}
+            onClick={handleToggleScreenShare}
+            aria-pressed={isSharingScreen}
+            aria-label={isSharingScreen ? 'Stop sharing your screen' : `Share your screen in ${social.room.name}`}
+            title={isSharingScreen ? 'Stop sharing' : 'Share screen with this room'}
+          >
+            <span aria-hidden="true" style={{ fontSize: '1.1rem', lineHeight: 1 }}>🖥️</span>
+          </button>
+        )}
 
-        <button
-          className={`${styles.dockBtn} ${isScreenShareOn ? styles.dockBtnActive : ''}`}
-          onClick={handleToggleScreenShare}
-          aria-pressed={isScreenShareOn}
-          title={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
-          aria-label={isScreenShareOn ? 'Stop Screen Share' : 'Screen Share'}
-        >
-          <ScreenShareIcon size={20} />
-        </button>
+        <EmoteWheel
+          open={social.emoteMenuOpen}
+          onOpenChange={social.setEmoteMenuOpen}
+          onEmote={social.playEmote}
+          handRaised={social.handRaised}
+          onToggleHand={social.toggleHand}
+          sitting={social.sitting}
+          onToggleSit={social.toggleSit}
+          trigger={
+            <button
+              type="button"
+              className={`${styles.dockBtn} ${social.handRaised ? styles.dockBtnActiveMic : ''}`}
+              onClick={() => social.setEmoteMenuOpen(!social.emoteMenuOpen)}
+              aria-expanded={social.emoteMenuOpen}
+              aria-label="Emotes and raise hand"
+              title="Emotes, raise hand and sit (T)"
+            >
+              <span aria-hidden="true" style={{ fontSize: '1.15rem', lineHeight: 1 }}>
+                {social.handRaised ? '✋' : '😀'}
+              </span>
+            </button>
+          }
+        />
 
         <div className={styles.dockDivider} />
 
@@ -1041,8 +1452,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               aria-label={`New chat from ${chatBanner.senderName}: ${chatBanner.content}`}
             >
               <span className={styles.chatNotifyPulseDot} />
-              <span className={styles.chatNotifySender}>{chatBanner.senderName}:</span>
-              <span className={styles.chatNotifyPreview}>{chatBanner.content}</span>
+              <span className={styles.chatNotifySender}>{safeText(chatBanner.senderName)}:</span>
+              <span className={styles.chatNotifyPreview}>{safeText(chatBanner.content)}</span>
             </button>
           )}
           <button
@@ -1172,12 +1583,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 roomMessages.length === 0 ? (
                   <div className={styles.emptyNotice}>Messages disappear after 30 seconds. Say hi! 👋</div>
                 ) : (
-                  roomMessages.map((m) => (
-                    <div key={m.id} className={styles.messageRow}>
-                      <span className={styles.msgSender}>{m.senderName}:</span>
-                      <span className={styles.msgContent}>{m.content}</span>
-                    </div>
-                  ))
+                  roomMessages
+                    .filter((m) => !hiddenUserIds.has(m.senderId))
+                    .map((m) => (
+                      <div key={m.id} className={styles.messageRow}>
+                        <span className={styles.msgSender}>{safeText(m.senderName)}:</span>
+                        <span className={styles.msgContent}>{safeText(m.content)}</span>
+                      </div>
+                    ))
                 )
               ) : companionMessages.length === 0 ? (
                 <div className={styles.emptyNotice}>
@@ -1212,7 +1625,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               <input
                 className={styles.chatInput}
                 aria-label={activeChannel === 'room' ? 'Room chat message' : 'Message to companion'}
-                placeholder={activeChannel === 'room' ? 'Chat with the room...' : 'Ask companion...'}
+                placeholder={
+                  activeChannel === 'room'
+                    ? spaceRestrictions.chatMuted
+                      ? 'A host muted your chat'
+                      : 'Chat with the room...'
+                    : 'Ask companion...'
+                }
+                disabled={activeChannel === 'room' && spaceRestrictions.chatMuted}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
               />
@@ -1236,6 +1656,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <div className={styles.furnitureList}>
               {(
                 [
+                  'whiteboard',
+                  'taskBoard',
+                  'stickyNote',
                   'pingPongTable',
                   'blueSofa',
                   'coffeeTable',
@@ -1257,7 +1680,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 <button
                   key={f}
                   className={`${styles.furnBtn} ${selectedFurniture === f ? styles.furnBtnActive : ''}`}
-                  onClick={() => setSelectedFurniture(selectedFurniture === f ? null : f)}
+                  onClick={() => {
+                    if (f === 'stickyNote' && selectedFurniture !== f) {
+                      setComposingNote(true);
+                      return;
+                    }
+                    const game = worldGameRef.current;
+                    if (game) game.placementProperties = {};
+                    setSelectedFurniture(selectedFurniture === f ? null : f);
+                  }}
                   aria-pressed={selectedFurniture === f}
                 >
                   {formatFurnitureLabel(f)}
@@ -1791,7 +2222,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <div className={styles.avatarStage}>
               <PixelAvatar config={selectedPlayer.avatarConfig} size={72} />
               <div style={{ marginTop: '8px', fontWeight: 900, fontSize: '1.2rem' }}>
-                {selectedPlayer.displayName}
+                {safeText(selectedPlayer.displayName)}
               </div>
               <NeoBadge color="#22C55E">Online in this Space</NeoBadge>
             </div>
@@ -1800,7 +2231,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               <NeoButton
                 variant="primary"
                 size="lg"
-                disabled={friendReqSending || friendReqSent || isSelectedPlayerFriend}
+                disabled={friendReqSending || friendReqSent || isSelectedPlayerFriend || !canBefriendSelected}
                 onClick={async () => {
                   if (!session) return;
                   setFriendReqSending(true);
@@ -1835,6 +2266,28 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 <div style={{ textAlign: 'center', fontSize: '0.9rem', fontWeight: 700, color: friendReqSent ? '#16A34A' : '#DC2626' }}>
                   {friendReqStatus}
                 </div>
+              )}
+
+              {!canBefriendSelected && !isSelectedPlayerFriend && (
+                <p className={safetyStyles.muted} style={{ textAlign: 'center' }}>
+                  For safety, kids and adults can&apos;t add each other as friends.
+                </p>
+              )}
+
+              {session && selectedPlayer.userId !== session.id && (
+                <PlayerSafetyPanel
+                  currentUserId={session.id}
+                  targetUserId={selectedPlayer.userId}
+                  targetName={safeText(selectedPlayer.displayName)}
+                  spaceId={space?.id}
+                  isModerator={isSpaceModerator}
+                  onToast={showMediaStatus}
+                  onBlocked={() => setSelectedPlayer(null)}
+                  onModerated={(action) => {
+                    syncService?.broadcastModeration(selectedPlayer.userId, action);
+                    if (action === 'kick' || action === 'ban') setSelectedPlayer(null);
+                  }}
+                />
               )}
             </div>
           </div>
