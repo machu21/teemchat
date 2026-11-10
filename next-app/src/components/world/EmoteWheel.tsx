@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { EMOTES, EmoteId } from '@/lib/world/emotes';
 import styles from './WorldSocial.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface EmoteWheelProps {
   open: boolean;
@@ -54,8 +55,8 @@ export function EmoteWheel({
           <div className={styles.emoteGrid}>
             {EMOTES.map((e) => (
               <button key={e.id} type="button" className={styles.emoteBtn} onClick={() => onEmote(e.id)}>
-                <span className={styles.emoji} aria-hidden="true">
-                  {e.emoji}
+                <span className={styles.emoji} aria-hidden="true" style={{ color: e.color }}>
+                  <AppIcon name={e.icon} />
                 </span>
                 <span className={styles.emoteLabel}>{e.label}</span>
               </button>
@@ -68,7 +69,7 @@ export function EmoteWheel({
               aria-pressed={handRaised}
               onClick={onToggleHand}
             >
-              ✋ {handRaised ? 'Lower hand' : 'Raise hand'}
+              <AppIcon name="hand" /> {handRaised ? 'Lower hand' : 'Raise hand'}
             </button>
             <button
               type="button"
@@ -76,7 +77,7 @@ export function EmoteWheel({
               aria-pressed={sitting}
               onClick={onToggleSit}
             >
-              🪑 {sitting ? 'Stand up' : 'Sit'}
+              <AppIcon name="armchair" /> {sitting ? 'Stand up' : 'Sit'}
             </button>
           </div>
           <p className={styles.hint}>Shortcuts: T emotes · H hand · X sit</p>

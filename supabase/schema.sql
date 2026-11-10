@@ -36,6 +36,7 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists status_message text;
 alter table public.profiles add column if not exists gender text check (gender in ('male', 'female')) default 'male';
 alter table public.profiles add column if not exists system_role text not null default 'user' check (system_role in ('user', 'moderator', 'admin', 'superadmin'));
+alter table public.profiles add column if not exists country_code text default 'XX';
 alter table public.profiles enable row level security;
 
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
@@ -2062,6 +2063,9 @@ create policy "Users can send friend requests" on public.friend_requests
 create table if not exists public.guest_provision_log (
   id bigint generated always as identity primary key,
   client_ip text not null,
+  country_code text default 'XX',
+  guest_username text,
+  session_id text,
   created_at timestamptz not null default now()
 );
 alter table public.guest_provision_log enable row level security;
@@ -2069,13 +2073,16 @@ create index if not exists idx_guest_provision_log_ip_created
   on public.guest_provision_log (client_ip, created_at desc);
 create index if not exists idx_guest_provision_log_created
   on public.guest_provision_log (created_at desc);
+create index if not exists idx_guest_provision_log_country
+  on public.guest_provision_log (country_code);
 
 create or replace function public.provision_guest_account(
   p_display_name text,
   p_password text,
   p_avatar_config jsonb default '{}'::jsonb,
   p_gender text default 'male',
-  p_username text default null
+  p_username text default null,
+  p_country_code text default null
 )
 returns jsonb
 language plpgsql
@@ -2086,6 +2093,7 @@ declare
   v_user_id uuid := gen_random_uuid();
   v_headers json;
   v_ip text;
+  v_country text;
   v_base text;
   v_username text;
   v_display_name text;
@@ -2103,6 +2111,17 @@ begin
     'unknown'
   );
 
+  -- Country code from parameters, Cloudflare header, or Vercel header
+  v_country := coalesce(
+    nullif(upper(btrim(p_country_code)), ''),
+    nullif(upper(btrim(v_headers->>'cf-ipcountry')), ''),
+    nullif(upper(btrim(v_headers->>'x-vercel-ip-country')), ''),
+    'XX'
+  );
+  if length(v_country) > 3 or v_country in ('T1', 'A1', 'A2') then
+    v_country := 'XX';
+  end if;
+
   -- Serialize throttle checks per IP so concurrent calls cannot overshoot.
   perform pg_advisory_xact_lock(hashtext('guest_provision:' || v_ip));
 
@@ -2119,7 +2138,8 @@ begin
   end if;
 
   delete from public.guest_provision_log where created_at < now() - interval '1 day';
-  insert into public.guest_provision_log (client_ip) values (v_ip);
+  insert into public.guest_provision_log (client_ip, country_code, guest_username, session_id)
+  values (v_ip, v_country, coalesce(p_username, 'guest'), v_user_id::text);
 
   if p_password is null or length(p_password) < 12 or length(p_password) > 128 then
     raise exception 'Invalid guest credentials' using errcode = '22023';
@@ -2154,6 +2174,11 @@ begin
     v_username := v_base || '_' || floor(random() * 90000 + 10000)::int;
   end loop;
 
+  -- Update log with actual allocated guest username
+  update public.guest_provision_log
+  set guest_username = v_username
+  where session_id = v_user_id::text;
+
   v_email := v_username || '@guest.teemchat.local';
   v_encrypted_pw := crypt(p_password, gen_salt('bf'));
 
@@ -2170,7 +2195,7 @@ begin
     null, '', '', '',
     '',
     jsonb_build_object('provider', 'email', 'providers', array['email'], 'is_guest', true),
-    jsonb_build_object('display_name', v_display_name, 'username', v_username, 'is_guest', true, 'gender', v_gender),
+    jsonb_build_object('display_name', v_display_name, 'username', v_username, 'is_guest', true, 'gender', v_gender, 'country_code', v_country),
     false,
     now(), now()
   );
@@ -2187,26 +2212,45 @@ begin
   );
 
   insert into public.profiles (
-    id, username, display_name, gender, avatar_config, is_paid, tier, has_ai_companion, created_at, updated_at
+    id, username, display_name, gender, avatar_config, is_paid, tier, has_ai_companion, country_code, created_at, updated_at
   ) values (
-    v_user_id, v_username, v_display_name, v_gender, p_avatar_config, false, 'free', false, now(), now()
+    v_user_id, v_username, v_display_name, v_gender, p_avatar_config, false, 'free', false, v_country, now(), now()
   )
   on conflict (id) do update set
     username = excluded.username,
     display_name = excluded.display_name,
     avatar_config = excluded.avatar_config,
-    gender = excluded.gender;
+    gender = excluded.gender,
+    country_code = coalesce(excluded.country_code, public.profiles.country_code);
 
   return jsonb_build_object(
     'user_id', v_user_id,
     'email', v_email,
     'username', v_username,
     'display_name', v_display_name,
-    'gender', v_gender
+    'gender', v_gender,
+    'country_code', v_country
   );
 end;
 $$;
 
+-- 5-argument backward-compatible wrapper
+create or replace function public.provision_guest_account(
+  p_display_name text,
+  p_password text,
+  p_avatar_config jsonb default '{}'::jsonb,
+  p_gender text default 'male',
+  p_username text default null
+)
+returns jsonb
+language sql
+security definer
+set search_path = public, auth, extensions
+as $$
+  select public.provision_guest_account(p_display_name, p_password, p_avatar_config, p_gender, p_username, null);
+$$;
+
+grant execute on function public.provision_guest_account(text, text, jsonb, text, text, text) to anon, authenticated;
 grant execute on function public.provision_guest_account(text, text, jsonb, text, text) to anon, authenticated;
 
 -- 5. Remove the legacy 3-argument guest provisioner: it is still anon-callable on

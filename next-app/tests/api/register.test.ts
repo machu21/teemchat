@@ -92,6 +92,7 @@ describe('POST /api/auth/register', () => {
             username: 'pixel_adventurer',
             display_name: 'Pixel Adventurer',
             gender: 'female',
+            country_code: 'XX',
           },
         },
       });
@@ -102,6 +103,7 @@ describe('POST /api/auth/register', () => {
         username: 'pixel_adventurer',
         display_name: 'Pixel Adventurer',
         gender: 'female',
+        country_code: 'XX',
         status: 'available',
         tier: 'free',
         is_paid: false,
@@ -140,6 +142,7 @@ describe('POST /api/auth/register', () => {
               username: 'default_guy',
               display_name: 'default_guy',
               gender: 'male',
+              country_code: 'XX',
             },
           },
         })
@@ -217,6 +220,32 @@ describe('POST /api/auth/register', () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
+    });
+
+    it('extracts and records country code from Cloudflare cf-ipcountry header', async () => {
+      const payload = {
+        ...validBasePayload(),
+        username: 'country_tester',
+      };
+
+      const req = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'cf-ipcountry': 'PH',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          username: 'country_tester',
+          country_code: 'PH',
+        })
+      );
     });
   });
 

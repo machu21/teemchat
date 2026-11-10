@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NOTE_COLORS, NOTE_MAX_CHARS, StickyNoteProps } from '@/lib/world/interactables';
 import styles from './Boards.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface StickyNoteEditorProps {
   isOpen: boolean;
@@ -97,7 +98,7 @@ export function StickyNoteEditor({
           {error && <p className={styles.error}>{error}</p>}
           <div className={styles.row}>
             <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={busy} onClick={save}>
-              {mode === 'compose' ? '📌 Place on the map' : '💾 Save'}
+              {mode === 'compose' ? <><AppIcon name="pin" /> Place on the map</> : <><AppIcon name="save" /> Save</>}
             </button>
             {mode === 'view' && (
               <button type="button" className={styles.btn} disabled={busy} onClick={() => setEditing(false)}>
@@ -116,11 +117,11 @@ export function StickyNoteEditor({
           {canEdit && (
             <div className={styles.row}>
               <button type="button" className={styles.btn} onClick={() => setEditing(true)}>
-                ✏️ Edit
+                <AppIcon name="edit" /> Edit
               </button>
               {onDelete && (
                 <button type="button" className={`${styles.btn} ${styles.danger}`} disabled={busy} onClick={remove}>
-                  🗑 Delete
+                  <AppIcon name="trash" /> Delete
                 </button>
               )}
             </div>

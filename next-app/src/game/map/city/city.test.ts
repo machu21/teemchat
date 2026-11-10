@@ -220,14 +220,65 @@ describe('zombie city generator', () => {
       fillStyle: '',
       fillRect: () => { fills++; },
       save: () => {}, restore: () => {}, translate: () => {}, beginPath: () => {}, rect: () => {}, clip: () => {},
+      // Storefront signs: ~6 px per character at the sign font
+      font: '', textAlign: 'left', textBaseline: 'alphabetic',
+      measureText: (t: string) => ({ width: t.length * 6 }),
+      fillText: () => { texts++; },
+      arc: () => {}, fill: () => {},
     } as unknown as CanvasRenderingContext2D;
+    let texts = 0;
     renderCityChunk(ctx, plan, { x: 3584, y: 2560, w: 512, h: 512 });
     expect(fills).toBeGreaterThan(1024);
     const tall = plan.buildings.find((b) => b.floors.length >= 3)!;
     for (let k = 0; k < tall.floors.length; k++) renderCityFloor(ctx, plan, tall, k);
     for (const b of plan.buildings.slice(0, 20)) renderCityRoof(ctx, b);
     renderCityRoof(ctx, plan.buildings.find((b) => b.kind === 'hospital')!);
+    const before = texts;
+    for (const b of plan.buildings.filter((x) => x.sign).slice(0, 10)) renderCityRoof(ctx, b);
+    expect(texts - before).toBeGreaterThanOrEqual(10); // every store roof prints its name
     expect(plan.props.filter((p) => renderCityProp(ctx, p)).length).toBeGreaterThan(100);
     for (const e of plan.entrances.slice(0, 50)) renderCityEntrance(ctx, plan, e);
+  });
+});
+
+describe('stores are easy to find', () => {
+  const STORE_KINDS = ['shop', 'grocery', 'convenience', 'pharmacy', 'gasStation'];
+  const stores = plan.buildings.filter((b) => STORE_KINDS.includes(b.kind));
+
+  it('every building name is unique', () => {
+    const names = plan.buildings.map((b) => b.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('has a convenience store in every other suburban block, plus some downtown', () => {
+    const conv = plan.buildings.filter((b) => b.kind === 'convenience');
+    expect(conv.length).toBeGreaterThanOrEqual(6);
+    expect(conv.some((b) => b.district === 'residential')).toBe(true);
+    expect(conv.some((b) => b.district === 'commercial')).toBe(true);
+    // Shops no longer pretend to be corner stores
+    expect(plan.buildings.some((b) => b.kind === 'shop' && /corner store/i.test(b.name))).toBe(false);
+  });
+
+  it('convenience stores look like one inside: a till, shelves and drinks fridges', () => {
+    for (const b of plan.buildings.filter((x) => x.kind === 'convenience')) {
+      const kinds = new Set(b.floors[0].furniture.map((f) => f.kind));
+      expect(kinds.has('checkout'), b.name).toBe(true);
+      expect(kinds.has('fridge') || kinds.has('shelf'), b.name).toBe(true);
+    }
+  });
+
+  it('every store has a storefront sign; shop types have their own icon and colour', () => {
+    for (const s of stores) expect(s.sign?.text, s.id).toBeTruthy();
+    const shops = plan.buildings.filter((b) => b.kind === 'shop');
+    expect(new Set(shops.map((b) => b.icon)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(shops.map((b) => b.color)).size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('suburban corner stores sit on an open forecourt, not behind a yard fence', () => {
+    for (const b of plan.buildings.filter((x) => x.kind === 'convenience' && x.district === 'residential')) {
+      const d = b.frontDoor;
+      const outside = { x: d.x + 4, y: b.facing === 'n' ? d.y - 40 : d.y + 40, w: 8, h: 8 };
+      expect(plan.fences.some((f) => checkAABB(f, outside)), b.name).toBe(false);
+    }
   });
 });

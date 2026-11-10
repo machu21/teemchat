@@ -150,12 +150,21 @@ function extractPartialText(raw: string): string | null {
   return null;
 }
 
+// An emoji sequence (with skin tones / ZWJ joins), a flag letter or a stray variation selector, plus one space before it
+const EMOJI_SEQUENCE =
+  / ?(?:(?![\u00A9\u00AE\u2122])\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*|[\u{1F1E6}-\u{1F1FF}]|\uFE0F)/gu;
+
+/** The app uses its own icons (no emoji), so strip any the model sends anyway. Keeps other whitespace (code indentation). */
+export function stripEmoji(s: string): string {
+  return s.replace(EMOJI_SEQUENCE, '').trim();
+}
+
 /**
  * Parse the model's JSON reply. Recovers gracefully from truncated or
  * unclosed JSON so raw JSON syntax is never displayed to the user.
  */
 export function parseCompanionReply(raw: string | undefined | null, fallbackMood: CompanionMood): CompanionReply {
-  const text = (raw ?? '').trim();
+  const text = stripEmoji(raw ?? '');
   const defaultMessage = "I'm right beside you! Let's explore together!";
   if (!text) {
     return {

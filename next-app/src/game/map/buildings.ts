@@ -17,6 +17,7 @@ import {
   TOWNHALL_UPPER_COLLIDERS,
   drawTownHallUpper,
 } from './interiors/townhall';
+import type { IconName } from '@/lib/icons';
 
 // ============================================================
 // ENTERABLE BUILDINGS (indoor / outdoor transitions)
@@ -68,7 +69,7 @@ export interface DoorDefinition {
 export interface BuildingDefinition {
   id: string;
   name: string;
-  icon: string;
+  icon: IconName;
   color: string;
   /** Full building footprint in world coords; also the roof's draw area. */
   footprint: Rect;
@@ -348,7 +349,7 @@ export const VILLAGE_BUILDINGS: BuildingDefinition[] = [
   {
     id: 'cottage',
     name: 'Cozy Cottage',
-    icon: '🏡',
+    icon: 'house',
     color: '#D97706',
     // Internal (40, 24, 96, 74) scaled 2x
     footprint: COTTAGE_FOOTPRINT,
@@ -392,7 +393,7 @@ export const VILLAGE_BUILDINGS: BuildingDefinition[] = [
   {
     id: 'townhall',
     name: 'Town Hall',
-    icon: '🏛️',
+    icon: 'landmark',
     color: '#2563EB',
     // Internal (152, 16, 120, 78) scaled 2x
     footprint: TOWNHALL_FOOTPRINT,

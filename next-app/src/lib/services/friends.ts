@@ -468,7 +468,7 @@ export class FriendService {
           receiverId,
           createdAt: newOutgoingReq.createdAt,
         });
-        return { success: true, message: 'Friend request sent! 🎉' };
+        return { success: true, message: 'Friend request sent!' };
       } catch (e: unknown) {
         console.warn('Notice inserting DB friend request:', e);
         return { success: false, message: 'Could not send friend request. Please try again.' };
@@ -486,7 +486,7 @@ export class FriendService {
       createdAt: newOutgoingReq.createdAt,
     });
 
-    return { success: true, message: 'Friend request sent! 🎉' };
+    return { success: true, message: 'Friend request sent!' };
   }
 
   static async respondToRequest(

@@ -87,10 +87,10 @@ export async function POST(req: NextRequest) {
     if (!quota.allowed) {
       return NextResponse.json({
         response: quota.limitType === 'window'
-          ? `⚡ You've used your AI messages for this 5-hour window. Your limit resets ${formatWindowReset(quota.resetsAt)}.`
+          ? `You've used your AI messages for this 5-hour window. Your limit resets ${formatWindowReset(quota.resetsAt)}.`
           : quota.isTrial
-          ? "⚡ You've used your 5 free AI messages. Get the AI add-on to keep chatting — 60 messages every 5 hours."
-          : "⚡ I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
+          ? "You've used your 5 free AI messages. Get the AI add-on to keep chatting — 60 messages every 5 hours."
+          : "I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
         quotaExceeded: true,
         upgradeRequired: quota.isTrial,
         mood: 'sleepy',

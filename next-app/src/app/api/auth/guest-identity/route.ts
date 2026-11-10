@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   checkRateLimit,
   getClientIp,
+  getClientCountry,
   getRateLimitHeaders,
   RATE_LIMITS,
 } from '@/lib/rateLimit';
@@ -10,6 +11,7 @@ import { generateIpTag, formatGuestHandles } from '@/lib/security/guestIdentity'
 export async function GET(req: NextRequest) {
   try {
     const ip = getClientIp(req);
+    const country = getClientCountry(req);
 
     // Enforce in-handler rate limiting on guest creation
     const rateResult = checkRateLimit(`ip:guest:${ip}`, RATE_LIMITS.GUEST_CREATE);
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
         ipTag,
         username,
         displayName,
+        country,
       },
       {
         status: 200,
@@ -55,6 +58,7 @@ export async function GET(req: NextRequest) {
       ipTag: fallbackTag,
       username: fallback.username,
       displayName: fallback.displayName,
+      country: 'XX',
       warning: msg,
     });
   }

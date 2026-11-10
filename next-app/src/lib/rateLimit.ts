@@ -157,6 +157,30 @@ export function getClientIp(req: Request): string {
   return '127.0.0.1';
 }
 
+export function getClientCountry(req: Request): string {
+  const cf = req.headers.get('cf-ipcountry')?.trim();
+  if (cf && cf.length === 2 && cf !== 'XX' && cf !== 'T1') {
+    return cf.toUpperCase();
+  }
+
+  const vercel = req.headers.get('x-vercel-ip-country')?.trim();
+  if (vercel && vercel.length === 2 && vercel !== 'XX') {
+    return vercel.toUpperCase();
+  }
+
+  const cloudfront = req.headers.get('cloudfront-viewer-country')?.trim();
+  if (cloudfront && cloudfront.length === 2 && cloudfront !== 'XX') {
+    return cloudfront.toUpperCase();
+  }
+
+  const custom = req.headers.get('x-country-code')?.trim();
+  if (custom && custom.length === 2 && custom !== 'XX') {
+    return custom.toUpperCase();
+  }
+
+  return 'XX';
+}
+
 export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
   const headers: Record<string, string> = {
     'X-RateLimit-Limit': String(result.limit),

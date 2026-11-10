@@ -40,6 +40,9 @@ export const LOT_OVERRIDES: Record<string, LotOverride> = {
   'b3_3:1': { kind: 'grocery', floors: 1, name: 'FreshMart Grocery' },
   'b2_3:2': { kind: 'pharmacy', floors: 2, name: 'Cross Pharmacy' },
   'b5_1:0': { kind: 'pharmacy', floors: 1, name: 'Wellness Drugstore' },
+  // Corner shops in the commercial district (the suburbs get theirs by rule in cityPlan)
+  'b1_2:0': { kind: 'convenience', floors: 1, name: 'Market Mini-Mart' },
+  'b3_0:1': { kind: 'convenience', floors: 1, name: 'Downtown Express' },
   // A safe-feeling house next to the park: never locked.
   'b3_4:0': { locked: false },
 };

@@ -55,6 +55,7 @@ describe('Group & DM Call Unit Tests', () => {
       remoteFeeds: [],
       activeSpeakerIds: new Set(),
       callDurationSeconds: 0,
+      voiceOnly: false,
     });
   });
 
@@ -144,6 +145,52 @@ describe('Group & DM Call Unit Tests', () => {
     expect(useCallStore.getState().isScreenSharing).toBe(false);
     await store.toggleScreenShare();
     expect(useCallStore.getState().isScreenSharing).toBe(true);
+  });
+
+  it('voice-only mode (inside a space) turns off and blocks camera and screen share', async () => {
+    const store = useCallStore.getState();
+    await store.leaveCall();
+    await store.startCall({
+      type: 'dm',
+      conversationId: 'conv-space',
+      title: 'Space Call',
+      isVideo: false,
+      user: { id: 'user-1', name: 'User 1' },
+    });
+    if (!useCallStore.getState().isCameraActive) await store.toggleCamera();
+    if (!useCallStore.getState().isScreenSharing) await store.toggleScreenShare();
+    expect(useCallStore.getState().isCameraActive).toBe(true);
+    expect(useCallStore.getState().isScreenSharing).toBe(true);
+
+    // Entering a space switches both off
+    await store.setVoiceOnly(true);
+    expect(useCallStore.getState().isCameraActive).toBe(false);
+    expect(useCallStore.getState().isScreenSharing).toBe(false);
+
+    // ...and they cannot be turned back on there
+    await store.toggleCamera();
+    await store.toggleScreenShare();
+    expect(useCallStore.getState().isCameraActive).toBe(false);
+    expect(useCallStore.getState().isScreenSharing).toBe(false);
+
+    // A video call started or joined inside a space joins as voice
+    await store.leaveCall();
+    await store.startCall({
+      type: 'dm',
+      conversationId: 'conv-space-2',
+      title: 'Space Video Call',
+      isVideo: true,
+      user: { id: 'user-1', name: 'User 1' },
+    });
+    expect(useCallStore.getState().currentCall?.isVideoCall).toBe(false);
+    expect(useCallStore.getState().participants[0].isCameraOn).toBe(false);
+
+    // Back on the dashboard, video works again
+    await store.setVoiceOnly(false);
+    await store.toggleCamera();
+    expect(useCallStore.getState().isCameraActive).toBe(true);
+    await store.toggleCamera();
+    await store.leaveCall();
   });
 
   it('handles incoming call lifecycle: receive, accept, decline', async () => {

@@ -2,6 +2,7 @@ import { AvatarConfig } from '@/lib/models/avatar';
 import { renderPixelAvatar, AvatarDirection } from '../render/avatar';
 import { isPositionInWater } from '../map/zones';
 import { PresenceOverlayState, danceOffset, renderPresenceOverlay } from '../render/presenceOverlay';
+import { drawIcon } from '@/game/art/drawIcon';
 
 export class PlayerEntity {
   x: number;
@@ -214,15 +215,11 @@ export class PlayerEntity {
     // Live status badges (Mic & Cam icons)
     let iconOffset = pillX + 18 + textW;
     if (this.isMicOn) {
-      ctx.font = '9px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('🎙️', iconOffset, circleCy);
+      drawIcon(ctx, 'mic', iconOffset + 5, circleCy, 10, { color: '#FFFFFF', strokeWidth: 2.4 });
       iconOffset += 14;
     }
     if (this.isCameraOn) {
-      ctx.font = '9px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('📷', iconOffset, circleCy);
+      drawIcon(ctx, 'camera', iconOffset + 5, circleCy, 10, { color: '#FFFFFF', strokeWidth: 2.4 });
     }
   }
 

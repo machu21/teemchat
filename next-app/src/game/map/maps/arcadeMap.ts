@@ -1,3 +1,5 @@
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 // ============================================================
 // RETRO 16-BIT PIXEL-ART WORLD MAP: RETRO CYBER ARCADE & ESPORTS
 // ============================================================
@@ -57,7 +59,7 @@ export function renderArcadeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   r(hsX + 2, arcY + 3, 156, 6, '#18181B');
   ctx.font = 'bold 5px monospace';
   ctx.fillStyle = '#FEF08A';
-  ctx.fillText('🏆 HIGH SCORES: 1. ACE 999999  2. RED 885400 🏆', hsX + 6, arcY + 7);
+  ctx.fillText('HIGH SCORES: 1. ACE 999999  2. RED 885400', hsX + 6, arcY + 7);
 
   // 2 Rows of 4 Pixel Arcade Cabinets (8 machines total)
   const cabThemes = [
@@ -350,10 +352,10 @@ export function renderArcadeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   r(lanX + 40, lTabY + 95, 36, 26, '#F59E0B');
 
   // ── 6. NEON ARCADE CABINET MARQUEES ─────────────────────
-  const marquee = (text: string, x: number, y: number, color: string) => {
+  const marquee = (text: string, x: number, y: number, color: string, icon?: IconName) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
+    const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
     const bh = 11;
 
     // Glowing drop shadow
@@ -365,12 +367,13 @@ export function renderArcadeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
     r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.3)');
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 8);
+    if (icon) drawIcon(ctx, icon, x + 7.5, y + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, x + 4 + (icon ? 9 : 0), y + 8);
   };
 
-  marquee('🕹️ CLASSIC ARCADE ROW', arcX + 10, arcY + 12, '#B45309');
-  marquee('🏆 ESPORTS ARENA', espX + 10, espY + 12, '#B91C1C');
-  marquee('💃 DDR & AIR HOCKEY', rhyX + 10, rhyY + 12, '#BE185D');
-  marquee('🎟️ PRIZE & SODA BAR', przX + 10, przY + 12, '#047857');
-  marquee('🎮 LAN PARTY LOUNGE', lanX + 8, lanY + 8, '#6D28D9');
+  marquee('CLASSIC ARCADE ROW', arcX + 10, arcY + 12, '#B45309', 'joystick');
+  marquee('ESPORTS ARENA', espX + 10, espY + 12, '#B91C1C', 'trophy');
+  marquee('DDR & AIR HOCKEY', rhyX + 10, rhyY + 12, '#BE185D', 'music2');
+  marquee('PRIZE & SODA BAR', przX + 10, przY + 12, '#047857', 'ticket');
+  marquee('LAN PARTY LOUNGE', lanX + 8, lanY + 8, '#6D28D9', 'gamepad');
 }

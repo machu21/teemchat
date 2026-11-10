@@ -27,6 +27,7 @@ describe('GET /api/auth/guest-identity', () => {
         ipTag: 'D9C1',
         username: 'guest_d9c1',
         displayName: 'Explorer #D9C1',
+        country: 'XX',
       });
     });
 
@@ -75,6 +76,28 @@ describe('GET /api/auth/guest-identity', () => {
       expect(data.success).toBe(true);
       expect(data.ipTag).toMatch(/^[0-9A-F]{4}$/);
       expect(data.username).toBe(`guest_${data.ipTag.toLowerCase()}`);
+    });
+
+    it('extracts country code from Cloudflare cf-ipcountry header', async () => {
+      const req = new NextRequest('http://localhost:3000/api/auth/guest-identity', {
+        headers: { 'cf-ipcountry': 'US' },
+      });
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.country).toBe('US');
+    });
+
+    it('extracts country code from Vercel x-vercel-ip-country header as fallback', async () => {
+      const req = new NextRequest('http://localhost:3000/api/auth/guest-identity', {
+        headers: { 'x-vercel-ip-country': 'PH' },
+      });
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.country).toBe('PH');
     });
 
     it('extracts IP from cf-connecting-ip header when other IP headers are missing', async () => {

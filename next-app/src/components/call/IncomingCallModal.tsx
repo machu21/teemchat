@@ -6,9 +6,10 @@ import { useCallStore } from '@/stores/call';
 import { useSessionStore } from '@/stores/session';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { defaultAvatarConfig } from '@/lib/models/avatar';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export function IncomingCallModal() {
-  const { incomingCall, acceptIncomingCall, declineIncomingCall } = useCallStore();
+  const { incomingCall, acceptIncomingCall, declineIncomingCall, voiceOnly } = useCallStore();
   const { session } = useSessionStore();
 
   if (!incomingCall) return null;
@@ -39,7 +40,7 @@ export function IncomingCallModal() {
         </div>
 
         <span className={styles.callTypeBadge}>
-          {incomingCall.isVideo ? '📹 Incoming Video Call' : '📞 Incoming Voice Call'}
+          {incomingCall.isVideo && !voiceOnly ? <><AppIcon name="video" /> Incoming Video Call</> : <><AppIcon name="phone" /> Incoming Voice Call</>}
         </span>
 
         <h3 className={styles.callerName}>{incomingCall.callerName}</h3>
@@ -55,7 +56,7 @@ export function IncomingCallModal() {
             className={`${styles.btn} ${styles.declineBtn}`}
             onClick={declineIncomingCall}
           >
-            ✕ Decline
+            <AppIcon name="close" /> Decline
           </button>
 
           <button
@@ -63,16 +64,18 @@ export function IncomingCallModal() {
             className={`${styles.btn} ${styles.acceptVoiceBtn}`}
             onClick={() => handleAccept(false)}
           >
-            🎙️ Voice
+            <AppIcon name="mic" /> Voice
           </button>
 
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.acceptVideoBtn}`}
-            onClick={() => handleAccept(true)}
-          >
-            📹 Video
-          </button>
+          {!voiceOnly && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.acceptVideoBtn}`}
+              onClick={() => handleAccept(true)}
+            >
+              <AppIcon name="video" /> Video
+            </button>
+          )}
         </div>
       </div>
     </div>

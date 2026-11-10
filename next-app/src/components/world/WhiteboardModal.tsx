@@ -15,6 +15,8 @@ import {
 } from '@/lib/whiteboard/model';
 import { BoardLive, WhiteboardService } from '@/lib/services/whiteboard';
 import styles from './WhiteboardModal.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
 interface WhiteboardModalProps {
   spaceId: string;
@@ -333,17 +335,17 @@ export function WhiteboardModal({
     }, 'image/png');
   };
 
-  const tools: { id: WhiteboardTool; label: string; icon: string }[] = [
-    { id: 'pen', label: 'Pen', icon: '🖊️' },
-    { id: 'highlighter', label: 'Highlighter', icon: '🖍️' },
-    { id: 'eraser', label: 'Eraser', icon: '🧽' },
+  const tools: { id: WhiteboardTool; label: string; icon: IconName }[] = [
+    { id: 'pen', label: 'Pen', icon: 'pen' },
+    { id: 'highlighter', label: 'Highlighter', icon: 'highlighter' },
+    { id: 'eraser', label: 'Eraser', icon: 'eraser' },
   ];
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Whiteboard">
       <div className={styles.panel}>
         <header className={styles.header}>
-          <h2 className={styles.title}>🖊️ Whiteboard</h2>
+          <h2 className={styles.title}><AppIcon name="pen" /> Whiteboard</h2>
           <span className={styles.saveState} aria-live="polite">
             {status === 'loading'
               ? 'Loading…'
@@ -358,7 +360,7 @@ export function WhiteboardModal({
                       : 'Saved'}
           </span>
           <button type="button" className={styles.closeBtn} onClick={close} aria-label="Close whiteboard">
-            ✕
+            <AppIcon name="close" />
           </button>
         </header>
 
@@ -376,7 +378,7 @@ export function WhiteboardModal({
                   className={`${styles.toolBtn} ${tool === t.id ? styles.on : ''}`}
                   onClick={() => setTool(t.id)}
                 >
-                  {t.icon}
+                  <AppIcon name={t.icon} />
                 </button>
               ))}
             </div>
@@ -414,15 +416,15 @@ export function WhiteboardModal({
             </div>
             <div className={styles.group}>
               <button type="button" className={styles.textBtn} onClick={undo}>
-                ↩ Undo
+                <AppIcon name="undo" /> Undo
               </button>
               {canClear && (
                 <button type="button" className={styles.textBtn} onClick={clearBoard}>
-                  🗑 Clear
+                  <AppIcon name="trash" /> Clear
                 </button>
               )}
               <button type="button" className={styles.textBtn} onClick={exportPng}>
-                ⬇ PNG
+                <AppIcon name="download" /> PNG
               </button>
             </div>
           </div>

@@ -43,11 +43,12 @@ import { WEAPONS, WEAPON_ORDER, type WeaponId } from './zombie/weapons';
 import type { Entrance } from './zombie/entrances';
 import type { ConsumableId } from './zombie/survival/types';
 import { ControlAction, DEFAULT_BINDINGS, KeyBindings, actionForCode } from '@/lib/settings/controls';
+import type { IconName } from '@/lib/icons';
 
 export interface DoorPrompt {
   buildingId: string;
   name: string;
-  icon: string;
+  icon: IconName;
   color: string;
   action: 'enter' | 'exit';
   occupants: number;
@@ -177,6 +178,8 @@ export class WorldGame {
   private zombieMode: ZombieMode | null = null;
   private zombieNet: ZombieSyncService | null = null;
   private lastMoveInput: { x: number; y: number } = { x: 0, y: 0 };
+  /** Unclamped seconds since the last frame (capped at 5 s) for the day/night clock. */
+  private frameRealDt: number = 0;
   /** Survival zoom preferences (camera zoom units); indoors defaults to 180 %. */
   private survivalZoom = { outside: DEFAULT_ZOOM, inside: DEFAULT_ZOOM * 1.8 };
   onZombieHud?: (hud: ZombieHud | null) => void;
@@ -281,6 +284,8 @@ export class WorldGame {
         getMapConfig(this.space.mapTheme).loot ?? []
       );
       this.zombieMode.onHudChanged = (hud) => this.onZombieHud?.(hud);
+      // Street lamps glow (and light their pool for vision) after dusk
+      this.zombieMode.setLamps(getDefaultPropsForMap(this.space.mapTheme).filter((p) => p.type === 'streetLantern'));
       this.connectZombieNet();
       this.applyZoomLimits(SURVIVAL_ZOOM_LIMITS.min, SURVIVAL_ZOOM_LIMITS.max);
       this.survivalZoom.outside = this.camera.zoom;
@@ -527,6 +532,11 @@ export class WorldGame {
     return !!this.zombieMode?.selectWeapon(id);
   }
 
+  /** Flashlight toggle (G / HUD button). Returns the new state. */
+  zombieToggleFlashlight(): boolean {
+    return !!this.zombieMode?.toggleFlashlight();
+  }
+
   /** Sprint toggle for touch (desktop holds Shift). Returns the new state. */
   zombieToggleSprint(): boolean {
     return !!this.zombieMode?.toggleSprint();
@@ -575,7 +585,7 @@ export class WorldGame {
     this.followCamera();
 
     if (zoneName) {
-      this.player.speechBubble = `✨ Teleported to ${zoneName}!`;
+      this.player.speechBubble = `Teleported to ${zoneName}!`;
       this.player.speechExpiresAt = Date.now() + 3500;
     }
 
@@ -600,6 +610,14 @@ export class WorldGame {
   private getZoneName(x: number, y: number): string {
     const hit = findLevelAt(this.buildings, x, y);
     if (hit) return `${hit.building.name} · ${hit.level.label}`;
+    // Survival city: stepping inside a building shows its name (e.g. "Night Owl Mart")
+    if (this.hasEntrances) {
+      const inside = this.buildings.find((b) => {
+        const f = b.footprint;
+        return x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.h;
+      });
+      if (inside) return inside.name;
+    }
     return getCurrentZone(x, y, this.space.mapTheme).name;
   }
 
@@ -685,6 +703,8 @@ export class WorldGame {
   private loop = (currentTime: number) => {
     if (!this.isRunning) return;
     const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
+    // Real time for the survival day clock (dt above is clamped for physics)
+    this.frameRealDt = Math.min(Math.max(0, (currentTime - this.lastTime) / 1000), 5);
     this.lastTime = currentTime;
 
     this.update(dt);
@@ -977,12 +997,13 @@ export class WorldGame {
         moveX: this.lastMoveInput.x,
         moveY: this.lastMoveInput.y,
         insideBuildingId: this.insideBuildingId,
+        realDt: this.frameRealDt || dt,
         others,
       });
       if (outcome === 'respawn') {
         const spawn = getMapConfig(this.space.mapTheme).defaultSpawn;
         this.teleportTo(spawn.x, spawn.y);
-        this.player.speechBubble = '🧟 You were bitten… back at spawn';
+        this.player.speechBubble = 'You were bitten… back at spawn';
         this.player.speechExpiresAt = Date.now() + 3500;
       }
     }
@@ -1362,7 +1383,7 @@ export class WorldGame {
 
     this.ctx.restore();
 
-    this.zombieMode?.renderScreen(this.ctx, this.canvas.width, this.canvas.height);
+    this.zombieMode?.renderScreen(this.ctx, this.canvas.width, this.canvas.height, this.camera);
     this.renderIris();
   }
 
@@ -1597,6 +1618,11 @@ export class WorldGame {
           if (bound === 'useSupply' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.useSupply();
+            return;
+          }
+          if (bound === 'flashlight' && !e.repeat) {
+            e.preventDefault();
+            this.zombieMode.toggleFlashlight();
             return;
           }
           const slot = /^Digit([1-6])$/.exec(e.code);

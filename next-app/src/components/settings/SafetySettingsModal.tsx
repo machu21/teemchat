@@ -104,9 +104,9 @@ export function SafetySettingsModal({ isOpen, onClose }: SafetySettingsModalProp
   };
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'safety', label: '🛡️ Safety' },
-    { id: 'blocked', label: `🚫 Blocked (${blockedList.length})` },
-    { id: 'access', label: '♿ Access' },
+    { id: 'safety', label: 'Safety' },
+    { id: 'blocked', label: `Blocked (${blockedList.length})` },
+    { id: 'access', label: 'Access' },
   ];
 
   return (

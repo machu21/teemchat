@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { supabase } from '@/lib/supabase';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export const runtime = 'nodejs';
 export const alt = 'TeemChat Room Invite Preview';
@@ -87,7 +88,7 @@ export default async function Image({
                 fontSize: '28px',
               }}
             >
-              👾
+              <AppIcon name="logo" size={29} style={{ display: 'flex', marginRight: 9 }} />
             </div>
             <div
               style={{
@@ -135,7 +136,7 @@ export default async function Image({
               gap: '8px',
             }}
           >
-            🗺️ {themeDisplay} Theme
+            <AppIcon name="map" size={19} style={{ display: 'flex', marginRight: 6 }} /> {themeDisplay} Theme
           </div>
         </div>
 
@@ -154,6 +155,7 @@ export default async function Image({
         >
           <div
             style={{
+              display: 'flex', alignItems: 'center',
               fontSize: '18px',
               fontWeight: 800,
               color: '#60a5fa',
@@ -161,7 +163,7 @@ export default async function Image({
               letterSpacing: '1.5px',
             }}
           >
-            ⚡ You are invited to join
+            <AppIcon name="zap" size={19} style={{ display: 'flex', marginRight: 6 }} /> You are invited to join
           </div>
           <div
             style={{
@@ -213,7 +215,7 @@ export default async function Image({
                 gap: '8px',
               }}
             >
-              🎙️ Spatial Voice Chat
+              <AppIcon name="mic" size={17} style={{ display: 'flex', marginRight: 5 }} /> Spatial Voice Chat
             </div>
             <div
               style={{
@@ -229,7 +231,7 @@ export default async function Image({
                 gap: '8px',
               }}
             >
-              🤖 AI Companion
+              <AppIcon name="bot" size={17} style={{ display: 'flex', marginRight: 5 }} /> AI Companion
             </div>
             <div
               style={{
@@ -245,12 +247,13 @@ export default async function Image({
                 gap: '8px',
               }}
             >
-              👥 {memberCount > 1 ? `${memberCount} Members` : 'Live Multiplayer'}
+              <AppIcon name="users" size={17} style={{ display: 'flex', marginRight: 5 }} /> {memberCount > 1 ? `${memberCount} Members` : 'Live Multiplayer'}
             </div>
           </div>
 
           <div
             style={{
+              display: 'flex', alignItems: 'center',
               backgroundColor: '#e11d48',
               color: '#ffffff',
               border: '3px solid #000000',
@@ -261,7 +264,7 @@ export default async function Image({
               fontSize: '18px',
             }}
           >
-            Join Instantly →
+            Join Instantly <AppIcon name="arrowRight" size={19} style={{ display: 'flex', marginLeft: 6 }} />
           </div>
         </div>
       </div>

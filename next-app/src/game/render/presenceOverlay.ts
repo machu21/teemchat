@@ -1,4 +1,5 @@
 import { EmoteId, PlayerStatus, emoteDef, statusIcon } from '@/lib/world/emotes';
+import { drawIcon } from '../art/drawIcon';
 
 /** Emote / raised hand / status shown above an avatar. Shared by local and remote players. */
 export interface PresenceOverlayState {
@@ -45,10 +46,14 @@ export function renderPresenceOverlay(
     const age = def.durationMs - remaining;
     // Small pop-in over the first 180ms (skipped with reduced motion).
     const pop = prefersReducedMotion() ? 1 : Math.min(1, 0.5 + age / 360);
-    const size = Math.round(22 * pop);
+    const size = Math.round(24 * pop);
     const y = bubbleShown ? -64 : -30;
-    ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    ctx.fillText(def.emoji, 16, y);
+    // Icon on a white chip with a dark ring so it reads on any floor
+    ctx.fillStyle = '#18181B';
+    ctx.beginPath();
+    ctx.arc(16, y, size / 2 + 2, 0, Math.PI * 2);
+    ctx.fill();
+    drawIcon(ctx, def.icon, 16, y, size, { color: def.color, background: '#FFFFFF', strokeWidth: 2.4 });
   }
 
   if (state.handRaised) {
@@ -64,15 +69,11 @@ export function renderPresenceOverlay(
     ctx.arc(35, 3, 9, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.font = '11px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-    ctx.fillText('✋', 35, 3.5);
+    drawIcon(ctx, 'hand', 35, 3, 12, { color: '#18181B', strokeWidth: 2.4 });
   }
 
-  const icon = statusIcon(state.status);
-  if (icon) {
-    ctx.font = '9px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-    ctx.fillText(icon, -4, -6);
-  }
+  const badge = statusIcon(state.status);
+  if (badge) drawIcon(ctx, badge.icon, -4, -6, 11, { color: '#FFFFFF', background: badge.color, pad: 0.18, strokeWidth: 2.6 });
 
   ctx.restore();
 }

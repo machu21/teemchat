@@ -1,5 +1,6 @@
 import { TILE_ENTRANCE, TILE_OPAQUE, TileGrid, inBounds, tileIndex } from './grid';
 import type { ConsumableId } from './survival/types';
+import type { IconName } from '@/lib/icons';
 
 // ============================================================
 // ZOMBIE MODE — WEAPONS (pure, DOM-free)
@@ -13,7 +14,7 @@ export type AmmoType = '9mm' | '12ga' | '556' | '762' | 'belt';
 export interface WeaponSpec {
   id: WeaponId;
   name: string;
-  icon: string;
+  icon: IconName;
   /** Hotkey slot (1–6). */
   slot: number;
   /** Damage per bullet / pellet (or per swing for melee). */
@@ -40,12 +41,12 @@ export interface WeaponSpec {
 const deg = (d: number) => (d * Math.PI) / 180;
 
 export const WEAPONS: Record<WeaponId, WeaponSpec> = {
-  axe: { id: 'axe', name: 'Fire Axe', icon: '🪓', slot: 1, damage: 40, cooldown: 0.5, range: 36, spread: 0, pellets: 1, auto: false, magSize: 0, reloadSeconds: 0, ammo: null, noise: 5, moveMul: 1 },
-  pistol: { id: 'pistol', name: 'Pistol', icon: '🔫', slot: 2, damage: 35, cooldown: 0.3, range: 280, spread: deg(3), pellets: 1, auto: false, magSize: 12, reloadSeconds: 1.2, ammo: '9mm', noise: 18, moveMul: 1 },
-  shotgun: { id: 'shotgun', name: 'Shotgun', icon: '💥', slot: 3, damage: 18, cooldown: 0.85, range: 170, spread: deg(14), pellets: 8, auto: false, magSize: 6, reloadSeconds: 2.6, ammo: '12ga', noise: 22, moveMul: 0.95 },
-  m16: { id: 'm16', name: 'M16', icon: '🎯', slot: 4, damage: 32, cooldown: 0.09, range: 380, spread: deg(2.5), pellets: 1, auto: true, magSize: 30, reloadSeconds: 2.0, ammo: '556', noise: 24, moveMul: 0.95 },
-  ak47: { id: 'ak47', name: 'AK-47', icon: '🪖', slot: 5, damage: 40, cooldown: 0.11, range: 360, spread: deg(5), pellets: 1, auto: true, magSize: 30, reloadSeconds: 2.3, ammo: '762', noise: 26, moveMul: 0.92 },
-  mg: { id: 'mg', name: 'Machine Gun', icon: '⚙️', slot: 6, damage: 30, cooldown: 0.07, range: 380, spread: deg(7), pellets: 1, auto: true, magSize: 100, reloadSeconds: 4.0, ammo: 'belt', noise: 30, moveMul: 0.75 },
+  axe: { id: 'axe', name: 'Fire Axe', icon: 'axe', slot: 1, damage: 40, cooldown: 0.5, range: 36, spread: 0, pellets: 1, auto: false, magSize: 0, reloadSeconds: 0, ammo: null, noise: 5, moveMul: 1 },
+  pistol: { id: 'pistol', name: 'Pistol', icon: 'pistol', slot: 2, damage: 35, cooldown: 0.3, range: 280, spread: deg(3), pellets: 1, auto: false, magSize: 12, reloadSeconds: 1.2, ammo: '9mm', noise: 18, moveMul: 1 },
+  shotgun: { id: 'shotgun', name: 'Shotgun', icon: 'shotgun', slot: 3, damage: 18, cooldown: 0.85, range: 170, spread: deg(14), pellets: 8, auto: false, magSize: 6, reloadSeconds: 2.6, ammo: '12ga', noise: 22, moveMul: 0.95 },
+  m16: { id: 'm16', name: 'M16', icon: 'rifle', slot: 4, damage: 32, cooldown: 0.09, range: 380, spread: deg(2.5), pellets: 1, auto: true, magSize: 30, reloadSeconds: 2.0, ammo: '556', noise: 24, moveMul: 0.95 },
+  ak47: { id: 'ak47', name: 'AK-47', icon: 'rifle', slot: 5, damage: 40, cooldown: 0.11, range: 360, spread: deg(5), pellets: 1, auto: true, magSize: 30, reloadSeconds: 2.3, ammo: '762', noise: 26, moveMul: 0.92 },
+  mg: { id: 'mg', name: 'Machine Gun', icon: 'machineGun', slot: 6, damage: 30, cooldown: 0.07, range: 380, spread: deg(7), pellets: 1, auto: true, magSize: 100, reloadSeconds: 4.0, ammo: 'belt', noise: 30, moveMul: 0.75 },
 };
 
 export const WEAPON_ORDER: readonly WeaponId[] = ['axe', 'pistol', 'shotgun', 'm16', 'ak47', 'mg'];

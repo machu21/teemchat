@@ -3,6 +3,8 @@
  * task boards and sticky notes. Pure, shared by the game loop and the page.
  */
 
+import type { IconName } from '@/lib/icons';
+
 export type InteractableType = 'whiteboard' | 'taskBoard' | 'stickyNote';
 
 export interface ObjectRef {
@@ -13,15 +15,15 @@ export interface ObjectRef {
 export interface InteractableDef {
   /** Prompt / button text. */
   label: string;
-  icon: string;
+  icon: IconName;
   /** How close (px, from the object's base) the player must be. */
   reach: number;
 }
 
 export const INTERACTABLES: Record<InteractableType, InteractableDef> = {
-  whiteboard: { label: 'Open whiteboard', icon: '🖊️', reach: 60 },
-  taskBoard: { label: 'Open task board', icon: '📋', reach: 60 },
-  stickyNote: { label: 'Read note', icon: '📝', reach: 48 },
+  whiteboard: { label: 'Open whiteboard', icon: 'presentation', reach: 60 },
+  taskBoard: { label: 'Open task board', icon: 'clipboardList', reach: 60 },
+  stickyNote: { label: 'Read note', icon: 'stickyNote', reach: 48 },
 };
 
 export function isInteractableType(value: unknown): value is InteractableType {

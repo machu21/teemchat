@@ -10,6 +10,7 @@ import { BuildingDefinition, VILLAGE_BUILDINGS } from './buildings';
 import type { Entrance } from '../zombie/entrances';
 import type { LootSpawn } from '../zombie/weapons';
 import { buildZombieCityConfig } from './city/cityMap';
+import type { IconName } from '@/lib/icons';
 
 export type MapThemeId = 'village' | 'school' | 'office' | 'nightclub' | 'arcade' | 'cafe' | 'zombie_city';
 
@@ -17,6 +18,7 @@ export interface ZoneDefinition {
   id: string;
   name: string;
   tag: string;
+  icon: IconName;
   description: string;
   x: number;
   y: number;
@@ -28,7 +30,7 @@ export interface MapThemeConfig {
   name: string;
   tagline: string;
   category: string;
-  icon: string;
+  icon: IconName;
   badgeColor: string;
   previewGradient: string;
   description: string;
@@ -40,7 +42,7 @@ export interface MapThemeConfig {
   /** Enterable buildings with roof-lift interiors (optional per map). */
   buildings?: BuildingDefinition[];
   isPositionInWater: (x: number, y: number) => boolean;
-  getCurrentZone: (x: number, y: number) => { name: string; tag: string; color: string };
+  getCurrentZone: (x: number, y: number) => { name: string; tag: string; color: string; icon?: IconName };
   render: (ctx: CanvasRenderingContext2D, iw: number, ih: number) => void;
   /** Outdoor world size in px. Omitted = MAP_WIDTH × MAP_HEIGHT (all social maps). */
   size?: { w: number; h: number };
@@ -86,7 +88,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Verdant Village & Meadow',
     tagline: 'Cozy 16-bit retro village, pine woods & coastal pier',
     category: 'Gaming',
-    icon: '🏡',
+    icon: 'house',
     badgeColor: '#10B981',
     previewGradient: 'linear-gradient(135deg, #15803D 0%, #047857 50%, #0284C7 100%)',
     description:
@@ -97,7 +99,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'village',
         name: 'Verdant Village',
-        tag: '🏡 Village Plaza',
+        tag: 'Village Plaza', icon: 'house',
         description: 'The cozy heart of the realm with central fountain and picnic tables.',
         x: 420,
         y: 300,
@@ -106,7 +108,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'woods',
         name: 'Whispering Woods',
-        tag: '🌲 Deep Woods',
+        tag: 'Deep Woods', icon: 'tree',
         description: 'Enchanted pine forest with ancient trees and tranquil nature.',
         x: 950,
         y: 220,
@@ -115,7 +117,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'bridge',
         name: 'River Crossing Bridge',
-        tag: '🌉 River Bridge',
+        tag: 'River Bridge', icon: 'bridge',
         description: 'Timber bridge connecting the village to the eastern shores.',
         x: 768,
         y: 700,
@@ -124,7 +126,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'camp',
         name: 'Adventure Camp',
-        tag: '🔥 Campfire',
+        tag: 'Campfire', icon: 'flame',
         description: 'Roaring evening campfire, canvas tents, and log seating.',
         x: 350,
         y: 780,
@@ -133,7 +135,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'beach',
         name: 'Crystal Bay Beach',
-        tag: '🏖️ Coastal Pier',
+        tag: 'Coastal Pier', icon: 'palm',
         description: 'Sunny shores, wooden fishing pier, and ocean waves.',
         x: 1450,
         y: 480,
@@ -142,7 +144,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'cottage',
         name: 'Cozy Cottage Interior',
-        tag: '🏡 Potion Shop',
+        tag: 'Potion Shop', icon: 'house',
         description: 'Warm fireplace, alchemist study desk, and potion racks.',
         x: 184,
         y: 120,
@@ -151,7 +153,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'townhall',
         name: 'Town Hall Interior',
-        tag: '🏛️ Guild Hall',
+        tag: 'Guild Hall', icon: 'landmark',
         description: 'Grand council meeting table, reception ledger, and library.',
         x: 424,
         y: 110,
@@ -210,16 +212,16 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     },
     getCurrentZone(x: number, y: number) {
       if (x >= 96 && x <= 256 && y >= 64 && y <= 180) {
-        return { name: 'Cozy Cottage Interior', tag: '🏡 Potion Shop', color: '#D97706' };
+        return { name: 'Cozy Cottage Interior', tag: 'Potion Shop', icon: 'house', color: '#D97706' };
       }
       if (x >= 320 && x <= 528 && y >= 48 && y <= 172) {
-        return { name: 'Town Hall Interior', tag: '🏛️ Guild Hall', color: '#2563EB' };
+        return { name: 'Town Hall Interior', tag: 'Guild Hall', icon: 'landmark', color: '#2563EB' };
       }
-      if (x >= 1290) return { name: 'Crystal Bay Beach', tag: '🏖️ Coastal Bay', color: '#38BDF8' };
-      if (y <= 400 && x >= 600) return { name: 'Whispering Woods', tag: '🌲 Woods', color: '#10B981' };
-      if (x >= 710 && x <= 826 && y >= 660 && y <= 745) return { name: 'River Crossing Bridge', tag: '🌉 Bridge', color: '#D97706' };
-      if (y >= 700 && x <= 600) return { name: 'Adventure Camp', tag: '🔥 Campfire', color: '#F59E0B' };
-      return { name: 'Verdant Village', tag: '🏡 Village Plaza', color: '#8B5CF6' };
+      if (x >= 1290) return { name: 'Crystal Bay Beach', tag: 'Coastal Bay', icon: 'palm', color: '#38BDF8' };
+      if (y <= 400 && x >= 600) return { name: 'Whispering Woods', tag: 'Woods', icon: 'tree', color: '#10B981' };
+      if (x >= 710 && x <= 826 && y >= 660 && y <= 745) return { name: 'River Crossing Bridge', tag: 'Bridge', icon: 'bridge', color: '#D97706' };
+      if (y >= 700 && x <= 600) return { name: 'Adventure Camp', tag: 'Campfire', icon: 'flame', color: '#F59E0B' };
+      return { name: 'Verdant Village', tag: 'Village Plaza', icon: 'house', color: '#8B5CF6' };
     },
     render: renderVillageMap,
   },
@@ -230,7 +232,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Horizon Academy Campus',
     tagline: 'Academic campus with lecture classrooms, lab, library & gym',
     category: 'School',
-    icon: '🏫',
+    icon: 'school',
     badgeColor: '#3B82F6',
     previewGradient: 'linear-gradient(135deg, #1D4ED8 0%, #059669 50%, #D97706 100%)',
     description:
@@ -241,7 +243,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'classroom',
         name: 'Classroom Wing 101',
-        tag: '📚 Main Classroom',
+        tag: 'Main Classroom', icon: 'book',
         description: 'Chalkboard, student desks, teacher podium, and globe.',
         x: 360,
         y: 260,
@@ -250,7 +252,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'lab',
         name: 'Chemistry & Science Lab',
-        tag: '🧪 Science Lab',
+        tag: 'Science Lab', icon: 'flask',
         description: 'Acid-resistant counters, periodic table chart, beakers, and sinks.',
         x: 1050,
         y: 260,
@@ -259,7 +261,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'hallway',
         name: 'Locker Commons & Hallway',
-        tag: '🎒 Locker Hallway',
+        tag: 'Locker Hallway', icon: 'backpack',
         description: 'School lockers, trophy case, and water fountain.',
         x: 700,
         y: 530,
@@ -268,7 +270,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'library',
         name: 'Academy Library & Study Pods',
-        tag: '📖 Quiet Library',
+        tag: 'Quiet Library', icon: 'bookText',
         description: 'Towering book stacks, banker lamps, and study carrels.',
         x: 360,
         y: 780,
@@ -277,7 +279,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'cafeteria',
         name: 'Cafeteria & Nutrition Commons',
-        tag: '🥪 School Cafeteria',
+        tag: 'School Cafeteria', icon: 'sandwich',
         description: 'Long lunch tables, snack vending machines, and tray returns.',
         x: 1050,
         y: 780,
@@ -286,7 +288,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'gym',
         name: 'Athletic Gym & Quad',
-        tag: '🏀 Gymnasium Court',
+        tag: 'Gymnasium Court', icon: 'dumbbell',
         description: 'Hardwood basketball court, spectator bleachers, and green courtyard.',
         x: 1460,
         y: 500,
@@ -322,14 +324,14 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       return false; // Indoor school campus
     },
     getCurrentZone(x: number, y: number) {
-      if (x >= 1360) return { name: 'Athletic Gym & Quad', tag: '🏀 Gymnasium Court', color: '#DC2626' };
-      if (y >= 490 && y <= 580) return { name: 'Locker Commons & Hallway', tag: '🎒 Locker Hallway', color: '#D97706' };
+      if (x >= 1360) return { name: 'Athletic Gym & Quad', tag: 'Gymnasium Court', icon: 'dumbbell', color: '#DC2626' };
+      if (y >= 490 && y <= 580) return { name: 'Locker Commons & Hallway', tag: 'Locker Hallway', icon: 'backpack', color: '#D97706' };
       if (y < 490) {
-        if (x < 740) return { name: 'Classroom Wing 101', tag: '📚 Main Classroom', color: '#2563EB' };
-        return { name: 'Chemistry & Science Lab', tag: '🧪 Science Lab', color: '#059669' };
+        if (x < 740) return { name: 'Classroom Wing 101', tag: 'Main Classroom', icon: 'book', color: '#2563EB' };
+        return { name: 'Chemistry & Science Lab', tag: 'Science Lab', icon: 'flask', color: '#059669' };
       } else {
-        if (x < 740) return { name: 'Academy Library & Study Pods', tag: '📖 Quiet Library', color: '#7C3AED' };
-        return { name: 'Cafeteria & Nutrition Commons', tag: '🥪 School Cafeteria', color: '#EA580C' };
+        if (x < 740) return { name: 'Academy Library & Study Pods', tag: 'Quiet Library', icon: 'bookText', color: '#7C3AED' };
+        return { name: 'Cafeteria & Nutrition Commons', tag: 'School Cafeteria', icon: 'sandwich', color: '#EA580C' };
       }
     },
     render: renderSchoolMap,
@@ -341,7 +343,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Modern Tech HQ & Coworking',
     tagline: 'Sleek workspace with open desks, glass boardroom, cafe & phone pods',
     category: 'Work',
-    icon: '💼',
+    icon: 'briefcase',
     badgeColor: '#6366F1',
     previewGradient: 'linear-gradient(135deg, #1E1B4B 0%, #2563EB 50%, #06B6D4 100%)',
     description:
@@ -352,7 +354,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'desks',
         name: 'Open Engineering Workstations',
-        tag: '💻 Engineering Hub',
+        tag: 'Engineering Hub', icon: 'laptop',
         description: 'Dual widescreen monitors, sprint whiteboard wall, and task desks.',
         x: 360,
         y: 260,
@@ -361,7 +363,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'boardroom',
         name: 'Executive Glass Boardroom',
-        tag: '📊 Boardroom Suite',
+        tag: 'Boardroom Suite', icon: 'chart',
         description: 'Large conference table, 85" presentation screen, and frosted glass.',
         x: 1050,
         y: 260,
@@ -370,7 +372,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'lobby',
         name: 'Reception & Main Lobby',
-        tag: '🏢 Central Lobby',
+        tag: 'Central Lobby', icon: 'office',
         description: 'Reception desk with backlit illuminated branding and guest seating.',
         x: 700,
         y: 530,
@@ -379,7 +381,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'kitchen',
         name: 'Breakroom Kitchen & Watercooler',
-        tag: '☕ Breakroom Cafe',
+        tag: 'Breakroom Cafe', icon: 'coffee',
         description: 'Espresso machine, water cooler dispenser, and high-top cafe tables.',
         x: 360,
         y: 780,
@@ -388,7 +390,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'lounge',
         name: 'Town Hall Lounge & Ping Pong',
-        tag: '🏓 Town Hall Lounge',
+        tag: 'Town Hall Lounge', icon: 'sofa',
         description: 'Competition ping pong table, blue velvet couches, and all-hands screen.',
         x: 1050,
         y: 780,
@@ -397,7 +399,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'terrace',
         name: 'Phone Pods & Skyline Terrace',
-        tag: '📱 Phone Pods & Balcony',
+        tag: 'Phone Pods & Balcony', icon: 'smartphone',
         description: 'Soundproof phone booths for 1-on-1s and open-air rooftop balcony.',
         x: 1460,
         y: 500,
@@ -431,14 +433,14 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       return false;
     },
     getCurrentZone(x: number, y: number) {
-      if (x >= 1360) return { name: 'Phone Pods & Skyline Terrace', tag: '📱 Phone Pods & Balcony', color: '#0284C7' };
-      if (y >= 490 && y <= 580) return { name: 'Reception & Main Lobby', tag: '🏢 Central Lobby', color: '#0F172A' };
+      if (x >= 1360) return { name: 'Phone Pods & Skyline Terrace', tag: 'Phone Pods & Balcony', icon: 'smartphone', color: '#0284C7' };
+      if (y >= 490 && y <= 580) return { name: 'Reception & Main Lobby', tag: 'Central Lobby', icon: 'office', color: '#0F172A' };
       if (y < 490) {
-        if (x < 760) return { name: 'Open Engineering Workstations', tag: '💻 Engineering Hub', color: '#2563EB' };
-        return { name: 'Executive Glass Boardroom', tag: '📊 Boardroom Suite', color: '#4F46E5' };
+        if (x < 760) return { name: 'Open Engineering Workstations', tag: 'Engineering Hub', icon: 'laptop', color: '#2563EB' };
+        return { name: 'Executive Glass Boardroom', tag: 'Boardroom Suite', icon: 'chart', color: '#4F46E5' };
       } else {
-        if (x < 760) return { name: 'Breakroom Kitchen & Watercooler', tag: '☕ Breakroom Cafe', color: '#059669' };
-        return { name: 'Town Hall Lounge & Ping Pong', tag: '🏓 Town Hall Lounge', color: '#D97706' };
+        if (x < 760) return { name: 'Breakroom Kitchen & Watercooler', tag: 'Breakroom Cafe', icon: 'coffee', color: '#059669' };
+        return { name: 'Town Hall Lounge & Ping Pong', tag: 'Town Hall Lounge', icon: 'sofa', color: '#D97706' };
       }
     },
     render: renderOfficeMap,
@@ -450,7 +452,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Neon Velvet Nightclub',
     tagline: 'High-energy cyberpunk club with pulsing LED floor, DJ stage & VIP lounge',
     category: 'Friends',
-    icon: '🪩',
+    icon: 'disc',
     badgeColor: '#EC4899',
     previewGradient: 'linear-gradient(135deg, #4C0519 0%, #701A75 50%, #06B6D4 100%)',
     description:
@@ -461,7 +463,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'dj',
         name: 'DJ Stage & Turntable Booth',
-        tag: '🎧 DJ Riser Stage',
+        tag: 'DJ Riser Stage', icon: 'headphones',
         description: 'Elevated riser, vinyl turntables, subwoofers, and overhead laser truss.',
         x: 420,
         y: 160,
@@ -470,7 +472,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'dance',
         name: 'Pulsing LED Dance Floor',
-        tag: '🪩 Neon Dance Floor',
+        tag: 'Neon Dance Floor', icon: 'disc',
         description: 'Interactive glowing multi-color LED tiles and disco mirror ball reflection.',
         x: 420,
         y: 460,
@@ -479,7 +481,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'vip',
         name: 'VIP Velvet Bottle Lounge',
-        tag: '🍾 VIP Velvet Suite',
+        tag: 'VIP Velvet Suite', icon: 'wine',
         description: 'Crimson curved sectional booths, champagne ice buckets, and gold ropes.',
         x: 1050,
         y: 260,
@@ -488,7 +490,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'bar',
         name: 'Neon Cocktail Mixology Bar',
-        tag: '🍸 Cocktail Bar',
+        tag: 'Cocktail Bar', icon: 'cocktail',
         description: '40-foot illuminated bar counter, 30+ glowing bottles, and round barstools.',
         x: 700,
         y: 840,
@@ -497,7 +499,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'rooftop',
         name: 'Rooftop Skyline Terrace',
-        tag: '🌌 Rooftop Sky Deck',
+        tag: 'Rooftop Sky Deck', icon: 'moonStar',
         description: 'Open-air balcony overlooking city skyscrapers with fire pit tables.',
         x: 1460,
         y: 500,
@@ -528,11 +530,11 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       return false;
     },
     getCurrentZone(x: number, y: number) {
-      if (x >= 1360) return { name: 'Rooftop Skyline Terrace', tag: '🌌 Rooftop Sky Deck', color: '#2563EB' };
-      if (y >= 740) return { name: 'Neon Cocktail Mixology Bar', tag: '🍸 Cocktail Bar', color: '#0891B2' };
-      if (x >= 760 && y < 740) return { name: 'VIP Velvet Bottle Lounge', tag: '🍾 VIP Velvet Suite', color: '#9F1239' };
-      if (y < 240) return { name: 'DJ Stage & Turntable Booth', tag: '🎧 DJ Riser Stage', color: '#7C3AED' };
-      return { name: 'Pulsing LED Dance Floor', tag: '🪩 Neon Dance Floor', color: '#E11D48' };
+      if (x >= 1360) return { name: 'Rooftop Skyline Terrace', tag: 'Rooftop Sky Deck', icon: 'moonStar', color: '#2563EB' };
+      if (y >= 740) return { name: 'Neon Cocktail Mixology Bar', tag: 'Cocktail Bar', icon: 'cocktail', color: '#0891B2' };
+      if (x >= 760 && y < 740) return { name: 'VIP Velvet Bottle Lounge', tag: 'VIP Velvet Suite', icon: 'wine', color: '#9F1239' };
+      if (y < 240) return { name: 'DJ Stage & Turntable Booth', tag: 'DJ Riser Stage', icon: 'headphones', color: '#7C3AED' };
+      return { name: 'Pulsing LED Dance Floor', tag: 'Neon Dance Floor', icon: 'disc', color: '#E11D48' };
     },
     render: renderNightclubMap,
   },
@@ -543,7 +545,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Retro Cyber Arcade & Arena',
     tagline: '80s/90s neon arcade with classic cabinets, esports stage & DDR dance pad',
     category: 'Gaming',
-    icon: '🕹️',
+    icon: 'joystick',
     badgeColor: '#F59E0B',
     previewGradient: 'linear-gradient(135deg, #1E1B4B 0%, #D97706 50%, #EF4444 100%)',
     description:
@@ -554,7 +556,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'arcade_row',
         name: 'Classic Retro Arcade Row',
-        tag: '🕹️ Arcade Alley',
+        tag: 'Arcade Alley', icon: 'joystick',
         description: 'Authentic 8-cabinet row with glowing marquees and balltop joysticks.',
         x: 360,
         y: 260,
@@ -563,7 +565,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'esports',
         name: 'Esports Tournament Arena',
-        tag: '🏆 Esports Stage',
+        tag: 'Esports Stage', icon: 'trophy',
         description: 'Team Red vs Team Blue gaming battlestations and spectator bleachers.',
         x: 1050,
         y: 260,
@@ -572,7 +574,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'ddr',
         name: 'DDR Dance Stage & Air Hockey',
-        tag: '💃 Dance & Rhythm',
+        tag: 'Dance & Rhythm', icon: 'music2',
         description: 'Directional rhythm dance pads, air hockey, and skeeball ramps.',
         x: 360,
         y: 780,
@@ -581,7 +583,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'prizes',
         name: 'Prize Counter & Slushie Bar',
-        tag: '🎟️ Prize & Slushie Bar',
+        tag: 'Prize & Slushie Bar', icon: 'ticket',
         description: 'Ticket redemption counter, claw machines, and multi-flavor slushies.',
         x: 1050,
         y: 780,
@@ -590,7 +592,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'lan',
         name: 'Retro LAN Party Lounge',
-        tag: '🎮 LAN Party Nook',
+        tag: 'LAN Party Nook', icon: 'gamepad',
         description: 'CRT TV monitor stacks, bean bags, retro consoles, and pizza boxes.',
         x: 1460,
         y: 500,
@@ -613,13 +615,13 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       return false;
     },
     getCurrentZone(x: number, y: number) {
-      if (x >= 1360) return { name: 'Retro LAN Party Lounge', tag: '🎮 LAN Party Nook', color: '#7C3AED' };
+      if (x >= 1360) return { name: 'Retro LAN Party Lounge', tag: 'LAN Party Nook', icon: 'gamepad', color: '#7C3AED' };
       if (y < 490) {
-        if (x < 760) return { name: 'Classic Retro Arcade Row', tag: '🕹️ Arcade Alley', color: '#D97706' };
-        return { name: 'Esports Tournament Arena', tag: '🏆 Esports Stage', color: '#DC2626' };
+        if (x < 760) return { name: 'Classic Retro Arcade Row', tag: 'Arcade Alley', icon: 'joystick', color: '#D97706' };
+        return { name: 'Esports Tournament Arena', tag: 'Esports Stage', icon: 'trophy', color: '#DC2626' };
       } else {
-        if (x < 760) return { name: 'DDR Dance Stage & Air Hockey', tag: '💃 Dance & Rhythm', color: '#EC4899' };
-        return { name: 'Prize Counter & Slushie Bar', tag: '🎟️ Prize & Slushie Bar', color: '#059669' };
+        if (x < 760) return { name: 'DDR Dance Stage & Air Hockey', tag: 'Dance & Rhythm', icon: 'music2', color: '#EC4899' };
+        return { name: 'Prize Counter & Slushie Bar', tag: 'Prize & Slushie Bar', icon: 'ticket', color: '#059669' };
       }
     },
     render: renderArcadeMap,
@@ -631,7 +633,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
     name: 'Roast & Read Book Cafe',
     tagline: 'Artisan espresso bar, crackling stone fireplace & garden patio',
     category: 'Friends',
-    icon: '☕',
+    icon: 'coffee',
     badgeColor: '#D97706',
     previewGradient: 'linear-gradient(135deg, #78350F 0%, #B45309 50%, #15803D 100%)',
     description:
@@ -642,7 +644,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'barista',
         name: 'Barista Espresso Bar & Bakery',
-        tag: '☕ Espresso Bar',
+        tag: 'Espresso Bar', icon: 'coffee',
         description: 'Italian espresso machine, fresh pastry glass case, and hanging chalkboard menu.',
         x: 360,
         y: 260,
@@ -651,7 +653,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'fireplace',
         name: 'Fireplace Hearth & Armchairs',
-        tag: '🔥 Fireplace Nook',
+        tag: 'Fireplace Nook', icon: 'flame',
         description: 'Stone brick fireplace with glowing embers, Persian rug, and leather chairs.',
         x: 1050,
         y: 260,
@@ -660,7 +662,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'books',
         name: 'Bookstore Stacks & Study Nook',
-        tag: '📚 Book Stacks',
+        tag: 'Book Stacks', icon: 'book',
         description: 'Oak library shelves, rolling brass ladder, and reading carrels.',
         x: 360,
         y: 780,
@@ -669,7 +671,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'stage',
         name: 'Acoustic Live Stage & Chess',
-        tag: '🎸 Acoustic Stage',
+        tag: 'Acoustic Stage', icon: 'guitar',
         description: 'Vintage microphone, acoustic guitar on stand, and cafe chess tables.',
         x: 1050,
         y: 780,
@@ -678,7 +680,7 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       {
         id: 'patio',
         name: 'Sunlit Cobblestone Patio',
-        tag: '🌿 Garden Patio',
+        tag: 'Garden Patio', icon: 'leaf',
         description: 'Parisian cobblestone garden with striped parasols and birdbath fountain.',
         x: 1460,
         y: 500,
@@ -708,13 +710,13 @@ const EAGER_MAPS: Record<Exclude<MapThemeId, 'zombie_city'>, MapThemeConfig> = {
       return false;
     },
     getCurrentZone(x: number, y: number) {
-      if (x >= 1360) return { name: 'Sunlit Cobblestone Patio', tag: '🌿 Garden Patio', color: '#0369A1' };
+      if (x >= 1360) return { name: 'Sunlit Cobblestone Patio', tag: 'Garden Patio', icon: 'leaf', color: '#0369A1' };
       if (y < 490) {
-        if (x < 760) return { name: 'Barista Espresso Bar & Bakery', tag: '☕ Espresso Bar', color: '#B45309' };
-        return { name: 'Fireplace Hearth & Armchairs', tag: '🔥 Fireplace Nook', color: '#C2410C' };
+        if (x < 760) return { name: 'Barista Espresso Bar & Bakery', tag: 'Espresso Bar', icon: 'coffee', color: '#B45309' };
+        return { name: 'Fireplace Hearth & Armchairs', tag: 'Fireplace Nook', icon: 'flame', color: '#C2410C' };
       } else {
-        if (x < 760) return { name: 'Bookstore Stacks & Study Nook', tag: '📚 Book Stacks', color: '#6D28D9' };
-        return { name: 'Acoustic Live Stage & Chess', tag: '🎸 Acoustic Stage', color: '#047857' };
+        if (x < 760) return { name: 'Bookstore Stacks & Study Nook', tag: 'Book Stacks', icon: 'book', color: '#6D28D9' };
+        return { name: 'Acoustic Live Stage & Chess', tag: 'Acoustic Stage', icon: 'guitar', color: '#047857' };
       }
     },
     render: renderCafeMap,

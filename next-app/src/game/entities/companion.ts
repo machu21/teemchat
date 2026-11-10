@@ -1,6 +1,8 @@
 import type { CompanionModel } from '@/lib/models/chat';
 import { normalizeSpecies } from '../../lib/companion/normalize';
 import type { CompanionEmote, CompanionMood, CompanionSpecies } from '@/lib/companion/types';
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 
 export type CompanionState = 'follow' | 'idle' | 'sleep' | 'guide';
 
@@ -10,11 +12,15 @@ const GUIDE_SPEED = 85; // px/s
 const GUIDE_MAX_LEAD = 110; // px ahead of the owner before waiting
 const GUIDE_ARRIVE_DIST = 36;
 
-const EMOTE_GLYPH: Record<Exclude<CompanionEmote, 'none'>, string> = {
-  heart: '♥',
-  sparkle: '✦',
+/** Emotes drawn as line icons; the rest are plain text glyphs. */
+const EMOTE_ICON: Partial<Record<Exclude<CompanionEmote, 'none'>, IconName>> = {
+  heart: 'heart',
+  sparkle: 'sparkles',
+  music: 'music',
+};
+
+const EMOTE_GLYPH: Partial<Record<Exclude<CompanionEmote, 'none'>, string>> = {
   question: '?',
-  music: '♪',
   zzz: 'z',
   exclaim: '!',
   laugh: '^^',
@@ -383,12 +389,17 @@ export class CompanionEntity {
   private renderEmote(ctx: CanvasRenderingContext2D) {
     const emote = this.emote as Exclude<CompanionEmote, 'none'>;
     const rise = this.emote === 'zzz' ? (this.clock * 6) % 8 : 0;
+    const icon = EMOTE_ICON[emote];
+    if (icon) {
+      drawIcon(ctx, icon, 26, -2 - rise, 11, { color: EMOTE_COLOR[emote], background: '#18181B', pad: 0.16, strokeWidth: 2.6 });
+      return;
+    }
     ctx.font = 'bold 10px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#18181B';
-    const glyph = this.emote === 'zzz' ? 'z z' : EMOTE_GLYPH[emote];
+    const glyph = this.emote === 'zzz' ? 'z z' : (EMOTE_GLYPH[emote] ?? '');
     ctx.strokeText(glyph, 26, -2 - rise);
     ctx.fillStyle = EMOTE_COLOR[emote];
     ctx.fillText(glyph, 26, -2 - rise);

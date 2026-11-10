@@ -8,6 +8,7 @@
  */
 
 import { FocusTimerState, parseTimerPayload } from './focusTimer';
+import type { IconName } from '@/lib/icons';
 
 export interface RoomRect {
   x: number;
@@ -21,7 +22,7 @@ export type RoomKind = 'meeting' | 'pod' | 'classroom' | 'lounge';
 export interface RoomDefinition {
   id: string;
   name: string;
-  icon: string;
+  icon: IconName;
   kind: RoomKind;
   rect: RoomRect;
 }
@@ -30,28 +31,28 @@ const r = (x: number, y: number, w: number, h: number): RoomRect => ({ x, y, w, 
 
 export const MAP_ROOMS: Record<string, RoomDefinition[]> = {
   office: [
-    { id: 'office-boardroom', name: 'Boardroom', icon: '📊', kind: 'meeting', rect: r(760, 32, 600, 458) },
-    { id: 'office-pod-1', name: 'Phone Pod 1', icon: '📱', kind: 'pod', rect: r(1416, 86, 168, 110) },
-    { id: 'office-pod-2', name: 'Phone Pod 2', icon: '📱', kind: 'pod', rect: r(1416, 226, 168, 110) },
-    { id: 'office-pod-3', name: 'Phone Pod 3', icon: '📱', kind: 'pod', rect: r(1416, 366, 168, 110) },
+    { id: 'office-boardroom', name: 'Boardroom', icon: 'presentation', kind: 'meeting', rect: r(760, 32, 600, 458) },
+    { id: 'office-pod-1', name: 'Phone Pod 1', icon: 'smartphone', kind: 'pod', rect: r(1416, 86, 168, 110) },
+    { id: 'office-pod-2', name: 'Phone Pod 2', icon: 'smartphone', kind: 'pod', rect: r(1416, 226, 168, 110) },
+    { id: 'office-pod-3', name: 'Phone Pod 3', icon: 'smartphone', kind: 'pod', rect: r(1416, 366, 168, 110) },
   ],
   school: [
-    { id: 'school-classroom', name: 'Classroom 101', icon: '📚', kind: 'classroom', rect: r(32, 32, 708, 458) },
-    { id: 'school-library', name: 'Library', icon: '📖', kind: 'meeting', rect: r(32, 580, 708, 468) },
+    { id: 'school-classroom', name: 'Classroom 101', icon: 'book', kind: 'classroom', rect: r(32, 32, 708, 458) },
+    { id: 'school-library', name: 'Library', icon: 'library', kind: 'meeting', rect: r(32, 580, 708, 468) },
   ],
   village: [
-    { id: 'village-cottage', name: 'Cottage', icon: '🏡', kind: 'lounge', rect: r(96, 64, 160, 116) },
-    { id: 'village-townhall', name: 'Town Hall', icon: '🏛️', kind: 'meeting', rect: r(320, 48, 208, 124) },
+    { id: 'village-cottage', name: 'Cottage', icon: 'house', kind: 'lounge', rect: r(96, 64, 160, 116) },
+    { id: 'village-townhall', name: 'Town Hall', icon: 'landmark', kind: 'meeting', rect: r(320, 48, 208, 124) },
   ],
   nightclub: [
-    { id: 'nightclub-vip', name: 'VIP Lounge', icon: '🍾', kind: 'lounge', rect: r(760, 32, 600, 708) },
+    { id: 'nightclub-vip', name: 'VIP Lounge', icon: 'wine', kind: 'lounge', rect: r(760, 32, 600, 708) },
   ],
   cafe: [
-    { id: 'cafe-fireplace', name: 'Fireplace Nook', icon: '🔥', kind: 'lounge', rect: r(760, 32, 600, 458) },
-    { id: 'cafe-study', name: 'Study Nook', icon: '📚', kind: 'meeting', rect: r(32, 490, 728, 558) },
+    { id: 'cafe-fireplace', name: 'Fireplace Nook', icon: 'flame', kind: 'lounge', rect: r(760, 32, 600, 458) },
+    { id: 'cafe-study', name: 'Study Nook', icon: 'book', kind: 'meeting', rect: r(32, 490, 728, 558) },
   ],
   arcade: [
-    { id: 'arcade-lan', name: 'LAN Party Nook', icon: '🎮', kind: 'lounge', rect: r(1360, 32, 288, 1016) },
+    { id: 'arcade-lan', name: 'LAN Party Nook', icon: 'gamepad', kind: 'lounge', rect: r(1360, 32, 288, 1016) },
   ],
 };
 

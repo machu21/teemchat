@@ -13,6 +13,7 @@ import {
   sortTasks,
 } from '@/lib/services/taskBoard';
 import styles from './Boards.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export interface PlayerOption {
   userId: string;
@@ -119,7 +120,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
   const nameOf = (id: string | null) => (id ? players.find((p) => p.userId === id)?.name || 'Someone' : null);
 
   return (
-    <NeoModal isOpen onClose={onClose} title="📋 Task board" maxWidth="880px">
+    <NeoModal isOpen onClose={onClose} title="Task board" maxWidth="880px">
       <div className={styles.stack}>
         {canEdit && (
           <form
@@ -158,7 +159,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
               return (
                 <section key={col.id} className={styles.column} aria-label={col.label}>
                   <div className={styles.columnTitle}>
-                    {col.icon} {col.label} · {items.length}
+                    <AppIcon name={col.icon} /> {col.label} · {items.length}
                   </div>
                   {items.map((t) => (
                     <article key={t.id} className={styles.card}>
@@ -183,7 +184,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
                       ) : (
                         <span className={styles.cardTitle}>{safeText(t.title)}</span>
                       )}
-                      {t.assigneeId && <span className={styles.cardMeta}>👤 {safeText(nameOf(t.assigneeId) || '')}</span>}
+                      {t.assigneeId && <span className={styles.cardMeta}><AppIcon name="user" /> {safeText(nameOf(t.assigneeId) || '')}</span>}
                       {canEdit && (
                         <div className={styles.cardActions}>
                           <button
@@ -193,7 +194,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
                             onClick={() => move(t, -1)}
                             aria-label="Move left"
                           >
-                            ◀
+                            <AppIcon name="chevronLeft" />
                           </button>
                           <button
                             type="button"
@@ -202,7 +203,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
                             onClick={() => move(t, 1)}
                             aria-label="Move right"
                           >
-                            ▶
+                            <AppIcon name="play" />
                           </button>
                           <button
                             type="button"
@@ -213,7 +214,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
                             }}
                             aria-label="Edit title"
                           >
-                            ✏️
+                            <AppIcon name="edit" />
                           </button>
                           <select
                             className={styles.select}
@@ -235,7 +236,7 @@ export function TaskBoardModal({ spaceId, boardId, userId, canEdit, players, saf
                             onClick={() => remove(t)}
                             aria-label="Delete task"
                           >
-                            🗑
+                            <AppIcon name="trash" />
                           </button>
                         </div>
                       )}

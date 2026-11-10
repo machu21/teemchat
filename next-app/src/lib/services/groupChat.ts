@@ -34,7 +34,7 @@ export class GroupChatService {
       return convs.map((c) => ({
         id: c.id,
         name: c.name,
-        icon: c.icon || '👾',
+        icon: c.icon || 'logo',
         createdBy: c.created_by || '',
         lastMessageAt: c.last_message_at,
         lastPreview: c.last_preview || 'New group created',
@@ -61,7 +61,7 @@ export class GroupChatService {
         .from('group_conversations')
         .insert({
           name: trimmedName,
-          icon: icon || '👾',
+          icon: icon || 'logo',
           created_by: creatorId,
           last_preview: 'Squad group formed',
         })
@@ -73,7 +73,7 @@ export class GroupChatService {
         const localGroup: GroupConversationModel = {
           id: `local-group-${Date.now()}`,
           name: trimmedName,
-          icon: icon || '👾',
+          icon: icon || 'logo',
           createdBy: creatorId,
           lastMessageAt: new Date().toISOString(),
           lastPreview: 'Squad group formed',
@@ -92,7 +92,7 @@ export class GroupChatService {
       return {
         id: conv.id,
         name: conv.name,
-        icon: conv.icon || '👾',
+        icon: conv.icon || 'logo',
         createdBy: conv.created_by || '',
         lastMessageAt: conv.last_message_at,
         lastPreview: conv.last_preview || '',
@@ -103,7 +103,7 @@ export class GroupChatService {
       return {
         id: `local-group-${Date.now()}`,
         name: trimmedName,
-        icon: icon || '👾',
+        icon: icon || 'logo',
         createdBy: creatorId,
         lastMessageAt: new Date().toISOString(),
         lastPreview: 'Squad group formed',

@@ -3,6 +3,7 @@ import {
   RateLimiter,
   checkRateLimit,
   getClientIp,
+  getClientCountry,
   getRateLimitHeaders,
   RATE_LIMITS,
 } from '../src/lib/rateLimit';
@@ -173,6 +174,51 @@ describe('getClientIp', () => {
   it('returns default 127.0.0.1 when no IP headers are present', () => {
     const req = new Request('http://localhost/api/test');
     expect(getClientIp(req)).toBe('127.0.0.1');
+  });
+});
+
+describe('getClientCountry', () => {
+  it('extracts country code from Cloudflare cf-ipcountry header', () => {
+    const req = new Request('http://localhost/api/test', {
+      headers: { 'cf-ipcountry': 'us' },
+    });
+    expect(getClientCountry(req)).toBe('US');
+  });
+
+  it('extracts country code from Vercel x-vercel-ip-country header', () => {
+    const req = new Request('http://localhost/api/test', {
+      headers: { 'x-vercel-ip-country': 'ph' },
+    });
+    expect(getClientCountry(req)).toBe('PH');
+  });
+
+  it('extracts country code from CloudFront cloudfront-viewer-country header', () => {
+    const req = new Request('http://localhost/api/test', {
+      headers: { 'cloudfront-viewer-country': 'GB' },
+    });
+    expect(getClientCountry(req)).toBe('GB');
+  });
+
+  it('extracts country code from custom x-country-code header', () => {
+    const req = new Request('http://localhost/api/test', {
+      headers: { 'x-country-code': 'CA' },
+    });
+    expect(getClientCountry(req)).toBe('CA');
+  });
+
+  it('falls back to XX when no headers or invalid codes are present', () => {
+    const req1 = new Request('http://localhost/api/test');
+    expect(getClientCountry(req1)).toBe('XX');
+
+    const req2 = new Request('http://localhost/api/test', {
+      headers: { 'cf-ipcountry': 'XX' },
+    });
+    expect(getClientCountry(req2)).toBe('XX');
+
+    const req3 = new Request('http://localhost/api/test', {
+      headers: { 'cf-ipcountry': 'TOOLONG' },
+    });
+    expect(getClientCountry(req3)).toBe('XX');
   });
 });
 

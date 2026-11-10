@@ -6,6 +6,7 @@ import { useSocialStore } from '@/stores/social';
 import { useSessionStore } from '@/stores/session';
 import { FriendService } from '@/lib/services/friends';
 import { NeoButton } from '@/components/neo/NeoButton';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export function NotificationBell() {
   const { session } = useSessionStore();
@@ -61,7 +62,7 @@ export function NotificationBell() {
         onClick={() => setIsOpen((prev) => !prev)}
         title="Notifications"
       >
-        🔔
+        <AppIcon name="bell" />
         {count > 0 && <span className={styles.badge}>{count}</span>}
       </button>
 
@@ -90,14 +91,14 @@ export function NotificationBell() {
                       variant="primary"
                       onClick={() => handleAccept(req.id)}
                     >
-                      ✓
+                      <AppIcon name="check" />
                     </NeoButton>
                     <NeoButton
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDecline(req.id)}
                     >
-                      ✕
+                      <AppIcon name="close" />
                     </NeoButton>
                   </div>
                 </div>
@@ -118,7 +119,7 @@ export function NotificationBell() {
                 setSearchModalOpen(true);
               }}
             >
-              Manage Friends & Requests →
+              Manage Friends & Requests <AppIcon name="arrowRight" />
             </NeoButton>
           </div>
         </div>

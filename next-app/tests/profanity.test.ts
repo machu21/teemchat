@@ -3,8 +3,8 @@ import { containsProfanity, filterText } from '../src/lib/safety/profanity';
 
 describe('profanity filter', () => {
   it('masks plain swear words and keeps the rest of the sentence', () => {
-    expect(filterText('what the shit is this')).toBe('what the ★★★★ is this');
-    expect(filterText('Fuck!')).toBe('★★★★★');
+    expect(filterText('what the shit is this')).toBe('what the **** is this');
+    expect(filterText('Fuck!')).toBe('*****');
   });
 
   it('catches leetspeak, inner punctuation and stretched letters', () => {
@@ -14,7 +14,7 @@ describe('profanity filter', () => {
   });
 
   it('catches letters spaced across words', () => {
-    expect(filterText('you f u c k')).toBe('you ★ ★ ★ ★');
+    expect(filterText('you f u c k')).toBe('you * * * *');
     expect(containsProfanity('s h i t happens')).toBe(true);
   });
 

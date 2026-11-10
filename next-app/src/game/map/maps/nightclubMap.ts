@@ -1,3 +1,5 @@
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 // ============================================================
 // RETRO 16-BIT PIXEL-ART WORLD MAP: NEON VELVET NIGHTCLUB
 // ============================================================
@@ -58,7 +60,7 @@ export function renderNightclubMap(ctx: CanvasRenderingContext2D, iw: number, ih
   r(nSignX + 4, djY + 16, 162, 8, '#C084FC');
   ctx.font = 'bold 7px monospace';
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText('⚡ TEEM LIVE DJ ⚡', nSignX + 24, djY + 23);
+  ctx.fillText('TEEM LIVE DJ', nSignX + 24, djY + 23);
 
   // Central DJ Console & Turntables
   const boothX = djX + 115;
@@ -192,7 +194,7 @@ export function renderNightclubMap(ctx: CanvasRenderingContext2D, iw: number, ih
   r(vArtX + 2, vipY + 132, 146, 56, '#312E81');
   ctx.font = 'bold 8px monospace';
   ctx.fillStyle = '#F43F5E';
-  ctx.fillText('✨ VIP CHAMPAGNE LOUNGE ✨', vArtX + 10, vipY + 155);
+  ctx.fillText('VIP CHAMPAGNE LOUNGE', vArtX + 10, vipY + 155);
 
   // ── 4. ZONE: NEON COCKTAIL BAR & MIXOLOGY (Bottom: 32, 370 to 680, 500) ──
   const barX = 32;
@@ -307,10 +309,10 @@ export function renderNightclubMap(ctx: CanvasRenderingContext2D, iw: number, ih
   }
 
   // ── 6. NEON ACRYLIC CLUB SIGNS ──────────────────────────
-  const neonSign = (text: string, x: number, y: number, color: string) => {
+  const neonSign = (text: string, x: number, y: number, color: string, icon?: IconName) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
+    const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
     const bh = 11;
 
     // Deep neon glow shadow
@@ -322,12 +324,13 @@ export function renderNightclubMap(ctx: CanvasRenderingContext2D, iw: number, ih
     r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.35)');
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 8);
+    if (icon) drawIcon(ctx, icon, x + 7.5, y + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, x + 4 + (icon ? 9 : 0), y + 8);
   };
 
-  neonSign('🎧 DJ STAGE & BOOTH', djX + 10, djY + 12, '#6B21A8');
-  neonSign('🪩 PULSING DANCE FLOOR', dfX + 8, dfY + 8, '#BE123C');
-  neonSign('🍾 VIP VELVET LOUNGE', vipX + 10, vipY + 12, '#881337');
-  neonSign('🍸 NEON COCKTAIL BAR', barX + 18, barY + 40, '#0E7490');
-  neonSign('🌌 SKYLINE BALCONY', rX + 8, rY + 12, '#1D4ED8');
+  neonSign('DJ STAGE & BOOTH', djX + 10, djY + 12, '#6B21A8', 'headphones');
+  neonSign('PULSING DANCE FLOOR', dfX + 8, dfY + 8, '#BE123C', 'disc');
+  neonSign('VIP VELVET LOUNGE', vipX + 10, vipY + 12, '#881337', 'wine');
+  neonSign('NEON COCKTAIL BAR', barX + 18, barY + 40, '#0E7490', 'cocktail');
+  neonSign('SKYLINE BALCONY', rX + 8, rY + 12, '#1D4ED8', 'moonStar');
 }

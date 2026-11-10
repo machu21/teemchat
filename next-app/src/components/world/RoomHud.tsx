@@ -4,6 +4,7 @@ import React from 'react';
 import type { RoomDefinition } from '@/lib/world/rooms';
 import type { PendingKnock } from '@/lib/hooks/useWorldSocial';
 import styles from './WorldSocial.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface RoomHudProps {
   room: RoomDefinition | null;
@@ -40,10 +41,10 @@ export function RoomHud({
       {room && (
         <div className={styles.roomBadge}>
           <span>
-            {room.icon} {room.name} · {roomCount} {roomCount === 1 ? 'person' : 'people'} · 🔇 voice stays inside
+            <AppIcon name={room.icon} /> {room.name} · {roomCount} {roomCount === 1 ? 'person' : 'people'} · <AppIcon name="volumeOff" /> voice stays inside
           </span>
           <button type="button" className={styles.hudBtn} aria-pressed={roomLocked} onClick={onToggleLock}>
-            {roomLocked ? '🔒 Locked' : '🔓 Lock'}
+            {roomLocked ? <><AppIcon name="lock" /> Locked</> : <><AppIcon name="unlock" /> Lock</>}
           </button>
         </div>
       )}
@@ -53,17 +54,17 @@ export function RoomHud({
       {!room && knockTarget && (
         <div className={styles.knockPrompt}>
           <span>
-            🔒 {knockTarget.name} is locked
+            <AppIcon name="lock" /> {knockTarget.name} is locked
           </span>
           <button type="button" className={`${styles.hudBtn} ${styles.hudBtnPrimary}`} onClick={onKnock}>
-            ✊ Knock
+            <AppIcon name="hand" /> Knock
           </button>
         </div>
       )}
 
       {knocks.map((k) => (
         <div key={`${k.roomId}:${k.actorId}`} className={styles.knockCard} role="alert">
-          <span>✊ {safeText(k.actorName)} is knocking</span>
+          <span><AppIcon name="hand" /> {safeText(k.actorName)} is knocking</span>
           <button type="button" className={`${styles.hudBtn} ${styles.hudBtnPrimary}`} onClick={() => onAnswerKnock(k, true)}>
             Let in
           </button>

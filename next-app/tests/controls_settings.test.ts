@@ -48,7 +48,7 @@ describe('key bindings', () => {
   it('labels keys for the HUD', () => {
     expect(keyLabel('KeyF')).toBe('F');
     expect(keyLabel('ShiftLeft')).toBe('Shift');
-    expect(keyLabel('ArrowLeft')).toBe('←');
+    expect(keyLabel('ArrowLeft')).toBe('Left');
     expect(keyLabel(null)).toBe('—');
     expect(primaryLabel(DEFAULT_BINDINGS, 'jump')).toBe('Space');
   });

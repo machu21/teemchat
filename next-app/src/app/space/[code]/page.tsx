@@ -11,7 +11,7 @@ import { SpaceModel, defaultHQ } from '@/lib/models/space';
 import { InviteLinkService } from '@/lib/services/invite';
 import { getMapConfig, getZonesForMap, ZoneDefinition, MAP_REGISTRY } from '@/game/map/mapRegistry';
 import { WorldSyncService } from '@/lib/services/worldSync';
-import { LiveKitService, VideoFeedModel } from '@/lib/services/livekit';
+import { LiveKitService } from '@/lib/services/livekit';
 import { ChatService } from '@/lib/services/chat';
 import { PlaylistService } from '@/lib/services/playlist';
 import { ChatMessageModel } from '@/lib/models/chat';
@@ -56,7 +56,6 @@ import { useWorldSocial } from '@/lib/hooks/useWorldSocial';
 import { EmoteWheel } from '@/components/world/EmoteWheel';
 import { StatusPicker } from '@/components/world/StatusPicker';
 import { RoomHud } from '@/components/world/RoomHud';
-import { RoomStage } from '@/components/world/RoomStage';
 import { WhiteboardModal } from '@/components/world/WhiteboardModal';
 import { StickyNoteEditor } from '@/components/world/StickyNoteEditor';
 import { FocusTimer } from '@/components/world/FocusTimer';
@@ -68,6 +67,8 @@ import worldStyles from '@/components/world/WorldSocial.module.css';
 import { TaskBoardModal, PlayerOption } from '@/components/world/TaskBoardModal';
 import { INTERACTABLES, ObjectRef, StickyNoteProps, parseStickyNote } from '@/lib/world/interactables';
 import { canHear } from '@/lib/world/rooms';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -112,13 +113,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   // Media toggles
   const [isMicOn, setIsMicOn] = useState(false);
-  // Screen shares in private rooms (remote ones are only subscribed when in your room)
-  const [screenFeeds, setScreenFeeds] = useState<VideoFeedModel[]>([]);
-  const [isSharingScreen, setIsSharingScreen] = useState(false);
-  const [mediaStatusToast, setMediaStatusToast] = useState<{ icon: string; message: string; color: string } | null>(null);
+  const [mediaStatusToast, setMediaStatusToast] = useState<{ icon: IconName; message: string; color: string } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showMediaStatus = useCallback((icon: string, message: string, color: string) => {
+  const showMediaStatus = useCallback((icon: IconName, message: string, color: string) => {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
     }
@@ -234,7 +232,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         uploadTitle,
         uploadArtist
       );
-      showMediaStatus('🎵', `Uploaded & Playing: "${uploaded.title}"!`, '#10B981');
+      showMediaStatus('music', `Uploaded & Playing: "${uploaded.title}"!`, '#10B981');
       setUploadFile(null);
       setUploadTitle('');
       setUploadArtist('');
@@ -242,7 +240,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to upload MP3 file.';
       setUploadError(msg);
-      showMediaStatus('⚠️', msg, '#EF4444');
+      showMediaStatus('warning', msg, '#EF4444');
     } finally {
       setIsUploadingTrack(false);
     }
@@ -276,10 +274,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       syncService?.broadcastMapTheme(newThemeId);
       setSpace((prev) => (prev ? { ...prev, mapTheme: newThemeId } : null));
       setMapThemeModalOpen(false);
-      showMediaStatus('🗺️', `Realm theme changed to ${cfg.name}!`, '#10B981');
+      showMediaStatus('map', `Realm theme changed to ${cfg.name}!`, '#10B981');
     } catch (e) {
       console.warn('Failed to switch map theme:', e);
-      showMediaStatus('⚠️', 'Failed to change map theme', '#EF4444');
+      showMediaStatus('warning', 'Failed to change map theme', '#EF4444');
     }
   }, [space, syncService, showMediaStatus]);
 
@@ -420,7 +418,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           ? 'listening_music'
           : 'exploring',
     openMap: () => {
-      if (zombieMode) showMediaStatus('🚫', 'No teleporting in Survival — you have to walk', '#EF4444');
+      if (zombieMode) showMediaStatus('ban', 'No teleporting in Survival — you have to walk', '#EF4444');
       else setMapTeleportModalOpen(true);
     },
     openChat: () => {
@@ -579,27 +577,27 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const copyToClipboard = useCallback(async (text: string, successMessage: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      showMediaStatus('📋', successMessage, '#3B82F6');
+      showMediaStatus('clipboard', successMessage, '#3B82F6');
     } catch {
-      showMediaStatus('⚠️', 'Could not access clipboard. Select the link and copy it manually.', '#EF4444');
+      showMediaStatus('warning', 'Could not access clipboard. Select the link and copy it manually.', '#EF4444');
     }
   }, [showMediaStatus]);
 
   const handleToggleMic = async () => {
     if (!isMicOn && spaceRestrictions.voiceMuted) {
-      showMediaStatus('🔇', 'A host muted your voice in this space.', '#EF4444');
+      showMediaStatus('micOff', 'A host muted your voice in this space.', '#EF4444');
       return;
     }
     const wasOn = isMicOn;
     const nowOn = await getLiveKit().toggleMicrophone();
     if (nowOn === wasOn) {
-      showMediaStatus('⚠️', 'Microphone unavailable. Check browser permissions.', '#EF4444');
+      showMediaStatus('warning', 'Microphone unavailable. Check browser permissions.', '#EF4444');
     } else if (nowOn) {
       playUnmuteSound();
-      showMediaStatus('🎙️', 'Microphone is ON (Broadcasting)', '#22C55E');
+      showMediaStatus('mic', 'Microphone is ON (Broadcasting)', '#22C55E');
     } else {
       playMuteSound();
-      showMediaStatus('🔇', 'Microphone Muted', '#EF4444');
+      showMediaStatus('micOff', 'Microphone Muted', '#EF4444');
     }
   };
 
@@ -661,11 +659,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         .then((r) => {
           setSpaceRestrictions(r);
           if (r.banned) {
-            showMediaStatus('⛔', 'A host removed you from this space.', '#EF4444');
+            showMediaStatus('ban', 'A host removed you from this space.', '#EF4444');
           } else if (r.voiceMuted) {
-            showMediaStatus('🔇', 'A host muted your voice.', '#EF4444');
+            showMediaStatus('micOff', 'A host muted your voice.', '#EF4444');
           } else if (r.chatMuted) {
-            showMediaStatus('💬', 'A host muted your chat.', '#EF4444');
+            showMediaStatus('message', 'A host muted your chat.', '#EF4444');
           }
         })
         .catch(() => {});
@@ -677,7 +675,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     sync.onFriendRequestReceived = (req) => {
       const show = (verified: typeof req) => {
-        showMediaStatus('🤝', `${verified.senderName} sent you a friend request!`, '#3B82F6');
+        showMediaStatus('handshake', `${verified.senderName} sent you a friend request!`, '#3B82F6');
         setIncomingInGameReq(verified);
       };
       if (!isAccountUser) {
@@ -696,9 +694,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     sync.onFriendResponseReceived = (res) => {
       if (res.action !== 'accept') return;
       const show = () => {
-        showMediaStatus('🎉', `${res.receiverName} accepted your friend request!`, '#22C55E');
+        showMediaStatus('party', `${res.receiverName} accepted your friend request!`, '#22C55E');
         setFriendReqSent(true);
-        setFriendReqStatus(`✓ You and ${res.receiverName} are now friends!`);
+        setFriendReqStatus(`You and ${res.receiverName} are now friends!`);
         useSocialStore.getState().refreshFriends(session.id).catch(() => {});
       };
       if (!isAccountUser) {
@@ -728,7 +726,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         setSpace((prev) => {
           if (!prev || prev.mapTheme === newTheme) return prev;
           const cfg = MAP_REGISTRY[newTheme as keyof typeof MAP_REGISTRY];
-          showMediaStatus('🗺️', `Realm transformed to ${cfg.name}!`, '#3B82F6');
+          showMediaStatus('map', `Realm transformed to ${cfg.name}!`, '#3B82F6');
           return {
             ...prev,
             mapTheme: newTheme,
@@ -781,30 +779,17 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       console.warn('LiveKit room connection notice:', err);
     });
 
-    // Same private room: full volume, and their screen share is visible.
-    const sameRoom = (identity: string) => {
+    // Same private room: full volume regardless of distance.
+    livekit.inSharedRoom = (identity: string) => {
       const game = worldGameRef.current;
       const mine = game?.myRoomId();
       return Boolean(game && mine && game.roomOf(identity) === mine);
     };
-    livekit.inSharedRoom = sameRoom;
-    livekit.isScreenVisible = sameRoom;
+    // Spaces are voice-only on every map: never download anyone's camera or screen share.
+    livekit.isVideoVisible = () => false;
 
     livekit.onStateChanged = () => {
-      // Spaces never use cameras; screen share is allowed inside private rooms.
       setIsMicOn(livekit.isMicEnabled);
-      setIsSharingScreen(livekit.isScreenShareEnabled);
-      const feeds = livekit.remoteVideoFeeds.filter((f) => f.isScreenShare);
-      if (livekit.isScreenShareEnabled && livekit.localScreenShareTrack) {
-        feeds.unshift({
-          track: livekit.localScreenShareTrack,
-          participantName: 'You',
-          participantId: session.id,
-          isScreenShare: true,
-          isLocal: true,
-        });
-      }
-      setScreenFeeds(feeds);
     };
 
     // Load initial 30s room chat (scoped to this space)
@@ -828,7 +813,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       sync.onModerationNotice = undefined;
       livekit.isAudible = undefined;
       livekit.inSharedRoom = undefined;
-      livekit.isScreenVisible = undefined;
+      livekit.isVideoVisible = undefined;
       sync.disconnect();
       livekit.leaveSpaceRoom().catch(() => {});
       if (roomSub) {
@@ -875,26 +860,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       cancelled = true;
     };
   }, [sessionId, playlistSpaceId]);
-
-  // Screen share only lives inside a private room: leaving stops it.
-  const inPrivateRoom = Boolean(social.room);
-  useEffect(() => {
-    if (inPrivateRoom) return;
-    const livekit = getLiveKit();
-    if (livekit.isScreenShareEnabled) livekit.toggleScreenShare().catch(() => {});
-  }, [inPrivateRoom, getLiveKit]);
-
-  const handleToggleScreenShare = async () => {
-    if (!social.room) return;
-    if (spaceRestrictions.voiceMuted) {
-      showMediaStatus('🔇', 'A host muted you, so you cannot share right now.', '#EF4444');
-      return;
-    }
-    const nowOn = await getLiveKit().toggleScreenShare();
-    showMediaStatus('🖥️', nowOn ? `Sharing your screen in ${social.room.name}` : 'Stopped sharing', nowOn ? '#22C55E' : '#71717A');
-  };
-  const canShareScreen =
-    typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 
   // A host voice-mute turns the mic off right away
   useEffect(() => {
@@ -948,7 +913,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     e.preventDefault();
     if (!chatInput.trim() || !session || !space) return;
     if (activeChannel === 'room' && spaceRestrictions.chatMuted) {
-      showMediaStatus('💬', 'A host muted your chat in this space.', '#EF4444');
+      showMediaStatus('message', 'A host muted your chat in this space.', '#EF4444');
       return;
     }
     // Family Mode filters what a child sends, not only what they see.
@@ -973,7 +938,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       } else {
         // Give the user their text back instead of silently dropping it
         setChatInput(text);
-        showMediaStatus('⚠️', 'Message not sent. Please try again.', '#EF4444');
+        showMediaStatus('warning', 'Message not sent. Please try again.', '#EF4444');
       }
     } else {
       // AI Companion Chat Pipeline
@@ -994,7 +959,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         <SafetyGate userId={session.id} />
         <div className={safetyStyles.blockedCard} role="alert">
           <div className={safetyStyles.blockedEmoji} aria-hidden="true">
-            {spaceRestrictions.banned ? '⛔' : '🛡️'}
+            {spaceRestrictions.banned ? <AppIcon name="ban" /> : <AppIcon name="shield" />}
           </div>
           <h1 className={safetyStyles.blockedTitle}>
             {spaceRestrictions.banned ? 'You cannot join this space right now' : 'Not available in Family Mode'}
@@ -1048,14 +1013,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     className={`${styles.genderBtn} ${guestGender === 'male' ? styles.genderBtnMaleActive : ''}`}
                     onClick={() => setGuestGender('male')}
                   >
-                    <span>👨 Male</span>
+                    <span><AppIcon name="male" /> Male</span>
                   </button>
                   <button
                     type="button"
                     className={`${styles.genderBtn} ${guestGender === 'female' ? styles.genderBtnFemaleActive : ''}`}
                     onClick={() => setGuestGender('female')}
                   >
-                    <span>👩 Female</span>
+                    <span><AppIcon name="female" /> Female</span>
                   </button>
                 </div>
               </div>
@@ -1066,7 +1031,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 onClick={handleJoinAsGuest}
                 disabled={isJoiningGuest}
               >
-                {isJoiningGuest ? 'Joining Space...' : '⚡ Enter Space'}
+                {isJoiningGuest ? 'Joining Space...' : <><AppIcon name="zap" /> Enter Space</>}
               </NeoButton>
             </div>
           </NeoModal>
@@ -1113,7 +1078,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {/* Media Status Pill / Toast */}
       {mediaStatusToast && (
         <div className={styles.mediaStatusPill} role="status">
-          <span style={{ fontSize: '1.05rem' }}>{mediaStatusToast.icon}</span>
+          <AppIcon name={mediaStatusToast.icon} size="1.05rem" color={mediaStatusToast.color} />
           <span style={{ color: mediaStatusToast.color }}>{mediaStatusToast.message}</span>
         </div>
       )}
@@ -1122,16 +1087,16 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       <header className={styles.topHud}>
         <div className={styles.hudLeft}>
           <NeoButton size="sm" variant="secondary" onClick={() => router.push('/dashboard')}>
-            ← Leave
+            <AppIcon name="arrowLeft" /> Leave
           </NeoButton>
           <div className={styles.spaceTitleBadge}>
-            <span className={styles.spaceIcon}>{mapConfig.icon}</span>
+            <span className={styles.spaceIcon}><AppIcon name={mapConfig.icon} /></span>
             <span className={styles.spaceName}>{space.name}</span>
           </div>
           <NeoBadge color={mapConfig.badgeColor}>{currentZone}</NeoBadge>
           {safetyRestrictions.familyMode && (
             <span className={safetyStyles.familyBadge} title="Family Mode is on for this account">
-              🛡️ <span className={styles.hudBtnLabel}>Family Mode</span>
+              <AppIcon name="shield" /> <span className={styles.hudBtnLabel}>Family Mode</span>
             </span>
           )}
         </div>
@@ -1144,7 +1109,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               onClick={() => setMapThemeModalOpen(true)}
               title="Change realm map theme (Map Owner)"
             >
-              🗺️ <span className={styles.hudBtnLabel}>Map Theme</span>
+              <AppIcon name="map" /> <span className={styles.hudBtnLabel}>Map Theme</span>
             </NeoButton>
           )}
           {/* Survival has no fast travel: you walk (and run) everywhere */}
@@ -1156,7 +1121,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               onClick={() => setMapTeleportModalOpen(true)}
               title="Fast travel / teleport across the map"
             >
-              🚀 <span className={styles.hudBtnLabel}>Teleport</span>
+              <AppIcon name="rocket" /> <span className={styles.hudBtnLabel}>Teleport</span>
             </NeoButton>
           )}
           <StatusPicker status={social.status} onChange={(s) => social.setStatus(s)} />
@@ -1167,7 +1132,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             title="Controls: keys, touch layout and button positions"
             aria-label="Controls settings"
           >
-            ⚙️ <span className={styles.hudBtnLabel}>Controls</span>
+            <AppIcon name="settings" /> <span className={styles.hudBtnLabel}>Controls</span>
           </NeoButton>
           <NeoButton
             size="sm"
@@ -1176,7 +1141,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             title="Safety & accessibility: chat filter, blocked players, text size"
             aria-label="Safety and accessibility settings"
           >
-            🛡️ <span className={styles.hudBtnLabel}>Safety</span>
+            <AppIcon name="shield" /> <span className={styles.hudBtnLabel}>Safety</span>
           </NeoButton>
           <NeoButton
             size="sm"
@@ -1185,17 +1150,13 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             title="Meetings: schedule, invite and past notes"
             aria-label="Meetings"
           >
-            📅 <span className={styles.hudBtnLabel}>Meetings</span>
+            <AppIcon name="calendar" /> <span className={styles.hudBtnLabel}>Meetings</span>
           </NeoButton>
           <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
-            🎟️ <span className={styles.hudBtnLabel}>Invite Friends</span>
+            <AppIcon name="ticket" /> <span className={styles.hudBtnLabel}>Invite Friends</span>
           </NeoButton>
         </div>
       </header>
-
-      {social.room && (
-        <RoomStage feeds={screenFeeds} roomName={social.room.name} safeText={safeText} />
-      )}
 
       {objectPrompt && !openObject && (
         <button
@@ -1203,7 +1164,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           className={safetyStyles.whiteboardPrompt}
           onClick={() => handleOpenObject(objectPrompt)}
         >
-          {INTERACTABLES[objectPrompt.type].icon} {INTERACTABLES[objectPrompt.type].label} <kbd>E</kbd>
+          <AppIcon name={INTERACTABLES[objectPrompt.type].icon} /> {INTERACTABLES[objectPrompt.type].label} <kbd>E</kbd>
         </button>
       )}
 
@@ -1291,7 +1252,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         {meetings.takingNotes ? (
           <div className={worldStyles.roomBadge}>
             <span>
-              📝 Taking notes · {meetings.takingNotes.lines} message{meetings.takingNotes.lines === 1 ? '' : 's'}
+              <AppIcon name="notes" /> Taking notes · {meetings.takingNotes.lines} message{meetings.takingNotes.lines === 1 ? '' : 's'}
             </span>
             <button
               type="button"
@@ -1299,7 +1260,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               disabled={meetings.summarizing}
               onClick={() => meetings.endNotes()}
             >
-              {meetings.summarizing ? 'Summarizing…' : '✨ End & summarize'}
+              {meetings.summarizing ? 'Summarizing…' : <><AppIcon name="sparkles" /> {"End & summarize"}</>}
             </button>
             <button type="button" className={worldStyles.hudBtn} onClick={meetings.cancelNotes} disabled={meetings.summarizing}>
               Discard
@@ -1307,7 +1268,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           </div>
         ) : social.roomNotesBy ? (
           <div className={worldStyles.roomBadge}>
-            <span>📝 Notes on · {safeText(social.roomNotesBy)} is taking notes</span>
+            <span><AppIcon name="notes" /> Notes on · {safeText(social.roomNotesBy)} is taking notes</span>
           </div>
         ) : (
           social.room && (
@@ -1318,7 +1279,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 onClick={() => social.room && meetings.startNotes(social.room, session.displayName)}
                 title="AI notes from the agenda and room chat (no audio is recorded)"
               >
-                📝 Take notes
+                <AppIcon name="notes" /> Take notes
               </button>
             </div>
           )
@@ -1328,7 +1289,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {meetings.banner && (
         <div className={boardStyles.banner} role="status">
           <span>
-            📅 {safeText(meetings.banner.title)}{' '}
+            <AppIcon name="calendar" /> {safeText(meetings.banner.title)}{' '}
             {meetings.bannerStarted ? 'is starting now' : 'starts soon'}
           </span>
           <button
@@ -1344,7 +1305,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             onClick={() => meetings.banner && meetings.dismissBanner(meetings.banner.id)}
             aria-label="Dismiss"
           >
-            ✕
+            <AppIcon name="close" />
           </button>
         </div>
       )}
@@ -1400,19 +1361,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           {isMicOn && <span className={`${styles.dockIndicatorDot} ${styles.dockDotGreen}`} />}
         </button>
 
-        {social.room && canShareScreen && (
-          <button
-            type="button"
-            className={`${styles.dockBtn} ${isSharingScreen ? styles.dockBtnActiveMic : ''}`}
-            onClick={handleToggleScreenShare}
-            aria-pressed={isSharingScreen}
-            aria-label={isSharingScreen ? 'Stop sharing your screen' : `Share your screen in ${social.room.name}`}
-            title={isSharingScreen ? 'Stop sharing' : 'Share screen with this room'}
-          >
-            <span aria-hidden="true" style={{ fontSize: '1.1rem', lineHeight: 1 }}>🖥️</span>
-          </button>
-        )}
-
         <EmoteWheel
           open={social.emoteMenuOpen}
           onOpenChange={social.setEmoteMenuOpen}
@@ -1431,7 +1379,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               title="Emotes, raise hand and sit (T)"
             >
               <span aria-hidden="true" style={{ fontSize: '1.15rem', lineHeight: 1 }}>
-                {social.handRaised ? '✋' : '😀'}
+                {social.handRaised ? <AppIcon name="hand" /> : <AppIcon name="smile" />}
               </span>
             </button>
           }
@@ -1565,7 +1513,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 onClick={() => setChatOpen(false)}
                 aria-label="Close chat"
               >
-                ✕
+                <AppIcon name="close" />
               </button>
             </div>
 
@@ -1581,7 +1529,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <div ref={chatScrollRef} className={styles.messageStream}>
               {activeChannel === 'room' ? (
                 roomMessages.length === 0 ? (
-                  <div className={styles.emptyNotice}>Messages disappear after 30 seconds. Say hi! 👋</div>
+                  <div className={styles.emptyNotice}>Messages disappear after 30 seconds. Say hi! <AppIcon name="hand" /></div>
                 ) : (
                   roomMessages
                     .filter((m) => !hiddenUserIds.has(m.senderId))
@@ -1618,7 +1566,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   </div>
                 ))
               )}
-              {isAiThinking && <div className={styles.thinking}>Companion is thinking... ⚡</div>}
+              {isAiThinking && <div className={styles.thinking}>Companion is thinking... <AppIcon name="zap" /></div>}
             </div>
 
             <form onSubmit={handleSendMessage} className={styles.chatInputRow}>
@@ -1728,7 +1676,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
               copyToClipboard(url, 'Copied invite link to clipboard!');
             }}
           >
-            📋 Copy Invite Link
+            <AppIcon name="clipboard" /> Copy Invite Link
           </NeoButton>
         </div>
       </NeoModal>
@@ -1737,7 +1685,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       <NeoModal
         isOpen={playlistModalOpen}
         onClose={() => setPlaylistModalOpen(false)}
-        title="🎵 Space Soundtrack & Music Studio"
+        title="Space Soundtrack & Music Studio"
       >
         <div className={styles.playlistModalWrapper}>
           {/* 1. Hero Deck: Now Playing */}
@@ -1748,12 +1696,12 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   playlistState.isPlaying ? styles.vinylDiscSpinning : ''
                 }`}
               >
-                🎵
+                <AppIcon name="music" />
               </div>
               <div className={styles.nowPlayingInfo}>
                 <div className={styles.nowPlayingBadgeRow}>
                   <NeoBadge color={playlistState.isPlaying ? '#10B981' : '#64748B'}>
-                    {playlistState.isPlaying ? '▶ NOW PLAYING' : '⏸ PAUSED'}
+                    {playlistState.isPlaying ? <><AppIcon name="play" /> NOW PLAYING</> : <><AppIcon name="pause" /> PAUSED</>}
                   </NeoBadge>
                   {playlistState.currentTrack?.isDefaultPreset ? (
                     <NeoBadge color="#3B82F6">PRESET</NeoBadge>
@@ -1826,7 +1774,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 title="Previous Track"
                 aria-label="Previous Track"
               >
-                ⏮️
+                <AppIcon name="skipBack" />
               </button>
               <NeoButton
                 variant="primary"
@@ -1835,7 +1783,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 title={isMapOwner ? undefined : 'Only the map owner can control music'}
                 onClick={() => isMapOwner && PlaylistService.togglePlayPause()}
               >
-                {playlistState.isPlaying ? '⏸️ Pause' : '▶️ Play'}
+                {playlistState.isPlaying ? <><AppIcon name="pause" /> Pause</> : <><AppIcon name="play" /> Play</>}
               </NeoButton>
               <button
                 className={styles.secondaryControlBtn}
@@ -1844,7 +1792,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 title="Next Track"
                 aria-label="Next Track"
               >
-                ⏭️
+                <AppIcon name="skipForward" />
               </button>
               <button
                 className={`${styles.secondaryControlBtn} ${
@@ -1855,7 +1803,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 title={playlistState.isLooping ? 'Loop: ON' : 'Loop: OFF'}
                 aria-label="Toggle Loop"
               >
-                🔁
+                <AppIcon name="repeat" />
               </button>
             </div>
 
@@ -1868,7 +1816,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 title={playlistState.isMuted ? 'Unmute' : 'Mute'}
                 aria-label="Toggle Mute"
               >
-                {playlistState.isMuted || playlistState.volume === 0 ? '🔇' : '🔊'}
+                {playlistState.isMuted || playlistState.volume === 0 ? <AppIcon name="volumeOff" /> : <AppIcon name="volume" />}
               </button>
               <input
                 type="range"
@@ -1889,7 +1837,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <div className={styles.uploadStudioCard}>
               <div className={styles.uploadHeaderRow}>
                 <span className={styles.uploadTitle}>
-                  👑 Map Owner Studio: Upload MP3 Soundtrack
+                  <AppIcon name="crown" /> Map Owner Studio: Upload MP3 Soundtrack
                 </span>
                 <NeoBadge color="#F59E0B">MP3 AUDIO ONLY</NeoBadge>
               </div>
@@ -1927,7 +1875,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     }
                   }}
                 />
-                <span className={styles.dropZoneIcon}>{uploadFile ? '🎵' : '📁'}</span>
+                <span className={styles.dropZoneIcon}>{uploadFile ? <AppIcon name="music" /> : <AppIcon name="folder" />}</span>
                 <span className={styles.dropZoneText}>
                   {uploadFile ? uploadFile.name : 'Click or drop an MP3 audio file here'}
                 </span>
@@ -1980,14 +1928,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     disabled={isUploadingTrack}
                     onClick={handleUploadTrack}
                   >
-                    {isUploadingTrack ? '⏳ Uploading...' : '🚀 Save & Play Track'}
+                    {isUploadingTrack ? <><AppIcon name="hourglass" /> Uploading...</> : <><AppIcon name="rocket" /> {"Save & Play Track"}</>}
                   </NeoButton>
                 </div>
               )}
             </div>
           ) : (
             <div className={styles.visitorNoticeCard}>
-              <span>🎧</span>
+              <span><AppIcon name="headphones" /></span>
               <span>
                 Realm Soundtrack is curated by the Map Owner. Sit back and enjoy the ambient tunes!
               </span>
@@ -2025,7 +1973,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   >
                     <div className={styles.trackItemLeft}>
                       <span className={styles.trackIcon}>
-                        {isActive && playlistState.isPlaying ? '🔊' : '▶️'}
+                        {isActive && playlistState.isPlaying ? <AppIcon name="volume" /> : <AppIcon name="play" />}
                       </span>
                       <div className={styles.trackMeta}>
                         <div className={styles.trackTitleText}>
@@ -2072,14 +2020,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                             if (confirm(`Remove "${track.title}" from space soundtrack?`)) {
                               try {
                                 await PlaylistService.deleteTrack(track.id, space?.id || '', session);
-                                showMediaStatus('🗑️', `Deleted "${track.title}"`, '#EF4444');
+                                showMediaStatus('trash', `Deleted "${track.title}"`, '#EF4444');
                               } catch {
-                                showMediaStatus('⚠️', `Could not delete "${track.title}"`, '#EF4444');
+                                showMediaStatus('warning', `Could not delete "${track.title}"`, '#EF4444');
                               }
                             }
                           }}
                         >
-                          ✕
+                          <AppIcon name="close" />
                         </button>
                       )}
                     </div>
@@ -2128,14 +2076,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 className={`${styles.genderBtn} ${guestGender === 'male' ? styles.genderBtnMaleActive : ''}`}
                 onClick={() => setGuestGender('male')}
               >
-                <span>👨 Male</span>
+                <span><AppIcon name="male" /> Male</span>
               </button>
               <button
                 type="button"
                 className={`${styles.genderBtn} ${guestGender === 'female' ? styles.genderBtnFemaleActive : ''}`}
                 onClick={() => setGuestGender('female')}
               >
-                <span>👩 Female</span>
+                <span><AppIcon name="female" /> Female</span>
               </button>
             </div>
           </div>
@@ -2146,7 +2094,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             onClick={handleJoinAsGuest}
             disabled={isJoiningGuest}
           >
-            {isJoiningGuest ? 'Joining Space...' : '⚡ Enter Space'}
+            {isJoiningGuest ? 'Joining Space...' : <><AppIcon name="zap" /> Enter Space</>}
           </NeoButton>
         </div>
       </NeoModal>
@@ -2155,7 +2103,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       <NeoModal
         isOpen={mapTeleportModalOpen && !zombieMode}
         onClose={() => setMapTeleportModalOpen(false)}
-        title="🚀 World Map Teleport & Fast Travel"
+        title="World Map Teleport & Fast Travel"
       >
         <div className={styles.teleportModalContent}>
           <p className={styles.teleportSubtitle}>
@@ -2171,7 +2119,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                 >
                   <div className={styles.zoneHeader}>
                     <span className={styles.zoneName} style={{ color: zone.color }}>
-                      {zone.tag}
+                      <AppIcon name={zone.icon} /> {zone.tag}
                     </span>
                     {isCurrent && <span className={styles.currentIndicator}>Current</span>}
                   </div>
@@ -2181,7 +2129,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     variant={isCurrent ? 'secondary' : 'primary'}
                     onClick={() => handleTeleportToZone(zone)}
                   >
-                    {isCurrent ? '📍 Here Now' : '⚡ Teleport Here'}
+                    {isCurrent ? <><AppIcon name="mapPin" /> Here Now</> : <><AppIcon name="zap" /> Teleport Here</>}
                   </NeoButton>
                 </div>
               );
@@ -2194,7 +2142,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       <NeoModal
         isOpen={mapThemeModalOpen && !isSurvivalSpace}
         onClose={() => setMapThemeModalOpen(false)}
-        title="👑 Map Owner Studio: Select Realm Theme"
+        title="Map Owner Studio: Select Realm Theme"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '4px 0' }}>
           <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748B', fontWeight: 600, lineHeight: 1.5 }}>
@@ -2245,21 +2193,21 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   if (res.success) {
                     syncService?.broadcastFriendRequest(selectedPlayer.userId);
                     setFriendReqSent(true);
-                    setFriendReqStatus(res.message || 'Friend request sent! 🎉');
-                    showMediaStatus('🤝', res.message || 'Friend request sent! 🎉', '#22C55E');
+                    setFriendReqStatus(res.message || 'Friend request sent!');
+                    showMediaStatus('handshake', res.message || 'Friend request sent!', '#22C55E');
                   } else {
                     setFriendReqStatus(res.message || 'Could not send friend request.');
-                    showMediaStatus('⚠️', res.message || 'Could not send friend request.', '#EF4444');
+                    showMediaStatus('warning', res.message || 'Could not send friend request.', '#EF4444');
                   }
                 }}
               >
                 {isSelectedPlayerFriend
-                  ? '✓ Friends'
+                  ? <><AppIcon name="check" /> Friends</>
                   : friendReqSent
-                    ? '✓ Request Sent'
+                    ? <><AppIcon name="check" /> Request Sent</>
                     : friendReqSending
                       ? 'Sending Request...'
-                      : '🤝 Add Friend'}
+                      : <><AppIcon name="handshake" /> Add Friend</>}
               </NeoButton>
 
               {friendReqStatus && (
@@ -2330,7 +2278,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                     }
                   );
                   if (!accepted) {
-                    showMediaStatus('⚠️', 'Could not accept the request. Try again.', '#EF4444');
+                    showMediaStatus('warning', 'Could not accept the request. Try again.', '#EF4444');
                     return;
                   }
                   useSocialStore.getState().refreshFriends(session.id).catch(() => {});
@@ -2341,11 +2289,11 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                       'accept'
                     );
                   }
-                  showMediaStatus('🤝', `Now friends with ${incomingInGameReq.senderName}!`, '#22C55E');
+                  showMediaStatus('handshake', `Now friends with ${incomingInGameReq.senderName}!`, '#22C55E');
                   setIncomingInGameReq(null);
                 }}
               >
-                ✓ Accept
+                <AppIcon name="check" /> Accept
               </NeoButton>
               <NeoButton
                 variant="secondary"
@@ -2359,15 +2307,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   setIncomingInGameReq(null);
                 }}
               >
-                ✕ Decline
+                <AppIcon name="close" /> Decline
               </NeoButton>
             </div>
           </div>
         )}
       </NeoModal>
 
-      {/* Group & DM Call Overlay Container (Stage, Floating Dock, Incoming Ring) */}
-      <CallOverlayContainer />
+      {/* Group & DM Call Overlay Container (Stage, Floating Dock, Incoming Ring): voice-only inside spaces */}
+      <CallOverlayContainer voiceOnly />
     </div>
   );
 }

@@ -95,6 +95,7 @@ export interface AdminUserProfile {
   is_paid: boolean;
   system_role: SystemRole;
   has_ai_companion: boolean;
+  country_code?: string | null;
   created_at: string;
   updated_at: string;
 }

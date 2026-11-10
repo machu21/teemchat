@@ -15,7 +15,7 @@ describe('emotes', () => {
     expect(isEmoteId('dance')).toBe(true);
     expect(isEmoteId('explode')).toBe(false);
     expect(isEmoteId(42)).toBe(false);
-    expect(emoteDef('heart').emoji).toBe('❤️');
+    expect(emoteDef('heart').icon).toBe('heart');
     expect(new Set(EMOTES.map((e) => e.id)).size).toBe(EMOTES.length);
   });
 
@@ -57,6 +57,6 @@ describe('player status', () => {
   it('shows a badge only for non-available statuses', () => {
     expect(statusIcon('available')).toBeNull();
     expect(statusIcon(undefined)).toBeNull();
-    expect(statusIcon('focus')).toBe('🎧');
+    expect(statusIcon('focus')?.icon).toBe('headphones');
   });
 });

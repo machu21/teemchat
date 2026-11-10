@@ -33,8 +33,11 @@ interface CallState {
   remoteFeeds: VideoFeedModel[];
   activeSpeakerIds: Set<string>;
   callDurationSeconds: number;
+  /** Inside a space (any map) calls are voice-only: no camera, no screen share. */
+  voiceOnly: boolean;
 
   // Actions
+  setVoiceOnly: (on: boolean) => Promise<void>;
   startCall: (params: {
     type: CallType;
     conversationId: string;
@@ -88,6 +91,15 @@ export const useCallStore = create<CallState>((set, get) => ({
   remoteFeeds: [],
   activeSpeakerIds: new Set(),
   callDurationSeconds: 0,
+  voiceOnly: false,
+
+  setVoiceOnly: async (on: boolean) => {
+    set({ voiceOnly: on });
+    if (!on) return;
+    // Entering a space mid-call: turn off any camera or screen share right away
+    if (get().isCameraActive) await get().toggleCamera();
+    if (get().isScreenSharing) await get().toggleScreenShare();
+  },
 
   initSignaling: (userId: string) => {
     CallService.init(userId);
@@ -226,7 +238,8 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   startCall: async (params) => {
-    const { type, conversationId, title, icon, isVideo = false, user } = params;
+    const { type, conversationId, title, icon, user } = params;
+    const isVideo = Boolean(params.isVideo) && !get().voiceOnly;
 
     // Build deterministic room ID
     const roomId = `call-${type}-${conversationId}`;
@@ -295,7 +308,8 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   joinCall: async (params) => {
-    const { roomId, type, conversationId, title, icon, isVideo = false, user } = params;
+    const { roomId, type, conversationId, title, icon, user } = params;
+    const isVideo = Boolean(params.isVideo) && !get().voiceOnly;
 
     const session: CallSessionModel = {
       roomId,
@@ -433,6 +447,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   toggleCamera: async () => {
+    if (get().voiceOnly && !get().isCameraActive) return; // can only turn it off
     await globalCallLiveKit.toggleCamera();
     const nextCam = globalCallLiveKit.isCameraEnabled;
 
@@ -469,6 +484,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   toggleScreenShare: async () => {
     const currentlySharing = get().isScreenSharing;
+    if (get().voiceOnly && !currentlySharing) return; // can only turn it off
     if (!currentlySharing) {
       playScreenShareSound();
     }

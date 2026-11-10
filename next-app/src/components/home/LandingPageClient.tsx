@@ -44,6 +44,7 @@ import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import { LEGAL } from '@/lib/constants/legal';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { validateBirthDate } from '@/lib/safety/ageBand';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 const TYPEWRITER_PHRASES = [
   'cozy 2D spaces.',
@@ -483,7 +484,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
                 openGuestModal();
               }}
             >
-              Skip for now &amp; enter as Guest →
+              Skip for now &amp; enter as Guest <AppIcon name="arrowRight" />
             </button>
           </form>
         </NeoModal>
@@ -624,7 +625,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               onClick={() => openGuestModal()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Entering...' : 'Continue as Guest →'}
+              {isSubmitting ? 'Entering...' : 'Continue as Guest'}
             </button>
           </div>
         </main>
@@ -657,7 +658,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
             }}
             disabled={isSubmitting}
           >
-            <ZapIcon size={14} style={{ marginRight: 6 }} /> {session ? 'Join Space →' : 'Enter as Guest'}
+            <ZapIcon size={14} style={{ marginRight: 6 }} /> {session ? 'Join Space' : 'Enter as Guest'}
           </NeoButton>
         </div>
       )}

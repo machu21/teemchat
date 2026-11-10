@@ -420,6 +420,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({ capabilities, onNotify }) => {
               <tr>
                 <th>Provisioned At</th>
                 <th>Guest Handle</th>
+                <th>Country</th>
                 <th>Client IP Address</th>
                 <th>Session UUID</th>
                 <th style={{ textAlign: 'right' }}>Inspection</th>
@@ -620,11 +621,19 @@ export const LogsTab: React.FC<LogsTabProps> = ({ capabilities, onNotify }) => {
                             {String(log.guest_username || log.id || 'guest')}
                           </span>
                         </td>
+                        <td>
+                          <NeoBadge
+                            color={String(log.country_code || 'XX') === 'XX' ? 'var(--card-inner)' : '#3B82F6'}
+                            textColor={String(log.country_code || 'XX') === 'XX' ? 'var(--text-muted)' : '#FFFFFF'}
+                          >
+                            {String(log.country_code || 'XX').toUpperCase()}
+                          </NeoBadge>
+                        </td>
                         <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
                           {String(log.client_ip || log.ip_address || '-')}
                         </td>
                         <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
-                          {String(log.id || '').slice(0, 12)}...
+                          {String(log.session_id || log.id || '').slice(0, 12)}...
                         </td>
                       </>
                     )}

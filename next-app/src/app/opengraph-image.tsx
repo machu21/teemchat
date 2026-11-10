@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { SITE_NAME, SITE_DESCRIPTION } from '@/lib/constants/site';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export const runtime = 'nodejs';
 export const alt = 'TeemChat - 16-Bit Proximity Virtual Space';
@@ -55,7 +56,7 @@ export default async function Image() {
                 fontSize: '32px',
               }}
             >
-              👾
+              <AppIcon name="logo" size={34} style={{ display: 'flex', marginRight: 10 }} />
             </div>
             <div
               style={{
@@ -89,6 +90,7 @@ export default async function Image() {
 
           <div
             style={{
+              display: 'flex', alignItems: 'center',
               backgroundColor: '#f59e0b',
               color: '#451a03',
               border: '3px solid #000000',
@@ -99,7 +101,7 @@ export default async function Image() {
               fontSize: '18px',
             }}
           >
-            ⚡ Web + iOS + Android
+            <AppIcon name="zap" size={19} style={{ display: 'flex', marginRight: 6 }} /> Web + iOS + Android
           </div>
         </div>
 
@@ -150,6 +152,7 @@ export default async function Image() {
           >
             <div
               style={{
+                display: 'flex', alignItems: 'center',
                 backgroundColor: '#1e293b',
                 color: '#f8fafc',
                 border: '2px solid #475569',
@@ -159,10 +162,11 @@ export default async function Image() {
                 fontSize: '16px',
               }}
             >
-              🎙️ Proximity Audio
+              <AppIcon name="mic" size={17} style={{ display: 'flex', marginRight: 5 }} /> Proximity Audio
             </div>
             <div
               style={{
+                display: 'flex', alignItems: 'center',
                 backgroundColor: '#1e293b',
                 color: '#f8fafc',
                 border: '2px solid #475569',
@@ -172,10 +176,11 @@ export default async function Image() {
                 fontSize: '16px',
               }}
             >
-              🎮 HTML5 Canvas 2D
+              <AppIcon name="gamepad" size={17} style={{ display: 'flex', marginRight: 5 }} /> HTML5 Canvas 2D
             </div>
             <div
               style={{
+                display: 'flex', alignItems: 'center',
                 backgroundColor: '#1e293b',
                 color: '#f8fafc',
                 border: '2px solid #475569',
@@ -185,7 +190,7 @@ export default async function Image() {
                 fontSize: '16px',
               }}
             >
-              🤖 AI Companion
+              <AppIcon name="bot" size={17} style={{ display: 'flex', marginRight: 5 }} /> AI Companion
             </div>
           </div>
 

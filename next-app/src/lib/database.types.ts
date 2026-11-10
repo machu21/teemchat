@@ -591,18 +591,27 @@ export type Database = {
       guest_provision_log: {
         Row: {
           client_ip: string
+          country_code: string | null
           created_at: string
+          guest_username: string | null
           id: number
+          session_id: string | null
         }
         Insert: {
           client_ip: string
+          country_code?: string | null
           created_at?: string
+          guest_username?: string | null
           id?: number
+          session_id?: string | null
         }
         Update: {
           client_ip?: string
+          country_code?: string | null
           created_at?: string
+          guest_username?: string | null
           id?: number
+          session_id?: string | null
         }
         Relationships: []
       }
@@ -1004,6 +1013,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_config: Json
+          country_code: string | null
           created_at: string
           display_name: string
           gender: string | null
@@ -1019,6 +1029,7 @@ export type Database = {
         }
         Insert: {
           avatar_config?: Json
+          country_code?: string | null
           created_at?: string
           display_name?: string
           gender?: string | null
@@ -1034,6 +1045,7 @@ export type Database = {
         }
         Update: {
           avatar_config?: Json
+          country_code?: string | null
           created_at?: string
           display_name?: string
           gender?: string | null

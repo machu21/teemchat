@@ -3,24 +3,28 @@
  * Pure module shared by WorldSync, the canvas and the UI.
  */
 
+import type { IconName } from '@/lib/icons';
+
 export type EmoteId = 'wave' | 'dance' | 'clap' | 'laugh' | 'heart' | 'thumbs' | 'wow';
 
 export interface EmoteDef {
   id: EmoteId;
-  emoji: string;
+  icon: IconName;
+  /** Icon colour above the avatar. */
+  color: string;
   label: string;
   /** How long it stays above the head. */
   durationMs: number;
 }
 
 export const EMOTES: readonly EmoteDef[] = [
-  { id: 'wave', emoji: '👋', label: 'Wave', durationMs: 2500 },
-  { id: 'dance', emoji: '💃', label: 'Dance', durationMs: 4000 },
-  { id: 'clap', emoji: '👏', label: 'Clap', durationMs: 2500 },
-  { id: 'laugh', emoji: '😂', label: 'Laugh', durationMs: 2500 },
-  { id: 'heart', emoji: '❤️', label: 'Love', durationMs: 2500 },
-  { id: 'thumbs', emoji: '👍', label: 'Thumbs up', durationMs: 2500 },
-  { id: 'wow', emoji: '😮', label: 'Wow', durationMs: 2500 },
+  { id: 'wave', icon: 'hand', color: '#F59E0B', label: 'Wave', durationMs: 2500 },
+  { id: 'dance', icon: 'music2', color: '#A855F7', label: 'Dance', durationMs: 4000 },
+  { id: 'clap', icon: 'party', color: '#EC4899', label: 'Clap', durationMs: 2500 },
+  { id: 'laugh', icon: 'laugh', color: '#EAB308', label: 'Laugh', durationMs: 2500 },
+  { id: 'heart', icon: 'heart', color: '#EF4444', label: 'Love', durationMs: 2500 },
+  { id: 'thumbs', icon: 'thumbsUp', color: '#3B82F6', label: 'Thumbs up', durationMs: 2500 },
+  { id: 'wow', icon: 'sparkles', color: '#14B8A6', label: 'Wow', durationMs: 2500 },
 ];
 
 const BY_ID = new Map(EMOTES.map((e) => [e.id, e]));
@@ -51,28 +55,22 @@ export function createEmoteThrottle(cooldownMs: number = EMOTE_COOLDOWN_MS, now:
 
 export type PlayerStatus = 'available' | 'away' | 'busy' | 'focus';
 
-export const STATUS_OPTIONS: readonly { id: PlayerStatus; label: string; icon: string; hint: string }[] = [
-  { id: 'available', label: 'Available', icon: '🟢', hint: 'Open to chat' },
-  { id: 'busy', label: 'Do not disturb', icon: '🔴', hint: 'No chat pop-ups or sounds' },
-  { id: 'focus', label: 'Focus', icon: '🎧', hint: 'Do not disturb, and other voices are muted outside your room' },
-  { id: 'away', label: 'Away', icon: '🌙', hint: 'Set automatically after 10 minutes idle' },
+export const STATUS_OPTIONS: readonly { id: PlayerStatus; label: string; icon: IconName; color: string; hint: string }[] = [
+  { id: 'available', label: 'Available', icon: 'dotFilled', color: '#22C55E', hint: 'Open to chat' },
+  { id: 'busy', label: 'Do not disturb', icon: 'busy', color: '#EF4444', hint: 'No chat pop-ups or sounds' },
+  { id: 'focus', label: 'Focus', icon: 'headphones', color: '#8B5CF6', hint: 'Do not disturb, and other voices are muted outside your room' },
+  { id: 'away', label: 'Away', icon: 'moon', color: '#F59E0B', hint: 'Set automatically after 10 minutes idle' },
 ];
 
 export function isPlayerStatus(value: unknown): value is PlayerStatus {
   return value === 'available' || value === 'away' || value === 'busy' || value === 'focus';
 }
 
-export function statusIcon(status: PlayerStatus | undefined): string | null {
-  switch (status) {
-    case 'busy':
-      return '🔴';
-    case 'focus':
-      return '🎧';
-    case 'away':
-      return '🌙';
-    default:
-      return null;
-  }
+/** Badge shown on the avatar for non-default statuses (null when Available). */
+export function statusIcon(status: PlayerStatus | undefined): { icon: IconName; color: string } | null {
+  if (!status || status === 'available') return null;
+  const o = STATUS_OPTIONS.find((s) => s.id === status);
+  return o ? { icon: o.icon, color: o.color } : null;
 }
 
 /** Busy and Focus suppress chat banners, sounds and pop-ups. */

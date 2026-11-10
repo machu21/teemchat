@@ -27,21 +27,21 @@ export const BAG_MAX_WEIGHT = 20;
 export const POUCH_CAP: AmmoPouch = { '9mm': 120, '12ga': 48, '556': 180, '762': 180, belt: 300 };
 
 const CONSUMABLES: Record<ConsumableId, ItemDef> = {
-  canned_beans: { id: 'canned_beans', name: 'Canned Beans', icon: '🥫', category: 'food', weight: 0.5, maxStack: 4, useSeconds: 2, consume: { hunger: 35, regen: { hpPerSecond: 0.5, seconds: 20 } } },
-  chips: { id: 'chips', name: 'Chips', icon: '🍟', category: 'food', weight: 0.15, maxStack: 6, useSeconds: 1, consume: { hunger: 15, hydration: -5 } },
-  apple: { id: 'apple', name: 'Apple', icon: '🍎', category: 'food', weight: 0.2, maxStack: 6, useSeconds: 1, consume: { hunger: 12, hydration: 5, regen: { hpPerSecond: 0.3, seconds: 10 } } },
-  bread: { id: 'bread', name: 'Bread', icon: '🍞', category: 'food', weight: 0.4, maxStack: 3, useSeconds: 2, consume: { hunger: 30, regen: { hpPerSecond: 0.4, seconds: 15 } } },
-  water_bottle: { id: 'water_bottle', name: 'Water Bottle', icon: '💧', category: 'drink', weight: 0.5, maxStack: 4, useSeconds: 1, consume: { hydration: 40 } },
-  soda: { id: 'soda', name: 'Soda', icon: '🥤', category: 'drink', weight: 0.35, maxStack: 4, useSeconds: 1, consume: { hydration: 20, stamina: 10 } },
+  canned_beans: { id: 'canned_beans', name: 'Canned Beans', icon: 'soup', category: 'food', weight: 0.5, maxStack: 4, useSeconds: 2, consume: { hunger: 35, regen: { hpPerSecond: 0.5, seconds: 20 } } },
+  chips: { id: 'chips', name: 'Chips', icon: 'cookie', category: 'food', weight: 0.15, maxStack: 6, useSeconds: 1, consume: { hunger: 15, hydration: -5 } },
+  apple: { id: 'apple', name: 'Apple', icon: 'apple', category: 'food', weight: 0.2, maxStack: 6, useSeconds: 1, consume: { hunger: 12, hydration: 5, regen: { hpPerSecond: 0.3, seconds: 10 } } },
+  bread: { id: 'bread', name: 'Bread', icon: 'bread', category: 'food', weight: 0.4, maxStack: 3, useSeconds: 2, consume: { hunger: 30, regen: { hpPerSecond: 0.4, seconds: 15 } } },
+  water_bottle: { id: 'water_bottle', name: 'Water Bottle', icon: 'droplet', category: 'drink', weight: 0.5, maxStack: 4, useSeconds: 1, consume: { hydration: 40 } },
+  soda: { id: 'soda', name: 'Soda', icon: 'soda', category: 'drink', weight: 0.35, maxStack: 4, useSeconds: 1, consume: { hydration: 20, stamina: 10 } },
   energy_drink: {
-    id: 'energy_drink', name: 'Energy Drink', icon: '⚡', category: 'stimulant', weight: 0.3, maxStack: 4, useSeconds: 1,
+    id: 'energy_drink', name: 'Energy Drink', icon: 'zap', category: 'stimulant', weight: 0.3, maxStack: 4, useSeconds: 1,
     consume: { hydration: 10, stamina: 100, effects: [{ kind: 'stimulant', remaining: 30, magnitude: 1.2, source: 'energy_drink' }] },
   },
   coffee: {
-    id: 'coffee', name: 'Coffee', icon: '☕', category: 'stimulant', weight: 0.3, maxStack: 4, useSeconds: 1,
+    id: 'coffee', name: 'Coffee', icon: 'coffee', category: 'stimulant', weight: 0.3, maxStack: 4, useSeconds: 1,
     consume: { hydration: 5, stamina: 40, effects: [{ kind: 'stimulant', remaining: 12, magnitude: 1.1, source: 'coffee' }] },
   },
-  bandage: { id: 'bandage', name: 'Bandage', icon: '🩹', category: 'medical', weight: 0.1, maxStack: 5, useSeconds: 3, consume: { health: 15, regen: { hpPerSecond: 1, seconds: 10 } } },
+  bandage: { id: 'bandage', name: 'Bandage', icon: 'bandage', category: 'medical', weight: 0.1, maxStack: 5, useSeconds: 3, consume: { health: 15, regen: { hpPerSecond: 1, seconds: 10 } } },
 };
 
 function buildDefs(): Record<ItemDefId, ItemDef> {
@@ -52,7 +52,7 @@ function buildDefs(): Record<ItemDefId, ItemDef> {
   }
   for (const a of Object.keys(AMMO_NAMES) as AmmoType[]) {
     // Ammo never occupies bag slots (it goes to the pouch); weight is per round.
-    defs[`ammo:${a}`] = { id: `ammo:${a}`, name: AMMO_NAMES[a], icon: '📦', category: 'ammo', weight: 0.01, maxStack: 999 };
+    defs[`ammo:${a}`] = { id: `ammo:${a}`, name: AMMO_NAMES[a], icon: 'package', category: 'ammo', weight: 0.01, maxStack: 999 };
   }
   return defs;
 }

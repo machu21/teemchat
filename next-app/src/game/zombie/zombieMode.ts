@@ -31,12 +31,24 @@ import type {
   ZombieStrike,
   ZombieSyncService,
 } from '@/lib/services/zombieSync';
-import type { AbilityFlag, Bag, ConsumableId, DifficultyCoefficients, PlayerVitals, SpecialZombieType, StatusEffect } from './survival/types';
+import type { AbilityFlag, Bag, ConsumableId, DifficultyCoefficients, ItemCategory, PlayerVitals, SpecialZombieType, StatusEffect } from './survival/types';
 import { ABILITY_FLAGS, ZOMBIE_KINDS } from './survival/types';
 import { addEffect, damageVitals, freshVitals, tickVitals } from './survival/vitals';
 import { BAG_MAX_WEIGHT, BAG_SLOTS, ITEM_DEFS, addToBag, bagWeight, freshLoadout, useConsumable as applyConsumable } from './survival/inventory';
 import { difficultyAt, rollZombieKind } from './survival/difficulty';
+import {
+  LAMPS_ON_BELOW,
+  clockLabel,
+  daylightVision,
+  nightThreat,
+  skyTint,
+  timeOfDay,
+  type DayPhase,
+  type TimeOfDay,
+} from './survival/daycycle';
 import { BLOATER, CHARGER, SPECIAL_BEHAVIORS, SpecialsDirector, effectiveDamage, isSpecial, zombieKind } from './survival/specials';
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 
 // ============================================================
 // ZOMBIE MODE — GAME CONTROLLER
@@ -67,6 +79,7 @@ export interface ZombieHud {
   owned: WeaponId[];
   /** Short-lived pickup / status message. */
   toast: string | null;
+  toastIcon: IconName | null;
   hunger: number;
   hydration: number;
   stamina: number;
@@ -87,19 +100,23 @@ export interface ZombieHud {
   specials: SpecialZombieType[];
   /** Resting in a safe spot (indoors, nothing hunting nearby). */
   safe: boolean;
+  /** "Day 2 · 21:40" */
+  clock: string;
+  phase: DayPhase;
+  flashlight: boolean;
 }
 
 export interface SupplyHud {
   id: ConsumableId;
   name: string;
-  icon: string;
+  icon: IconName;
   qty: number;
 }
 
 export interface WeaponHud {
   id: WeaponId;
   name: string;
-  icon: string;
+  icon: IconName;
   /** Rounds in the magazine (null for melee). */
   mag: number | null;
   magSize: number;
@@ -168,9 +185,27 @@ const PICKUP_RADIUS = 16;
 /** Client gunfire is batched into one `zshot` per window (s) to respect the socket budget. */
 const SHOT_BATCH_SECONDS = 0.25;
 const TRACER_SECONDS = 0.09;
+/** Night lighting: lamp pool radius, how far away lamps are seen, muzzle flash light. */
+const LAMP_RADIUS_TILES = 4;
+const LAMP_SIGHT_TILES = 26;
+const MUZZLE_LIGHT_SECONDS = 0.15;
+const MUZZLE_LIGHT_TILES = 5;
+const FLASHLIGHT_HALF_ANGLE = (20 * Math.PI) / 180;
+/** A lit flashlight at night is a small noise every couple of seconds. */
+const FLASHLIGHT_NOISE_SECONDS = 2;
+const FLASHLIGHT_NOISE_RADIUS = 3;
 /** A tap during a cooldown (or the equip delay) still fires when it ends. */
 const PRESS_BUFFER_SECONDS = 0.35;
 const TOAST_SECONDS = 2.2;
+/** Loot disc colour per item type, so food, drinks and meds read apart on the floor. */
+const LOOT_DISC: Record<ItemCategory, string> = {
+  food: '#D97706',
+  drink: '#0284C7',
+  stimulant: '#CA8A04',
+  medical: '#DC2626',
+  weapon: '#52525B',
+  ammo: '#4D7C0F',
+};
 /** Bullets leave from torso height above the feet. */
 const MUZZLE_LIFT = 12;
 /** Host only sends zombies within this distance (px) of some player. */
@@ -201,6 +236,12 @@ export interface ZombieFrameInput {
   moveX: number;
   moveY: number;
   insideBuildingId: string | null;
+  /**
+   * Unclamped real seconds since the last frame (capped by the caller). The
+   * match clock — and so the 1 hour = 1 day cycle — runs on real time even
+   * when the frame dt is clamped on a slow device. Defaults to dt.
+   */
+  realDt?: number;
   /** Other players' feet points, keyed by clientInstanceId (zombies chase them too). */
   others: (SimTarget & { moving?: boolean })[];
 }
@@ -338,7 +379,16 @@ export class ZombieMode {
   private shotBatchAge = 0;
   private tracers: { x1: number; y1: number; x2: number; y2: number; age: number }[] = [];
   private muzzleAge = 99;
-  private toast: { text: string; age: number } | null = null;
+  private toast: { text: string; icon: IconName | null; age: number } | null = null;
+
+  // Day / night
+  private tod: TimeOfDay = timeOfDay(0);
+  private flashlightOn = false;
+  private flashlightNoiseTimer = 0;
+  /** Street lamps: ground point (light pool) and head (glow), world px. */
+  private lamps: { x: number; y: number; headX: number; headY: number }[] = [];
+  private darkCanvas: HTMLCanvasElement | null = null;
+  private lastPhase: DayPhase | null = null;
 
   onHudChanged?: (hud: ZombieHud) => void;
 
@@ -399,7 +449,7 @@ export class ZombieMode {
     this.useCooldown = USE_COOLDOWN;
     const def = ITEM_DEFS[stack.def];
     const verb = def.category === 'drink' || def.category === 'stimulant' ? 'Drank' : def.category === 'medical' ? 'Used' : 'Ate';
-    this.showToast(`${def.icon} ${verb} ${def.name}`);
+    this.showToast(`${verb} ${def.name}`, def.icon);
     return true;
   }
 
@@ -493,8 +543,49 @@ export class ZombieMode {
     return this.weapon;
   }
 
-  private showToast(text: string) {
-    this.toast = { text, age: 0 };
+  /** Street lamp props (sprite top-left, 24 × 48). They light up after dusk. */
+  setLamps(lamps: { x: number; y: number }[]) {
+    this.lamps = lamps.map((l) => ({ x: l.x + 12, y: l.y + 40, headX: l.x + 12, headY: l.y + 6 }));
+  }
+
+  /** Flashlight toggle (G / HUD button). Returns the new state. */
+  toggleFlashlight(): boolean {
+    this.flashlightOn = !this.flashlightOn;
+    this.showToast(this.flashlightOn ? 'Flashlight on — zombies may notice' : 'Flashlight off', 'flashlight');
+    return this.flashlightOn;
+  }
+
+  getTimeOfDay(): TimeOfDay {
+    return this.tod;
+  }
+
+  /** Daylight, darkness, flashlight and light pools for this frame's vision. */
+  private applyDaylight(feetX: number, feetY: number) {
+    const t = this.tod;
+    this.vision.setDaylight(daylightVision(t.light));
+    this.vision.setDarkness(1 - t.light);
+    this.vision.setFlashlight(this.flashlightOn);
+    const lights: { x: number; y: number; r: number }[] = [];
+    if (t.light < LAMPS_ON_BELOW) {
+      const reach2 = (LAMP_SIGHT_TILES * this.vision.grid.tileSize) ** 2;
+      for (const l of this.lamps) {
+        if ((l.x - feetX) ** 2 + (l.y - feetY) ** 2 <= reach2) lights.push({ x: l.x, y: l.y, r: LAMP_RADIUS_TILES });
+      }
+    }
+    if (this.muzzleAge < MUZZLE_LIGHT_SECONDS) lights.push({ x: feetX, y: feetY, r: MUZZLE_LIGHT_TILES });
+    this.vision.setLights(lights);
+
+    // Announce the turn of the day
+    if (this.lastPhase !== null && t.phase !== this.lastPhase) {
+      if (t.phase === 'dusk') this.showToast('Night is falling…', 'sunset');
+      else if (t.phase === 'night') this.showToast('Night — they move faster in the dark', 'moon');
+      else if (t.phase === 'dawn') this.showToast('Dawn breaks', 'sunrise');
+    }
+    this.lastPhase = t.phase;
+  }
+
+  private showToast(text: string, icon: IconName | null = null) {
+    this.toast = { text, icon, age: 0 };
   }
 
   /** Returns false when the item stays on the ground (bag full). */
@@ -504,11 +595,11 @@ export class ZombieMode {
       const def = ITEM_DEFS[item.supply];
       const r = addToBag(this.bag, item.supply, 1, () => `s${this.uidSeq++}`);
       if (!r.added) {
-        if (this.toast?.text !== '🎒 Bag full') this.showToast('🎒 Bag full');
+        if (this.toast?.text !== 'Bag full') this.showToast('Bag full', 'backpack');
         return false;
       }
       this.bag = r.bag;
-      this.showToast(`${def.icon} +1 ${def.name}`);
+      this.showToast(`+1 ${def.name}`, def.icon);
       return true;
     }
     if (item.kind === 'weapon') {
@@ -516,16 +607,16 @@ export class ZombieMode {
       if (this.owned.has(item.weapon)) {
         // Duplicate gun: strip it for ammo
         if (spec.ammo) this.reserve[spec.ammo] += Math.ceil(AMMO_BOX[spec.ammo] / 2);
-        this.showToast(`${spec.icon} ${spec.name} → +ammo`);
+        this.showToast(`${spec.name}: +ammo`, spec.icon);
       } else {
         this.owned.add(item.weapon);
         this.mags[item.weapon] = startingMag(item.weapon);
         if (this.weapon === 'axe') this.selectWeapon(item.weapon);
-        this.showToast(`${spec.icon} Picked up ${spec.name} [${spec.slot}]`);
+        this.showToast(`Picked up ${spec.name} [${spec.slot}]`, spec.icon);
       }
     } else if (item.kind === 'ammo') {
       this.reserve[item.ammo] += AMMO_BOX[item.ammo];
-      this.showToast(`📦 +${AMMO_BOX[item.ammo]} ${AMMO_NAMES[item.ammo]}`);
+      this.showToast(`+${AMMO_BOX[item.ammo]} ${AMMO_NAMES[item.ammo]}`, 'package');
     }
     return true;
   }
@@ -843,9 +934,11 @@ export class ZombieMode {
   update(dt: number, input: ZombieFrameInput): 'respawn' | null {
     this.animTime += dt;
     this.feet = { x: input.feetX, y: input.feetY };
+    // Match clock (real time): clients are corrected by every snapshot
+    this.elapsed += input.realDt ?? dt;
+    this.tod = timeOfDay(this.elapsed);
+    this.applyDaylight(input.feetX, input.feetY);
     this.vision.update(dt, input.feetX, input.feetY, input.moveX, input.moveY, input.insideBuildingId);
-    // Match clock: clients are corrected by every snapshot
-    this.elapsed += dt;
     this.difficulty = difficultyAt(this.elapsed);
 
     const auth = this.resolveAuthority(dt);
@@ -1071,6 +1164,14 @@ export class ZombieMode {
       this.vision.invalidate();
     }
 
+    // Nights are faster; a beam in the dark draws attention
+    this.sim.speedScale = nightThreat(this.tod.light).speedMul;
+    this.flashlightNoiseTimer -= dt;
+    if (this.flashlightOn && this.tod.light < LAMPS_ON_BELOW && this.flashlightNoiseTimer <= 0) {
+      this.flashlightNoiseTimer = FLASHLIGHT_NOISE_SECONDS;
+      this.pendingNoises.push({ x: input.feetX, y: input.feetY, radius: FLASHLIGHT_NOISE_RADIUS });
+    }
+
     if (this.net) this.maybeSendSnapshot(dt);
   }
 
@@ -1118,7 +1219,10 @@ export class ZombieMode {
     const ground = players.filter((p) => p.y < this.worldHeight);
     this.sim.despawnFar(players, DESPAWN_TILES, GROUP_MAX);
     const population = Math.round(this.targetPopulation * this.difficulty.populationMul);
-    const localTarget = Math.min(Math.round(LOCAL_TARGET * this.difficulty.populationMul), population);
+    const localTarget = Math.min(
+      Math.round(LOCAL_TARGET * this.difficulty.populationMul * nightThreat(this.tod.light).hordeMul),
+      Math.round(population * nightThreat(this.tod.light).hordeMul)
+    );
     const cap = Math.min(GLOBAL_CAP, Math.max(population, localTarget * Math.max(1, ground.length)));
     const from = this.sim.zombies.length;
     for (const p of ground) {
@@ -1310,7 +1414,12 @@ export class ZombieMode {
       z.goalX = goalX;
       z.goalY = goalY;
       z.variant = variant;
-      const speed = flag === 'charging' ? CHARGER.speed : z.locked ? 0 : (NET_SPEED[stateIdx] ?? 0) * (z.speedMul ?? 1);
+      const speed =
+        flag === 'charging'
+          ? CHARGER.speed
+          : z.locked
+            ? 0
+            : (NET_SPEED[stateIdx] ?? 0) * (z.speedMul ?? 1) * nightThreat(this.tod.light).speedMul;
       this.tracks.set(id, { x, y, goalX, goalY, speed });
       seen.add(id);
       next.push(z);
@@ -1391,6 +1500,7 @@ export class ZombieMode {
       weapon: this.weaponHud(),
       owned: WEAPON_ORDER.filter((w) => this.owned.has(w)),
       toast: this.toast?.text ?? null,
+      toastIcon: this.toast?.icon ?? null,
       hunger: Math.ceil(this.vitals.hunger),
       hydration: Math.ceil(this.vitals.hydration),
       stamina: Math.ceil(this.vitals.stamina),
@@ -1409,12 +1519,15 @@ export class ZombieMode {
         ),
       ],
       safe: this.safe,
+      clock: clockLabel(this.tod),
+      phase: this.tod.phase,
+      flashlight: this.flashlightOn,
     };
     const ent = hud.entrance;
     const wk = `${hud.weapon.id}${hud.weapon.mag}/${hud.weapon.reserve}/${Math.round(hud.weapon.reloading * 10)}|${hud.owned.join(',')}|${hud.toast ?? ''}`;
     const entKey = ent ? `${ent.kind}${ent.state}${ent.planks}${Math.round(ent.progress * 10)}` : '-';
     const vk = `${hud.hunger}|${hud.hydration}|${Math.round(hud.stamina / 2)}|${hud.exhausted}|${hud.sprinting}|${hud.sprintLatched}|${hud.effects.join(',')}|${hud.supplies.map((s) => s.id + s.qty).join(',')}|${hud.threat}|${hud.specials.join(',')}|${hud.safe}`;
-    const key = `${hud.hp}|${hud.alive}|${hud.kills}|${hud.chasing}|${hud.dead}|${entKey}|${wk}|${vk}`;
+    const key = `${hud.hp}|${hud.alive}|${hud.kills}|${hud.chasing}|${hud.dead}|${entKey}|${wk}|${vk}|${hud.clock}|${hud.flashlight}`;
     if (key === this.hudKey) return;
     this.hudKey = key;
     this.onHudChanged?.(hud);
@@ -1525,10 +1638,7 @@ export class ZombieMode {
       ctx.ellipse(16, 30, 14, 6, 0, 0, Math.PI * 2);
       ctx.fill();
     } else if (a.kind === 'charge' && a.phase === 'recover') {
-      ctx.font = 'bold 9px "Plus Jakarta Sans", monospace, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#FDE047';
-      ctx.fillText('✦✦', 16, -10);
+      drawIcon(ctx, 'sparkles', 16, -12, 10, { color: '#FDE047', strokeWidth: 2.6 });
     } else if (a.kind === 'bloat' && a.fuse !== null) {
       ctx.fillStyle = `rgba(132, 204, 22, ${0.3 + 0.4 * pulse})`;
       ctx.beginPath();
@@ -1641,10 +1751,13 @@ export class ZombieMode {
       ctx.fillRect(x + dx, y + dy, w, h);
     };
     if (l.item.kind === 'supply') {
-      ctx.font = '12px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(ITEM_DEFS[l.item.supply].icon, x, y - 2);
+      // White icon on a disc coloured by item type, with a dark ring so it reads on any floor
+      const def = ITEM_DEFS[l.item.supply];
+      ctx.fillStyle = '#18181B';
+      ctx.beginPath();
+      ctx.arc(x, y - 3, 10, 0, Math.PI * 2);
+      ctx.fill();
+      drawIcon(ctx, def.icon, x, y - 3, 17, { color: '#FFFFFF', background: LOOT_DISC[def.category], pad: 0.2, strokeWidth: 2.4 });
     } else if (l.item.kind === 'ammo') {
       px(-6, -6, 12, 8, '#3F6212');
       px(-6, -6, 12, 2, '#65A30D');
@@ -1667,8 +1780,96 @@ export class ZombieMode {
     ctx.restore();
   }
 
-  /** Screen-space overlays: gas haze, hurt vignette, knockdown, death fade. */
-  renderScreen(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  /**
+   * Sun and night: a sky-tinted darkness layer over the world with light
+   * punched out for your glow, lamps, the flashlight beam and muzzle flashes.
+   */
+  private renderNight(ctx: CanvasRenderingContext2D, w: number, h: number, cam: { x: number; y: number; zoom: number }) {
+    const tint = skyTint(this.tod);
+    if (tint.warm.a > 0.01) {
+      ctx.save();
+      ctx.fillStyle = `rgba(${tint.warm.r}, ${tint.warm.g}, ${tint.warm.b}, ${tint.warm.a})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+    const a = tint.night.a;
+    if (a < 0.01 || typeof document === 'undefined') return;
+    const canvas = (this.darkCanvas ??= document.createElement('canvas'));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const d = canvas.getContext('2d');
+    if (!d) return;
+    const ts = this.vision.grid.tileSize * cam.zoom;
+    const sx = (x: number) => (x - cam.x) * cam.zoom;
+    const sy = (y: number) => (y - cam.y) * cam.zoom;
+    d.globalCompositeOperation = 'source-over';
+    d.clearRect(0, 0, w, h);
+    d.fillStyle = `rgba(${tint.night.r}, ${tint.night.g}, ${tint.night.b}, ${a})`;
+    d.fillRect(0, 0, w, h);
+    d.globalCompositeOperation = 'destination-out';
+    const hole = (x: number, y: number, r: number, strength: number) => {
+      const g = d.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(0, 0, 0, ${strength})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      d.fillStyle = g;
+      d.beginPath();
+      d.arc(x, y, r, 0, Math.PI * 2);
+      d.fill();
+    };
+    const px = sx(this.feet.x);
+    const py = sy(this.feet.y - 10);
+    hole(px, py, 2.5 * ts, 0.7); // your own faint glow
+    const lampsOn = this.tod.light < LAMPS_ON_BELOW;
+    if (lampsOn) {
+      for (const l of this.lamps) {
+        const lx = sx(l.x);
+        const ly = sy(l.y);
+        if (lx < -200 || ly < -200 || lx > w + 200 || ly > h + 200) continue;
+        hole(lx, ly, LAMP_RADIUS_TILES * ts, 0.85);
+      }
+    }
+    if (this.flashlightOn) {
+      const aim = this.aim ?? this.vision.getFacing();
+      const reach = 18 * ts;
+      const g = d.createRadialGradient(px, py, 0, px, py, reach);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+      g.addColorStop(0.75, 'rgba(0, 0, 0, 0.7)');
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      d.fillStyle = g;
+      d.beginPath();
+      d.moveTo(px, py);
+      d.arc(px, py, reach, aim - FLASHLIGHT_HALF_ANGLE, aim + FLASHLIGHT_HALF_ANGLE);
+      d.closePath();
+      d.fill();
+    }
+    if (this.muzzleAge < MUZZLE_LIGHT_SECONDS) {
+      hole(px, py, MUZZLE_LIGHT_TILES * ts, 0.9 * (1 - this.muzzleAge / MUZZLE_LIGHT_SECONDS));
+    }
+    ctx.drawImage(canvas, 0, 0);
+
+    // Warm lamp halos on top of the darkness
+    if (lampsOn) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const l of this.lamps) {
+        const hx = sx(l.headX);
+        const hy = sy(l.headY);
+        if (hx < -100 || hy < -100 || hx > w + 100 || hy > h + 100) continue;
+        const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, 1.6 * ts);
+        g.addColorStop(0, `rgba(253, 224, 140, ${0.35 * a})`);
+        g.addColorStop(1, 'rgba(253, 224, 140, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(hx - 1.6 * ts, hy - 1.6 * ts, 3.2 * ts, 3.2 * ts);
+      }
+      ctx.restore();
+    }
+  }
+
+  /** Screen-space overlays: night, gas haze, hurt vignette, knockdown, death fade. */
+  renderScreen(ctx: CanvasRenderingContext2D, w: number, h: number, cam?: { x: number; y: number; zoom: number }) {
+    if (cam) this.renderNight(ctx, w, h, cam);
     if (this.vitals.effects.some((e) => e.kind === 'blinded')) {
       ctx.save();
       ctx.fillStyle = 'rgba(77, 124, 15, 0.28)';
@@ -1707,6 +1908,11 @@ export class ZombieMode {
   }
 
   dispose() {
+    if (this.darkCanvas) {
+      this.darkCanvas.width = 0;
+      this.darkCanvas.height = 0;
+      this.darkCanvas = null;
+    }
     this.vision.dispose();
     this.sim.clear();
     this.director.clear();

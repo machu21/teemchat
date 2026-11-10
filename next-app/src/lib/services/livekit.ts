@@ -80,8 +80,8 @@ export class LiveKitService {
   isAudible?: (identity: string) => boolean;
   /** Same private room: full volume regardless of distance (meeting rooms are large). */
   inSharedRoom?: (identity: string) => boolean;
-  /** Screen shares are only subscribed while this returns true (same room as the sharer). */
-  isScreenVisible?: (identity: string) => boolean;
+  /** Remote video (cameras and screen shares) is only subscribed while this returns true. Spaces return false. */
+  isVideoVisible?: (identity: string) => boolean;
 
   // Local tracks
   localVideoTrack: VideoTrack | MediaStreamTrack | null = null;
@@ -440,12 +440,12 @@ export class LiveKitService {
         }
       }
 
-      // Only download screen shares you can actually see (same room as the sharer).
-      const wantScreen = !this.isScreenVisible || this.isScreenVisible(userId);
+      // Only download video the page actually shows (spaces are voice-only)
+      const wantVideo = !this.isVideoVisible || this.isVideoVisible(userId);
       for (const pub of participant.videoTrackPublications.values()) {
-        if (pub.source !== Track.Source.ScreenShare || pub.isSubscribed === wantScreen) continue;
+        if (pub.isSubscribed === wantVideo) continue;
         try {
-          pub.setSubscribed(wantScreen);
+          pub.setSubscribed(wantVideo);
         } catch {
           // Publication may be mid-teardown
         }

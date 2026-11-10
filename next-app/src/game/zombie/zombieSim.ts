@@ -153,6 +153,8 @@ export class ZombieSim {
   private flow: Int16Array;
   private flowKey = '';
   private flowAge = Infinity;
+  /** Global speed multiplier (the host raises it at night). */
+  speedScale = 1;
   /** Tile indexes of entrances changed by zombies since the last drain (for network sync). */
   readonly changedEntrances: Set<number> = new Set();
   /** Sight / hearing radius multiplier (difficulty). */
@@ -583,7 +585,7 @@ export class ZombieSim {
         }
       }
 
-      this.move(z, speed * (z.speedMul ?? 1), dt);
+      this.move(z, speed * (z.speedMul ?? 1) * this.speedScale, dt);
     }
 
     this.separate();

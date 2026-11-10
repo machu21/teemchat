@@ -15,6 +15,7 @@ export type ControlAction =
   | 'reload'
   | 'nextWeapon'
   | 'useSupply'
+  | 'flashlight'
   | 'jump'
   | 'interact'
   | 'lock'
@@ -45,6 +46,7 @@ export const CONTROL_ACTIONS: readonly ActionInfo[] = [
   { id: 'reload', label: 'Reload', group: 'Survival' },
   { id: 'nextWeapon', label: 'Next weapon', group: 'Survival', hint: 'With Shift: previous · 1–6 pick a slot' },
   { id: 'useSupply', label: 'Eat / drink', group: 'Survival', hint: 'Uses what you need most' },
+  { id: 'flashlight', label: 'Flashlight', group: 'Survival', hint: 'Long narrow beam at night — zombies may notice' },
   { id: 'interact', label: 'Open / close / enter', group: 'Doors & windows' },
   { id: 'lock', label: 'Lock / unlock', group: 'Doors & windows' },
   { id: 'barricade', label: 'Board up', group: 'Doors & windows', hint: 'With Shift: pull a plank' },
@@ -64,6 +66,7 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   reload: ['KeyR', null],
   nextWeapon: ['KeyQ', null],
   useSupply: ['KeyC', null],
+  flashlight: ['KeyG', null],
   interact: ['KeyE', null],
   lock: ['KeyL', null],
   barricade: ['KeyB', null],
@@ -112,10 +115,10 @@ export function keyLabel(code: string | null | undefined): string {
     ControlRight: 'R-Ctrl',
     AltLeft: 'Alt',
     AltRight: 'R-Alt',
-    ArrowUp: '↑',
-    ArrowDown: '↓',
-    ArrowLeft: '←',
-    ArrowRight: '→',
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
     Backquote: '`',
     BracketLeft: '[',
     BracketRight: ']',
@@ -126,7 +129,7 @@ export function keyLabel(code: string | null | undefined): string {
     Period: '.',
     Slash: '/',
     CapsLock: 'Caps',
-    Backspace: '⌫',
+    Backspace: 'Bksp',
   };
   if (named[code]) return named[code];
   if (code.startsWith('Key')) return code.slice(3);

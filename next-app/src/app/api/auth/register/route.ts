@@ -4,6 +4,7 @@ import { validateBirthDate } from '@/lib/safety/ageBand';
 import {
   checkRateLimit,
   getClientIp,
+  getClientCountry,
   getRateLimitHeaders,
   RATE_LIMITS,
 } from '@/lib/rateLimit';
@@ -20,6 +21,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
+    const country = getClientCountry(req);
 
     // 1. IP Sign-up Velocity Limit
     const rateResult = checkRateLimit(`ip:signup:${ip}`, RATE_LIMITS.AUTH_SIGNUP);
@@ -156,6 +158,7 @@ export async function POST(req: NextRequest) {
           username: cleanUsername,
           display_name: cleanDisplayName,
           gender: cleanGender,
+          country_code: country,
           ...(cleanBirthDate ? { birth_date: cleanBirthDate } : {}),
         },
       },
@@ -191,6 +194,7 @@ export async function POST(req: NextRequest) {
         username: cleanUsername,
         display_name: cleanDisplayName,
         gender: cleanGender,
+        country_code: country,
         status: 'available',
         tier: 'free',
         is_paid: false,

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import styles from './NeoModal.module.css';
 import { NeoCard } from './NeoCard';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface NeoModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export const NeoModal: React.FC<NeoModalProps> = ({
           <div className={styles.header}>
             <h2 className={styles.title}>{title}</h2>
             <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
-              ✕
+              <AppIcon name="close" />
             </button>
           </div>
           <div className={styles.content}>{children}</div>

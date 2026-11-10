@@ -7,10 +7,11 @@ import type { ChatMessageModel } from '@/lib/models/chat';
 import { Meeting, MeetingService } from '@/lib/services/meetings';
 import { MeetingNote, MeetingNotesService, NOTES_MAX_LINES, NotesChatLine } from '@/lib/services/meetingNotes';
 import { RoomDefinition, roomById } from '@/lib/world/rooms';
+import type { IconName } from '@/lib/icons';
 
 const BANNER_LEAD_MS = 5 * 60_000;
 
-type Toast = (icon: string, message: string, color: string) => void;
+type Toast = (icon: IconName, message: string, color: string) => void;
 
 interface Options {
   spaceId: string | null | undefined;
@@ -101,9 +102,9 @@ export function useMeetings({
       const target = roomCenter(meeting.roomId);
       if (target) {
         teleport(target.x, target.y, target.name);
-        toastRef.current('📅', `Heading to ${target.name} for "${meeting.title}"`, '#3B82F6');
+        toastRef.current('calendar', `Heading to ${target.name} for "${meeting.title}"`, '#3B82F6');
       } else {
-        toastRef.current('📅', `"${meeting.title}" is in this space. Find your team!`, '#3B82F6');
+        toastRef.current('calendar', `"${meeting.title}" is in this space. Find your team!`, '#3B82F6');
       }
       setPanelOpen(false);
       setDismissed((prev) => new Set(prev).add(meeting.id));
@@ -118,7 +119,7 @@ export function useMeetings({
     MeetingService.get(linkedMeetingId)
       .then((m) => {
         if (!m || m.spaceId !== spaceId) {
-          toastRef.current('⚠️', 'That meeting link is no longer valid.', '#EF4444');
+          toastRef.current('warning', 'That meeting link is no longer valid.', '#EF4444');
           return;
         }
         // Give the canvas a moment to spawn before teleporting.
@@ -191,7 +192,7 @@ export function useMeetings({
       };
       setTakingNotesState({ roomName: room.name, lines: 0 });
       setTakingNotes(true);
-      toastRef.current('📝', `Taking notes in ${room.name}. Everyone in the room can see this.`, '#3B82F6');
+      toastRef.current('notes', `Taking notes in ${room.name}. Everyone in the room can see this.`, '#3B82F6');
     },
     [upcoming, setTakingNotes]
   );
@@ -218,7 +219,7 @@ export function useMeetings({
       });
       setSummarizing(false);
       if (res.error || !res.note) {
-        toastRef.current('⚠️', res.error || 'Could not create notes.', '#EF4444');
+        toastRef.current('warning', res.error || 'Could not create notes.', '#EF4444');
         return;
       }
       notesRef.current = null;

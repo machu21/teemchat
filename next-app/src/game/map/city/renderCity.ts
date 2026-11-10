@@ -13,6 +13,7 @@ import { shade } from '../../art/core/color';
 import type { Entrance } from '../../zombie/entrances';
 import { GROUND, type CityFurnitureKind } from './templates';
 import { FT, MARK, type CityBuilding, type CityFloor, type CityPlan, type CityProp } from './types';
+import { drawIcon } from '@/game/art/drawIcon';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -445,6 +446,76 @@ export function renderCityRoof(ctx: Ctx, building: CityBuilding): void {
   fr(ctx, 0, h - 1, w, 1, '#1E2124');
   fr(ctx, 0, 0, 1, h, '#1E2124');
   fr(ctx, w - 1, 0, 1, h, '#1E2124');
+  if (building.sign) drawStorefrontSign(ctx, building, w, h);
+}
+
+/**
+ * Store sign on the street edge of the roof: a bold coloured board with the
+ * icon and name, readable from the street at any zoom. Convenience stores add
+ * a red-and-white awning stripe so the corner shop is spotted at a glance.
+ */
+function drawStorefrontSign(ctx: Ctx, building: CityBuilding, w: number, h: number): void {
+  const sign = building.sign;
+  if (!sign) return;
+  const boardH = 18;
+  const front = building.facing === 'n';
+  const y = front ? 6 : h - 6 - boardH;
+  if (building.kind === 'convenience') {
+    const sy = front ? y + boardH + 2 : y - 8;
+    for (let x = 4; x < w - 4; x += 8) fr(ctx, x, sy, 4, 6, '#DC2626');
+    for (let x = 8; x < w - 4; x += 8) fr(ctx, x, sy, 4, 6, '#F8FAFC');
+  }
+  // Big icon roundel mid-roof so the store type reads from a distance (the hospital has its cross)
+  if (building.kind !== 'hospital') {
+    const cx = Math.floor(w / 2);
+    const cy = Math.floor(h / 2) + (front ? 8 : -8);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.arc(cx + 2, cy + 3, 21, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#18181B';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 21, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = sign.color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawIcon(ctx, sign.icon, cx, cy, 20, { color: '#FFFFFF', strokeWidth: 2.4 });
+  }
+  fr(ctx, 5, y + 2, w - 8, boardH, 'rgba(0,0,0,0.35)'); // drop shadow
+  fr(ctx, 3, y, w - 8, boardH, '#18181B');
+  fr(ctx, 5, y + 2, w - 12, boardH - 4, sign.color);
+  fr(ctx, 5, y + 2, w - 12, 1, 'rgba(255,255,255,0.35)');
+  // Fit the label: shrink, then truncate with an ellipsis
+  const iconPx = Math.max(8, Math.min(14, boardH - 6));
+  const maxW = w - 18 - iconPx - 3;
+  let size = 11;
+  let label = sign.text;
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  const font = (px: number) => `800 ${px}px "Plus Jakarta Sans", system-ui, sans-serif`;
+  ctx.font = font(size);
+  while (size > 7 && ctx.measureText(label).width > maxW) ctx.font = font(--size);
+  while (label.length > 4 && ctx.measureText(label).width > maxW) label = `${label.slice(0, -2)}…`;
+  // Icon + name, centred together on the board
+  const textW = ctx.measureText(label).width;
+  const left = w / 2 - 1 - (iconPx + 3 + textW) / 2;
+  ctx.textAlign = 'left';
+  drawIcon(ctx, sign.icon, left + iconPx / 2 + 1, y + boardH / 2 + 1, iconPx, { color: '#18181B', strokeWidth: 2.6 });
+  drawIcon(ctx, sign.icon, left + iconPx / 2, y + boardH / 2, iconPx, { color: '#FFFFFF', strokeWidth: 2.6 });
+  ctx.fillStyle = '#18181B';
+  ctx.fillText(label, left + iconPx + 3 + 1, y + boardH / 2 + 1);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(label, left + iconPx + 3, y + boardH / 2);
+  ctx.restore();
 }
 
 const CAR_COLORS = ['#C0392B', '#2E86C1', '#F1C40F', '#7F8C8D', '#27AE60', '#ECF0F1', '#1F2D44', '#F4F6F8'];

@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import styles from './MapSelector.module.css';
 import { getAllMapConfigs, MapThemeId } from '@/game/map/mapRegistry';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface MapSelectorProps {
   selectedTheme: string;
@@ -65,7 +66,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
               title="Previous World"
               aria-label="Previous World"
             >
-              ◀
+              <AppIcon name="chevronLeft" />
             </button>
             <button
               type="button"
@@ -74,7 +75,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
               title="Next World"
               aria-label="Next World"
             >
-              ▶
+              <AppIcon name="play" />
             </button>
           </div>
         </div>
@@ -83,7 +84,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
       {/* Selected World Preview Callout (High visibility on mobile) */}
       {selectedConfig && (
         <div className={styles.selectedCallout}>
-          <span className={styles.calloutIcon}>{selectedConfig.icon}</span>
+          <span className={styles.calloutIcon}><AppIcon name={selectedConfig.icon} /></span>
           <div className={styles.calloutDetails}>
             <span className={styles.calloutLabel}>Active Environment:</span>
             <span className={styles.calloutName}>{selectedConfig.name}</span>
@@ -153,7 +154,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
               <div className={styles.cardHeader}>
                 <div className={styles.cardTitleRow}>
                   <span className={styles.mapIcon} aria-hidden="true">
-                    {config.icon}
+                    <AppIcon name={config.icon} />
                   </span>
                   <div className={styles.cardTitleText}>
                     <div className={styles.mapName} title={config.name}>
@@ -168,7 +169,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
                   }`}
                   aria-hidden="true"
                 >
-                  {isSelected ? '✓' : ''}
+                  {isSelected ? <AppIcon name="check" /> : ''}
                 </div>
               </div>
 
@@ -197,7 +198,7 @@ export const MapSelector: React.FC<MapSelectorProps> = ({
 
       {/* Mobile Swipe Hint */}
       <div className={styles.mobileSwipeHint}>
-        <span>👈 Swipe horizontally to view all worlds 👉</span>
+        <span><AppIcon name="arrowLeft" /> Swipe horizontally to view all worlds <AppIcon name="arrowRight" /></span>
       </div>
     </div>
   );

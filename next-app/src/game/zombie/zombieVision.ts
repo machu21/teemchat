@@ -1,7 +1,9 @@
 import { Rect } from '../collision';
 import { BuildingDefinition } from '../map/buildings';
 import { TileGrid, inBounds, tileIndex, worldToTile } from './grid';
-import { DEFAULT_FOV, FovResult, VIS_HIDDEN, computeFov, visibilityAt } from './fov';
+import { DEFAULT_FOV, FovResult, VIS_HIDDEN, VIS_VISIBLE, computeFov, visibilityAt } from './fov';
+import { wallsBetween } from './zombieSim';
+import { FLASHLIGHT, type DaylightVision } from './survival/daycycle';
 import { FovMaskRenderer } from './fovMask';
 import { buildZombieGrid } from './zombieGrid';
 import { Entrance } from './entrances';
@@ -16,6 +18,10 @@ import { Entrance } from './entrances';
 const TURN_RATE = 14;
 /** Recompute when facing drifts more than this (rad). */
 const FACING_EPSILON = 0.03;
+/** Cone width is quantised to 5° so dusk doesn't recompute every frame. */
+const CONE_STEP = (5 * Math.PI) / 180;
+/** Light pools are only seen within this distance (tiles). */
+const LIGHT_SIGHT_TILES = 24;
 
 function wrap(a: number): number {
   a = (a + Math.PI) % (Math.PI * 2);
@@ -59,6 +65,51 @@ export class ZombieVision {
   }
   private viewScale = 1;
 
+  /** Time-of-day vision (identity until a day cycle is applied). */
+  setDaylight(v: DaylightVision) {
+    const next = {
+      radiusMul: Math.round(DEFAULT_FOV.viewRadius * v.radiusMul) / DEFAULT_FOV.viewRadius, // whole tiles
+      coneAngle: Math.round(v.coneAngle / CONE_STEP) * CONE_STEP,
+      peripheral: Math.round(v.peripheral * 2) / 2,
+    };
+    const d = this.daylight;
+    if (d.radiusMul === next.radiusMul && d.coneAngle === next.coneAngle && d.peripheral === next.peripheral) return;
+    this.daylight = next;
+    this.invalidate();
+  }
+  private daylight: DaylightVision = { radiusMul: 1, coneAngle: DEFAULT_FOV.coneAngle, peripheral: DEFAULT_FOV.peripheralRadius };
+
+  /** Flashlight: a narrow beam with daylight reach. */
+  setFlashlight(on: boolean) {
+    if (on === this.flashlight) return;
+    this.flashlight = on;
+    this.invalidate();
+  }
+  private flashlight = false;
+
+  /**
+   * Light pools (street lamps, muzzle flashes) as world-px centres + radius in
+   * tiles: lit tiles in line of sight count as seen even beyond the view radius.
+   */
+  setLights(lights: { x: number; y: number; r: number }[]) {
+    const key = lights.map((l) => `${Math.round(l.x)},${Math.round(l.y)},${l.r}`).join(';');
+    if (key === this.lightsKey) return;
+    this.lightsKey = key;
+    this.lights = lights;
+    this.invalidate();
+  }
+  private lights: { x: number; y: number; r: number }[] = [];
+  private lightsKey = '';
+
+  /** 0 by day → 1 at night: the fog outside your sight gets blacker. */
+  setDarkness(d: number) {
+    const q = Math.round(Math.max(0, Math.min(1, d)) * 10) / 10;
+    if (q === this.darkness) return;
+    this.darkness = q;
+    this.invalidate();
+  }
+  private darkness = 0;
+
   /** Forces a recompute next update (a door opened/closed, a window was boarded…). */
   invalidate() {
     this.computedTile = -1;
@@ -80,15 +131,51 @@ export class ZombieVision {
     this.computedFacing = this.facing;
     this.computedTile = tile;
     this.computedInside = insideBuildingId;
+    // Daylight sets reach and cone; the flashlight trades width for reach; gas shrinks everything
+    const day = this.daylight;
+    const radiusMul = this.flashlight ? Math.max(day.radiusMul, FLASHLIGHT.radiusMul) : day.radiusMul;
     this.fov = computeFov(
       this.grid,
-      { originX: feetX, originY: feetY, facing: this.facing, ...DEFAULT_FOV, viewRadius: DEFAULT_FOV.viewRadius * this.viewScale },
+      {
+        originX: feetX,
+        originY: feetY,
+        facing: this.facing,
+        coneAngle: this.flashlight ? FLASHLIGHT.coneAngle : day.coneAngle,
+        viewRadius: DEFAULT_FOV.viewRadius * radiusMul * this.viewScale,
+        peripheralRadius: day.peripheral,
+      },
       this.fov ?? undefined
     );
+    this.applyLights(feetX, feetY);
     this.revealRoofs(insideBuildingId);
     // No DOM in tests / SSR: FOV still computes, only the fog canvas is skipped
     if (!this.mask && typeof document !== 'undefined') this.mask = new FovMaskRenderer(this.grid);
-    this.mask?.update(this.fov);
+    this.mask?.update(this.fov, this.darkness);
+  }
+
+  /** Lit tiles you have line of sight to are visible, however dark it is. */
+  private applyLights(feetX: number, feetY: number) {
+    const fov = this.fov;
+    if (!fov || !this.lights.length) return;
+    const g = this.grid;
+    const ts = g.tileSize;
+    const maxReach = LIGHT_SIGHT_TILES * ts;
+    for (const l of this.lights) {
+      if (Math.hypot(l.x - feetX, l.y - feetY) > maxReach + l.r * ts) continue;
+      const { col: lc, row: lr } = worldToTile(g, l.x, l.y);
+      const r = Math.ceil(l.r);
+      for (let row = lr - r; row <= lr + r; row++) {
+        for (let col = lc - r; col <= lc + r; col++) {
+          if (!inBounds(g, col, row) || (col - lc) ** 2 + (row - lr) ** 2 > l.r * l.r) continue;
+          const i = tileIndex(g, col, row);
+          if (fov.vis[i] === VIS_VISIBLE) continue;
+          const cx = (col + 0.5) * ts;
+          const cy = (row + 0.5) * ts;
+          if (Math.hypot(cx - feetX, cy - feetY) > maxReach) continue;
+          if (wallsBetween(g, feetX, feetY, cx, cy, 1) === 0) fov.vis[i] = VIS_VISIBLE;
+        }
+      }
+    }
   }
 
   /**

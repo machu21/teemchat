@@ -1,3 +1,5 @@
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 // ============================================================
 // RETRO 16-BIT PIXEL-ART WORLD MAP: HORIZON ACADEMY & SCHOOL
 // ============================================================
@@ -373,10 +375,10 @@ export function renderSchoolMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   r(gymX + 84, quadY + 80, 24, 12, '#92400E');
 
   // ── 7. ARCHITECTURAL ACADEMIC WALL PLAQUES ───────────────
-  const schoolPlaque = (text: string, x: number, y: number, color: string) => {
+  const schoolPlaque = (text: string, x: number, y: number, color: string, icon?: IconName) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
+    const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
     const bh = 11;
 
     // Academic plaque cast shadow
@@ -388,14 +390,15 @@ export function renderSchoolMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
     r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, x + 4, y + 8);
+    if (icon) drawIcon(ctx, icon, x + 7.5, y + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, x + 4 + (icon ? 9 : 0), y + 8);
   };
 
-  schoolPlaque('📚 CLASSROOM 101', c1x + 10, c1y + 14, '#1E40AF');
-  schoolPlaque('🧪 SCIENCE LAB', sX + 10, sY + 14, '#065F46');
-  schoolPlaque('🎒 LOCKER COMMONS', 180, corY + 13, '#92400E');
-  schoolPlaque('📖 CAMPUS LIBRARY', libX + 10, libY + 12, '#5B21B6');
-  schoolPlaque('🥪 CAFETERIA', cafX + 10, cafY + 12, '#9A3412');
-  schoolPlaque('🏀 GYMNASIUM', gymX + 8, gymY + 8, '#991B1B');
-  schoolPlaque('🌿 CAMPUS QUAD', gymX + 8, quadY + 6, '#166534');
+  schoolPlaque('CLASSROOM 101', c1x + 10, c1y + 14, '#1E40AF', 'book');
+  schoolPlaque('SCIENCE LAB', sX + 10, sY + 14, '#065F46', 'flask');
+  schoolPlaque('LOCKER COMMONS', 180, corY + 13, '#92400E', 'backpack');
+  schoolPlaque('CAMPUS LIBRARY', libX + 10, libY + 12, '#5B21B6', 'bookText');
+  schoolPlaque('CAFETERIA', cafX + 10, cafY + 12, '#9A3412', 'sandwich');
+  schoolPlaque('GYMNASIUM', gymX + 8, gymY + 8, '#991B1B', 'dumbbell');
+  schoolPlaque('CAMPUS QUAD', gymX + 8, quadY + 6, '#166534', 'leaf');
 }

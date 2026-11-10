@@ -108,8 +108,8 @@ describe('POST /api/livekit/token', () => {
         canPublish: true,
         canSubscribe: true,
         canPublishData: true,
-        // Spaces: microphone + screen share (shown only in private rooms); never camera
-        canPublishSources: [2, 3, 4],
+        // Spaces are voice-only: microphone only, never camera or screen share
+        canPublishSources: [2],
       });
     });
 

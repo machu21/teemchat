@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LEGAL } from '@/lib/constants/legal';
 import styles from './LegalPage.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 const LEGAL_LINKS = [
   { href: '/terms', label: 'Terms of Service' },
@@ -25,7 +26,7 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
           TeemChat
         </Link>
         <Link href="/" className={styles.backLink}>
-          ← Back to home
+          <AppIcon name="arrowLeft" /> Back to home
         </Link>
       </header>
 

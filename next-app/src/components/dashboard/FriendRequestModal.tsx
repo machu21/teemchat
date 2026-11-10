@@ -11,6 +11,7 @@ import { FriendService } from '@/lib/services/friends';
 import { useSafetyStore } from '@/stores/safety';
 
 import { AvatarConfig } from '@/lib/models/avatar';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 type SearchResultUser = {
   id: string;
@@ -63,7 +64,7 @@ export function FriendRequestModal() {
       targetProfile ? { displayName: targetProfile.displayName, avatarConfig: targetProfile.avatarConfig } : undefined
     );
     if (res.success) {
-      setStatusMessage('Friend request sent! 🎉');
+      setStatusMessage('Friend request sent!');
       await refreshRequests(session.id);
     } else {
       setStatusMessage(res.message || 'Could not send request.');
@@ -91,7 +92,7 @@ export function FriendRequestModal() {
         refreshRequests(session.id),
         refreshFriends(session.id),
       ]);
-      setStatusMessage(action === 'accept' ? 'Friend added! 🎉' : 'Request declined.');
+      setStatusMessage(action === 'accept' ? 'Friend added!' : 'Request declined.');
     } else {
       setStatusMessage('Could not update the request. Please try again.');
     }
@@ -104,7 +105,7 @@ export function FriendRequestModal() {
         setSearchModalOpen(false);
         setStatusMessage('');
       }}
-      title="🤝 Friends & Explorers"
+      title="Friends & Explorers"
     >
       <div className={styles.modalContainer}>
         {/* Modal Tabs */}
@@ -115,7 +116,7 @@ export function FriendRequestModal() {
             }`}
             onClick={() => setActiveTab('search')}
           >
-            🔍 Search Explorers
+            <AppIcon name="search" /> Search Explorers
           </button>
           <button
             className={`${styles.modalTabBtn} ${
@@ -145,12 +146,12 @@ export function FriendRequestModal() {
                   onClick={() => {
                     if (typeof navigator !== 'undefined' && navigator.clipboard) {
                       navigator.clipboard.writeText(session.username || '');
-                      setStatusMessage('Handle copied to clipboard! 📋');
+                      setStatusMessage('Handle copied to clipboard!');
                     }
                   }}
                   title="Copy your handle"
                 >
-                  📋 Copy Handle
+                  <AppIcon name="clipboard" /> Copy Handle
                 </button>
               </div>
             )}
@@ -191,7 +192,7 @@ export function FriendRequestModal() {
                         })
                       }
                     >
-                      ➕ Add Friend
+                      <AppIcon name="plus" /> Add Friend
                     </NeoButton>
                   </div>
                 ))
@@ -232,14 +233,14 @@ export function FriendRequestModal() {
                       variant="primary"
                       onClick={() => handleRespond(req.id, 'accept')}
                     >
-                      ✓ Accept
+                      <AppIcon name="check" /> Accept
                     </NeoButton>
                     <NeoButton
                       size="sm"
                       variant="ghost"
                       onClick={() => handleRespond(req.id, 'decline')}
                     >
-                      ✕
+                      <AppIcon name="close" />
                     </NeoButton>
                   </div>
                 </div>

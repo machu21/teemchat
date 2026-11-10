@@ -38,6 +38,7 @@ export function CallControls({
     toggleCamera,
     toggleScreenShare,
     leaveCall,
+    voiceOnly,
   } = useCallStore();
 
   return (
@@ -53,7 +54,9 @@ export function CallControls({
         {isMicMuted ? <MicOffIcon size={20} /> : <MicIcon size={20} />}
       </button>
 
-      {/* Camera Video Toggle */}
+      {/* Camera + screen share (hidden in voice-only calls, e.g. inside a space) */}
+      {!voiceOnly && (
+      <>
       <button
         type="button"
         className={`${styles.dockBtn} ${isCameraActive ? styles.activeBtn : ''}`}
@@ -74,6 +77,8 @@ export function CallControls({
       >
         <ScreenShareIcon size={20} />
       </button>
+      </>
+      )}
 
       {/* Chat Sidebar Toggle */}
       {showChatToggle && onToggleChat && (

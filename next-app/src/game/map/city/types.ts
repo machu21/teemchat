@@ -15,6 +15,7 @@ import type {
   RoomKind,
 } from './templates';
 import type { TileRect } from './layout';
+import type { IconName } from '@/lib/icons';
 
 /** Per-tile codes inside `CityFloor.tiles`. */
 export const FT = {
@@ -77,11 +78,13 @@ export interface CityBuilding {
   blockId: string;
   lotId: string;
   name: string;
-  icon: string;
+  icon: IconName;
   color: string;
   wallFace: string;
   roofColor: string;
   floorKind: GroundKind;
+  /** Storefront sign drawn on the roof's street edge (stores and landmarks). */
+  sign?: { text: string; icon: IconName; color: string };
   /** Ground footprint (world px, tile-aligned) — also the roof draw area. */
   footprint: Rect;
   /** Which street the front door faces. */

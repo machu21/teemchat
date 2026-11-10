@@ -14,20 +14,22 @@ import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM, SURVIVAL_ZOOM_LIMITS } from '@/game/c
 import { ZombieHud } from '@/game/zombie/zombieMode';
 import type { SpecialZombieType, StatusEffectKind } from '@/game/zombie/survival/types';
 
-const EFFECT_LABELS: Record<StatusEffectKind, string> = {
-  stimulant: '⚡ Wired',
-  poison: '☣ Poisoned',
-  slow: '🐌 Slowed',
-  knockdown: '💫 Down',
-  blinded: '🌫 Gassed',
-  regen: '💚 Healing',
+const EFFECT_LABELS: Record<StatusEffectKind, { icon: IconName; label: string }> = {
+  stimulant: { icon: 'zap', label: 'Wired' },
+  poison: { icon: 'biohazard', label: 'Poisoned' },
+  slow: { icon: 'snail', label: 'Slowed' },
+  knockdown: { icon: 'down', label: 'Down' },
+  blinded: { icon: 'fog', label: 'Gassed' },
+  regen: { icon: 'heartPulse', label: 'Healing' },
 };
 
-const SPECIAL_WARNINGS: Record<SpecialZombieType, string> = {
-  charger: '🐂 Charger — sidestep the charge',
-  bloater: '🤢 Bloater — keep your distance',
-  dreadnought: '🛡 Dreadnought — it calls the horde',
+const SPECIAL_WARNINGS: Record<SpecialZombieType, { icon: IconName; label: string }> = {
+  charger: { icon: 'charge', label: 'Charger — sidestep the charge' },
+  bloater: { icon: 'biohazard', label: 'Bloater — keep your distance' },
+  dreadnought: { icon: 'shield', label: 'Dreadnought — it calls the horde' },
 };
+
+const PHASE_ICONS = { night: 'moon', day: 'sun', dusk: 'sunset', dawn: 'sunrise' } as const satisfies Record<string, IconName>;
 import { WEAPONS } from '@/game/zombie/weapons';
 import { useControlsStore } from '@/stores/controls';
 import { ControlPos, SIZE_SCALE, TouchControl, clampPos, primaryLabel } from '@/lib/settings/controls';
@@ -44,6 +46,8 @@ const CONTROL_HALF: Record<TouchControl, { w: number; h: number }> = {
 };
 
 import { AvatarConfig } from '@/lib/models/avatar';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
 interface GameCanvasProps {
   space: SpaceModel;
@@ -641,7 +645,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (gameRef.current?.companion && onCompanionTap) {
       onCompanionTap();
     } else if (gameRef.current) {
-      gameRef.current.player.speechBubble = '👋 Hello!';
+      gameRef.current.player.speechBubble = 'Hello!';
       gameRef.current.player.speechExpiresAt = Date.now() + 4000;
     }
   };
@@ -695,7 +699,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             </span>
             {doorPrompt.occupants > 0 && (
               <span className={styles.doorPromptCount} aria-label={`${doorPrompt.occupants} inside`}>
-                👥 {doorPrompt.occupants}
+                <AppIcon name="users" /> {doorPrompt.occupants}
               </span>
             )}
           </button>
@@ -735,8 +739,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       {/* Zombie Mode HUD */}
       {zombieMode && zombieHud && (
         <>
+          <div className={styles.dayClock} data-phase={zombieHud.phase}>
+            <span aria-hidden="true">
+              <AppIcon name={PHASE_ICONS[zombieHud.phase]} />
+            </span>
+            <span className={styles.dayClockText}>{zombieHud.clock}</span>
+            <button
+              type="button"
+              className={`${styles.flashlightBtn} ${zombieHud.flashlight ? styles.flashlightOn : ''}`}
+              onClick={() => gameRef.current?.zombieToggleFlashlight()}
+              aria-label="Flashlight"
+              aria-pressed={zombieHud.flashlight}
+              title="Flashlight (G)"
+            >
+              <AppIcon name="flashlight" />
+            </button>
+          </div>
           <div className={styles.zombieHud} role="status" aria-live="polite">
-            <div className={styles.zombieHudTitle}>🧟 Survival</div>
+            <div className={styles.zombieHudTitle}><AppIcon name="biohazard" /> Survival</div>
             <div
               className={styles.zombieHpTrack}
               role="meter"
@@ -754,13 +774,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             <div className={styles.vitals}>
               {(
                 [
-                  ['🍗', 'Hunger', zombieHud.hunger, '#f59e0b'],
-                  ['💧', 'Thirst', zombieHud.hydration, '#38bdf8'],
-                  ['⚡', 'Stamina', zombieHud.stamina, zombieHud.exhausted ? '#a1a1aa' : '#facc15'],
+                  ['drumstick', 'Hunger', zombieHud.hunger, '#f59e0b'],
+                  ['droplet', 'Thirst', zombieHud.hydration, '#38bdf8'],
+                  ['zap', 'Stamina', zombieHud.stamina, zombieHud.exhausted ? '#a1a1aa' : '#facc15'],
                 ] as const
               ).map(([icon, label, value, color]) => (
                 <div key={label} className={styles.vitalRow} role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}>
-                  <span className={styles.vitalIcon} aria-hidden="true">{icon}</span>
+                  <span className={styles.vitalIcon} aria-hidden="true"><AppIcon name={icon} /></span>
                   <span className={`${styles.vitalTrack} ${value < 15 ? styles.vitalLow : ''}`}>
                     <span style={{ width: `${value}%`, backgroundColor: color }} />
                   </span>
@@ -768,20 +788,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               ))}
             </div>
             <div className={styles.zombieStats}>
-              <span>☠ {zombieHud.kills}</span>
-              <span>🧟 {zombieHud.alive}</span>
-              <span title="Threat rises the longer you survive">🔥 Lv {zombieHud.threat}</span>
+              <span title="Kills"><AppIcon name="crosshair" /> {zombieHud.kills}</span>
+              <span title="Zombies nearby"><AppIcon name="skull" /> {zombieHud.alive}</span>
+              <span title="Threat rises the longer you survive"><AppIcon name="flame" /> Lv {zombieHud.threat}</span>
               {zombieHud.chasing > 0 && (
-                <span className={styles.zombieChasing}>⚠ {zombieHud.chasing} chasing</span>
+                <span className={styles.zombieChasing}><AppIcon name="warning" /> {zombieHud.chasing} chasing</span>
               )}
             </div>
             {(zombieHud.effects.length > 0 || zombieHud.safe || zombieHud.exhausted) && (
               <div className={styles.effectChips}>
-                {zombieHud.safe && <span className={styles.effectGood}>🛏 Safe</span>}
-                {zombieHud.exhausted && <span className={styles.effectBad}>😮‍💨 Exhausted</span>}
+                {zombieHud.safe && <span className={styles.effectGood}><AppIcon name="bed" /> Safe</span>}
+                {zombieHud.exhausted && <span className={styles.effectBad}><AppIcon name="wind" /> Exhausted</span>}
                 {zombieHud.effects.map((k) => (
                   <span key={k} className={k === 'stimulant' || k === 'regen' ? styles.effectGood : styles.effectBad}>
-                    {EFFECT_LABELS[k]}
+                    <AppIcon name={EFFECT_LABELS[k].icon} /> {EFFECT_LABELS[k].label}
                   </span>
                 ))}
               </div>
@@ -801,7 +821,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               onPointerDown={(e) => e.stopPropagation()}
             >
               <span className={styles.entranceLabel}>
-                {zombieHud.entrance.kind === 'door' ? '🚪' : '🪟'}{' '}
+                <AppIcon name={zombieHud.entrance.kind === 'door' ? 'door' : 'window'} />{' '}
                 {zombieHud.entrance.state === 'barricaded'
                   ? `Boarded ${zombieHud.entrance.planks}/4`
                   : zombieHud.entrance.state}
@@ -840,7 +860,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className={styles.weaponCurrent}>
-              <span className={styles.weaponIcon} aria-hidden="true">{zombieHud.weapon.icon}</span>
+              <span className={styles.weaponIcon} aria-hidden="true"><AppIcon name={zombieHud.weapon.icon} /></span>
               <span className={styles.weaponName}>{zombieHud.weapon.name}</span>
               {zombieHud.weapon.mag !== null && (
                 <span className={styles.weaponAmmo} aria-label="Ammo">
@@ -876,7 +896,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                     aria-pressed={w === zombieHud.weapon.id}
                     title={`${WEAPONS[w].name} (${WEAPONS[w].slot})`}
                   >
-                    {WEAPONS[w].icon}
+                    <AppIcon name={WEAPONS[w].icon} />
                   </button>
                 ))}
               </div>
@@ -892,24 +912,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                     aria-label={`Use ${s.name} (${s.qty} left)`}
                     title={`Use ${s.name}`}
                   >
-                    <span aria-hidden="true">{s.icon}</span>
+                    <AppIcon name={s.icon} />
                     {s.qty > 1 && <span className={styles.supplyQty}>{s.qty}</span>}
                   </button>
                 ))}
                 <span className={styles.bagFill} aria-label={`Bag ${Math.round(zombieHud.bagFill * 100)}% full`}>
-                  🎒 {Math.round(zombieHud.bagFill * 100)}%
+                  <AppIcon name="backpack" /> {Math.round(zombieHud.bagFill * 100)}%
                 </span>
               </div>
             )}
           </div>
           {zombieHud.specials.length > 0 && (
             <div className={styles.specialWarn} role="alert">
-              {zombieHud.specials.map((k) => SPECIAL_WARNINGS[k]).join(' · ')}
+              {zombieHud.specials.map((k, i) => (
+                <span key={k}>
+                  {i > 0 && ' · '}
+                  <AppIcon name={SPECIAL_WARNINGS[k].icon} /> {SPECIAL_WARNINGS[k].label}
+                </span>
+              ))}
             </div>
           )}
           {zombieHud.toast && (
             <div className={styles.zombieToast} role="status">
-              {zombieHud.toast}
+              {zombieHud.toastIcon && <AppIcon name={zombieHud.toastIcon} />} {zombieHud.toast}
             </div>
           )}
           <button
@@ -931,7 +956,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             aria-pressed={touch.sprintMode === 'hold' ? sprintHeld : zombieHud.sprintLatched}
             title={`Sprint (hold ${primaryLabel(bindings, 'sprint')})`}
           >
-            🏃
+            <AppIcon name="footprints" />
           </button>
           <button
             type="button"
@@ -953,7 +978,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 : `Fire (hold ${primaryLabel(bindings, 'fire')})`
             }
           >
-            {zombieHud.weapon.icon}
+            <AppIcon name={zombieHud.weapon.icon} />
           </button>
           <button
             type="button"
@@ -965,7 +990,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             aria-label="Jump"
             title={`Jump over fences and cars (${primaryLabel(bindings, 'jump')})`}
           >
-            ⤴
+            <AppIcon name="jump" />
           </button>
           </div>
         </>
@@ -1026,10 +1051,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       >
         <div className={styles.joystickBase}>
           {/* D-Pad Directional Arrows */}
-          <div className={`${styles.dpadArrow} ${styles.arrowUp}`}>▲</div>
-          <div className={`${styles.dpadArrow} ${styles.arrowDown}`}>▼</div>
-          <div className={`${styles.dpadArrow} ${styles.arrowLeft}`}>◀</div>
-          <div className={`${styles.dpadArrow} ${styles.arrowRight}`}>▶</div>
+          <div className={`${styles.dpadArrow} ${styles.arrowUp}`}><AppIcon name="arrowUp" /></div>
+          <div className={`${styles.dpadArrow} ${styles.arrowDown}`}><AppIcon name="arrowDown" /></div>
+          <div className={`${styles.dpadArrow} ${styles.arrowLeft}`}><AppIcon name="arrowLeft" /></div>
+          <div className={`${styles.dpadArrow} ${styles.arrowRight}`}><AppIcon name="arrowRight" /></div>
 
           {/* Joystick Thumb Button */}
           <div
@@ -1056,7 +1081,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 : 'Action Button'
             }
           >
-            {doorPrompt ? '🚪' : 'A'}
+            {doorPrompt ? <AppIcon name="door" /> : 'A'}
           </button>
         </div>
       )}
@@ -1065,7 +1090,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       {editingLayout && (
         <div className={styles.layoutEditBar} role="dialog" aria-label="Arrange on-screen controls">
           <span className={styles.layoutEditText}>
-            ✋ Drag the controls where you want them <small>({orientation} layout)</small>
+            <AppIcon name="hand" /> Drag the controls where you want them <small>({orientation} layout)</small>
           </span>
           <div className={styles.layoutEditActions}>
             <button type="button" className={styles.layoutEditBtn} onClick={resetControlLayout}>

@@ -5,6 +5,7 @@ import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { REPORT_REASONS, ReportReason, SafetyService } from '@/lib/services/safety';
 import styles from './Safety.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 const COOLDOWN_MS = 60_000;
 const lastReportAt = new Map<string, number>();
@@ -93,7 +94,7 @@ export function ReportModal({
                 close();
               }}
             >
-              🚫 Block {reportedName}
+              <AppIcon name="ban" /> Block {reportedName}
             </NeoButton>
           )}
           <NeoButton variant="secondary" onClick={close}>
@@ -134,7 +135,7 @@ export function ReportModal({
             </p>
           )}
           <NeoButton type="submit" variant="danger" disabled={sending || !reason}>
-            {sending ? 'Sending…' : '🚩 Send report'}
+            {sending ? 'Sending…' : <><AppIcon name="flag" /> Send report</>}
           </NeoButton>
         </form>
       )}

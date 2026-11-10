@@ -292,6 +292,36 @@ Code: `next-app/src/game/zombie/survival/`, tests in `survival.test.ts` (pure) a
 - **Host handoff gap.** `adopt()` resets ability state, because snapshots don't carry it. A charger mid-dash simply stops. That's acceptable.
 - **Rendering.** The client sim stays in the RAF loop, using `FixedStep` for the host sim and interpolating with `alpha`. Network handlers only write into buffers that the next frame reads. No React state per snapshot: the HUD stays on its existing change-key throttle.
 
+## 4.7 Day / night cycle (implemented)
+
+- **Clock** (`survival/daycycle.ts`):
+  - 1 real hour is 1 game day, and a match starts at 08:00. It is derived from `ZombieMode.elapsed`, which the host broadcasts as `el` in every snapshot, so there are no extra messages and it survives handover.
+  - `elapsed` advances on real time (`ZombieFrameInput.realDt`, capped at 5 s) instead of the clamped physics `dt`, so slow devices don't stretch the day.
+- **Light.** `lightAt` is 1 from 07:00 to 18:00 and 0 from 20:00 to 05:00, smoothstepped through dawn and dusk.
+- **Vision** (`daylightVision`):
+  - It ranges from 7 tiles / 90° / 1.5 tiles peripheral at night to 18 tiles / 120° / 2.5 by day. `ZombieVision.setDaylight` quantises it, and gas (`setViewScale`) still multiplies on top.
+  - The flashlight (rebindable action `flashlight`, default G, plus a 🔦 HUD button) gives a 40° beam with daylight reach.
+  - `setLights` adds lit pools: street lamps after dusk (4 tiles, seen up to 26 tiles away) and your muzzle flash (5 tiles for 0.15 s). They count as visible when you have line of sight.
+- **Rendering.**
+  - `ZombieMode.renderScreen(..., camera)` draws a sky-tint darkness layer with light holes: your glow, lamps, the beam and muzzle flashes. A warm wash appears at dawn and dusk, with lamp halos on top.
+  - The fog mask darkens with `setDarkness` (remembered tiles go from alpha 175 to 228).
+- **Night threat** (`nightThreat`):
+  - Zombies are ×1.15 faster (`ZombieSim.speedScale` on the host; clients dead-reckon with the same multiplier) and the local horde target is ×1.3.
+  - A lit flashlight at night emits a 3-tile noise every 2 s, but only for the host's own player (clients' flashlights aren't synced).
+- **HUD:** a clock chip ("Day 2 · 21:40" with phase icon) and toasts at dusk, nightfall and dawn.
+
+## 4.8 Stores are easy to find (implemented)
+
+- **Convenience stores** are a building kind (`convenience` in `map/city/templates.ts`).
+  - Interior: the `convenienceFloor` room has a till, snack shelves and drinks fridges.
+  - Looks: bright green roof, red sign, red-and-white awning stripe.
+  - Stock: the biggest restocking snack and drink supply of any shop.
+- **Placement.** Every suburban block with an even `bi + bj` gets one on its first lot (an open paved forecourt with a bin, no yard fence). Two more are pinned on Market Street (`overrides.ts`: Market Mini-Mart, Downtown Express), and the commercial district can roll more.
+- **Names are unique.** A repeat gets its street ("FreshMart Grocery · Elm St") and then a number. The generic shops no longer include "Corner Store".
+- **Shop variants.** Hardware, books, thrift, electronics, sports, diner and laundromat each have their own icon, wall colour and sign colour.
+- **Signs.** Every store and landmark has `CityBuilding.sign`. `renderCityRoof` draws a storefront board (icon + name) on the street edge and a big icon roundel mid-roof.
+- **Zone pill.** In the survival city it shows the building's icon and name while you're inside it.
+
 ## 5. Integration checklist (next steps)
 
 1. `buildZombieGrid(mapConfig, buildings)`: rasterise current walls, furniture and building footprints into a `TileGrid`.

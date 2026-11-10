@@ -7,9 +7,10 @@ import { CallStageModal } from './CallStageModal';
 import { FloatingCallDock } from './FloatingCallDock';
 import { IncomingCallModal } from './IncomingCallModal';
 
-export function CallOverlayContainer() {
+/** `voiceOnly`: calls drop camera and screen share (used inside spaces). */
+export function CallOverlayContainer({ voiceOnly = false }: { voiceOnly?: boolean }) {
   const { session } = useSessionStore();
-  const { initSignaling, cleanupSignaling } = useCallStore();
+  const { initSignaling, cleanupSignaling, setVoiceOnly } = useCallStore();
 
   useEffect(() => {
     if (session?.id) {
@@ -20,6 +21,13 @@ export function CallOverlayContainer() {
       cleanupSignaling();
     };
   }, [session?.id, initSignaling, cleanupSignaling]);
+
+  useEffect(() => {
+    setVoiceOnly(voiceOnly).catch(() => {});
+    return () => {
+      setVoiceOnly(false).catch(() => {});
+    };
+  }, [voiceOnly, setVoiceOnly]);
 
   return (
     <>

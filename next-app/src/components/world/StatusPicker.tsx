@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerStatus, STATUS_OPTIONS } from '@/lib/world/emotes';
 import styles from './WorldSocial.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface StatusPickerProps {
   status: PlayerStatus;
@@ -42,7 +43,7 @@ export function StatusPicker({ status, onChange, compact = false }: StatusPicker
         aria-label={`Status: ${current.label}`}
         onClick={() => setOpen((o) => !o)}
       >
-        <span aria-hidden="true">{current.icon}</span>
+        <AppIcon name={current.icon} color={current.color} />
         {!compact && <span>{current.label}</span>}
       </button>
       {open && (
@@ -59,7 +60,7 @@ export function StatusPicker({ status, onChange, compact = false }: StatusPicker
                 setOpen(false);
               }}
             >
-              <span aria-hidden="true">{o.icon}</span>
+              <AppIcon name={o.icon} color={o.color} />
               <span className={styles.statusText}>
                 {o.label}
                 <small>{o.hint}</small>

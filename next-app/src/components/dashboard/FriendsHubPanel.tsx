@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/session';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { useRouter } from 'next/navigation';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export function FriendsHubPanel() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export function FriendsHubPanel() {
     <section className={styles.friendsPanel}>
       <div className={styles.panelHeader}>
         <div className={styles.titleArea}>
-          <h2 className={styles.panelTitle}>🤝 Explorer Friends</h2>
+          <h2 className={styles.panelTitle}><AppIcon name="handshake" /> Explorer Friends</h2>
           <span className={styles.onlineBadge}>
             <span className={styles.pulseDot} />
             {onlineCount} Online
@@ -37,14 +38,14 @@ export function FriendsHubPanel() {
             size="sm"
             onClick={() => setSearchModalOpen(true)}
           >
-            ➕ Add Friend
+            <AppIcon name="plus" /> Add Friend
           </NeoButton>
           <NeoButton
             variant="primary"
             size="sm"
             onClick={() => openDrawer('dms')}
           >
-            💬 Open Messenger
+            <AppIcon name="message" /> Open Messenger
           </NeoButton>
         </div>
       </div>
@@ -63,7 +64,7 @@ export function FriendsHubPanel() {
                   <span className={styles.statusSnippet}>
                     {friend.currentSpace ? (
                       <span className={styles.spaceBadge}>
-                        🟢 In {friend.currentSpace.name}
+                        <AppIcon name="dotFilled" /> In {friend.currentSpace.name}
                       </span>
                     ) : (
                       friend.statusMessage || (friend.isOnline ? 'Online' : 'Offline')
@@ -101,7 +102,7 @@ export function FriendsHubPanel() {
                     }}
                     title={`Teleport to ${friend.currentSpace.name}`}
                   >
-                    🚀 Teleport
+                    <AppIcon name="rocket" /> Teleport
                   </NeoButton>
                 )}
                 <NeoButton
@@ -110,7 +111,7 @@ export function FriendsHubPanel() {
                   onClick={() => session && openDirectChat(friend, session.id)}
                   title="Direct Message"
                 >
-                  💬
+                  <AppIcon name="message" />
                 </NeoButton>
               </div>
             </div>

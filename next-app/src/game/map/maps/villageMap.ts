@@ -12,6 +12,8 @@
 
 import { COTTAGE_W, COTTAGE_H, drawCottageGround } from '../interiors/cottage';
 import { TOWNHALL_W, TOWNHALL_H, drawTownHallGround } from '../interiors/townhall';
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 
 export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: number): void {
   const T = 8; // Internal grid unit: 8px (scales 2x to 16px world coords)
@@ -636,10 +638,10 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
   // ── 10. RETRO FANTASY CARVED WAYMARKERS & SIGNPOSTS ───────────────
   // Replaces harsh black boxes with authentic RPG wooden/stone signboards
   const drawWaymarkers = () => {
-    const waymarker = (text: string, x: number, y: number, color: string) => {
+    const waymarker = (text: string, x: number, y: number, color: string, icon?: IconName) => {
       ctx.font = 'bold 6px monospace';
       const textWidth = ctx.measureText(text).width;
-      const bw = Math.ceil(textWidth) + 8;
+      const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
       const bh = 11;
 
       // Wooden signpost drop shadow
@@ -651,15 +653,16 @@ export function renderVillageMap(ctx: CanvasRenderingContext2D, iw: number, ih: 
       r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.3)');
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(text, x + 4, y + 8);
+      if (icon) drawIcon(ctx, icon, x + 7.5, y + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, x + 4 + (icon ? 9 : 0), y + 8);
     };
 
-    waymarker('🏡 VERDANT PLAZA', T * 20, T * 13, '#15803D');
-    waymarker('🌲 WHISPERING WOODS', T * 54, T * 3, '#1E6020');
-    waymarker('🏖️ CRYSTAL BAY', T * 82, T * 3, '#0284C7');
-    waymarker('⛰️ CRAGGY RIDGE', T * 5, T * 32, '#854D0E');
-    waymarker('🔥 ADVENTURE CAMP', T * 26, T * 54, '#B45309');
-    waymarker('🌉 RIVER CROSSING', T * 42, T * 40, '#0D9488');
+    waymarker('VERDANT PLAZA', T * 20, T * 13, '#15803D', 'house');
+    waymarker('WHISPERING WOODS', T * 54, T * 3, '#1E6020', 'tree');
+    waymarker('CRYSTAL BAY', T * 82, T * 3, '#0284C7', 'palm');
+    waymarker('CRAGGY RIDGE', T * 5, T * 32, '#854D0E', 'mountain');
+    waymarker('ADVENTURE CAMP', T * 26, T * 54, '#B45309', 'flame');
+    waymarker('RIVER CROSSING', T * 42, T * 40, '#0D9488', 'bridge');
   };
 
   // ── EXECUTE ALL RENDER PASSES IN DEPTH-SORTED SEQUENCE ───────────

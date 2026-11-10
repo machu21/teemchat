@@ -13,6 +13,7 @@ import {
 } from '@/lib/services/billing';
 import type { UserSession } from '@/lib/models/user';
 import styles from './AiAddonCard.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 type SubscriptionRow = {
   stripe_subscription_id: string | null;
@@ -122,7 +123,7 @@ export function AiAddonCard({ session, onPurchased }: AiAddonCardProps) {
   return (
     <div className={styles.card}>
       <div className={styles.header}>
-        <span className={styles.title}>🤖 AI Companion add-on</span>
+        <span className={styles.title}><AppIcon name="bot" /> AI Companion add-on</span>
         {isActive && <span className={styles.badge}>Active</span>}
       </div>
       <p className={styles.body}>60 messages every 5 hours, memories and a custom persona.</p>

@@ -26,6 +26,18 @@ import {
 
 import { removeRealtimeChannel } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { AppIcon } from '@/components/icons/AppIcon';
+import { toIconName, type IconName } from '@/lib/icons';
+
+/** One-tap replies: the button shows an icon, the message is plain text. */
+const QUICK_REACTIONS: readonly { icon: IconName; text: string }[] = [
+  { icon: 'thumbsUp', text: 'Nice!' },
+  { icon: 'heart', text: 'Love it' },
+  { icon: 'flame', text: 'Fire!' },
+  { icon: 'laugh', text: 'Haha' },
+  { icon: 'rocket', text: "Let's go!" },
+  { icon: 'hand', text: 'Hi!' },
+];
 
 export function MessengerDrawer() {
   const { session } = useSessionStore();
@@ -203,7 +215,7 @@ export function MessengerDrawer() {
               </button>
             ) : (
               <span className={styles.drawerTitle}>
-                <span>👾</span> Teem Messenger
+                <span><AppIcon name="logo" /></span> Teem Messenger
               </span>
             )}
           </div>
@@ -219,7 +231,7 @@ export function MessengerDrawer() {
               {activeChat.avatarConfig ? (
                 <PixelAvatar config={activeChat.avatarConfig} size={32} />
               ) : (
-                <span style={{ fontSize: '1.5rem' }}>{activeChat.icon || '👥'}</span>
+                <AppIcon name={toIconName(activeChat.icon, 'users')} size="1.5rem" />
               )}
               <div className={styles.chatHeaderInfo}>
                 <span className={styles.chatHeaderTitle}>{safeText(activeChat.title)}</span>
@@ -274,7 +286,7 @@ export function MessengerDrawer() {
                       title="Report this player"
                       aria-label="Report this player"
                     >
-                      🚩
+                      <AppIcon name="flag" />
                     </button>
                     <button
                       type="button"
@@ -287,7 +299,7 @@ export function MessengerDrawer() {
                       title={otherBlocked ? 'Unblock this player' : 'Block this player'}
                       aria-label={otherBlocked ? 'Unblock this player' : 'Block this player'}
                     >
-                      {otherBlocked ? '✅' : '🚫'}
+                      {otherBlocked ? <AppIcon name="checkCircle" /> : <AppIcon name="ban" />}
                     </button>
                   </>
                 )}
@@ -301,7 +313,7 @@ export function MessengerDrawer() {
             <div className={styles.messagesScrollArea} ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className={styles.emptyState}>
-                  <span className={styles.emptyIcon}>💬</span>
+                  <span className={styles.emptyIcon}><AppIcon name="message" /></span>
                   <div className={styles.emptyTitle}>No messages yet</div>
                   <div className={styles.emptySubtitle}>
                     Say hello to start the conversation!
@@ -397,13 +409,15 @@ export function MessengerDrawer() {
 
             {/* Quick Reactions */}
             <div className={styles.quickReactions}>
-              {['👍', '❤️', '🔥', '😂', '🚀', '👋'].map((emoji) => (
+              {QUICK_REACTIONS.map((r) => (
                 <button
-                  key={emoji}
+                  key={r.icon}
                   className={styles.reactionBtn}
-                  onClick={() => handleSendMessage(emoji)}
+                  onClick={() => handleSendMessage(r.text)}
+                  aria-label={`Send "${r.text}"`}
+                  title={r.text}
                 >
-                  {emoji}
+                  <AppIcon name={r.icon} />
                 </button>
               ))}
             </div>
@@ -523,7 +537,7 @@ export function MessengerDrawer() {
                       ))
                     ) : (
                       <div className={styles.emptyState}>
-                        <span className={styles.emptyIcon}>✉️</span>
+                        <span className={styles.emptyIcon}><AppIcon name="mail" /></span>
                         <div className={styles.emptyTitle}>No conversations yet</div>
                         <div className={styles.emptySubtitle}>
                           Start a chat with one of your friends or search explorers.
@@ -573,7 +587,7 @@ export function MessengerDrawer() {
                               justifyContent: 'center',
                             }}
                           >
-                            {g.icon || '👾'}
+                            <AppIcon name={toIconName(g.icon)} />
                           </div>
                           <div className={styles.convDetails}>
                             <div className={styles.convTitleRow}>
@@ -591,7 +605,7 @@ export function MessengerDrawer() {
                       ))
                     ) : (
                       <div className={styles.emptyState}>
-                        <span className={styles.emptyIcon}>👥</span>
+                        <span className={styles.emptyIcon}><AppIcon name="users" /></span>
                         <div className={styles.emptyTitle}>No Squads Joined</div>
                         <div className={styles.emptySubtitle}>
                           Create a squad group with your friends for group chatter!
@@ -645,7 +659,7 @@ export function MessengerDrawer() {
                           </div>
                           <span className={styles.convPreview}>
                             {friend.currentSpace
-                              ? `🟢 In ${friend.currentSpace.name}`
+                              ? <><AppIcon name="dotFilled" /> {`In ${friend.currentSpace.name}`}</>
                               : friend.statusMessage || `@${friend.username}`}
                           </span>
                         </div>

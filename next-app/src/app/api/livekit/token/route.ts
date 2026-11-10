@@ -165,12 +165,8 @@ export async function POST(req: NextRequest) {
       canPublish: !safety.listenOnly,
       canSubscribe: true,
       canPublishData: true,
-      // Spaces: voice plus screen share (shown only inside private rooms by the client).
-      ...(isCallRoom
-        ? {}
-        : {
-            canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
-          }),
+      // Spaces are voice-only on every map: microphone only, no camera or screen share.
+      ...(isCallRoom ? {} : { canPublishSources: [TrackSource.MICROPHONE] }),
     });
 
     const jwt = await at.toJwt();

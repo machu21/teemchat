@@ -7,6 +7,7 @@ import { CallControls } from './CallControls';
 import { CallParticipantTile } from './CallParticipantTile';
 import { attachTrackToElement } from '@/lib/services/livekit';
 import { MinimizeIcon } from '@/components/icons/DockIcons';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export function CallStageModal() {
   const {
@@ -17,6 +18,7 @@ export function CallStageModal() {
     setMinimized,
     participants,
     callDurationSeconds,
+    voiceOnly,
   } = useCallStore();
 
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -28,7 +30,8 @@ export function CallStageModal() {
     ? participants.find((p) => p.id === pinnedId)
     : null;
 
-  const theaterParticipant = screenSharer || pinnedParticipant;
+  // Voice-only calls (inside a space) have no theater video
+  const theaterParticipant = voiceOnly ? null : screenSharer || pinnedParticipant;
 
   // Attach theater track
   useEffect(() => {
@@ -75,11 +78,11 @@ export function CallStageModal() {
         {/* Header */}
         <header className={styles.stageHeader}>
           <div className={styles.headerLeft}>
-            <span className={styles.headerIcon} aria-hidden="true">{currentCall.icon || '📞'}</span>
+            <span className={styles.headerIcon} aria-hidden="true">{currentCall.icon || <AppIcon name="phone" />}</span>
             <div>
               <div className={styles.headerTitle}>{currentCall.title}</div>
               <div className={styles.headerBadges}>
-                <span className={styles.liveBadge}>● In Call</span>
+                <span className={styles.liveBadge}><AppIcon name="dotFilled" /> In Call</span>
                 <span className={styles.durationBadge}>{formattedDuration}</span>
                 <span className={styles.durationBadge}>
                   {participants.length} connected
@@ -107,7 +110,7 @@ export function CallStageModal() {
               title="Close Stage"
               aria-label="Close Stage"
             >
-              ✕
+              <AppIcon name="close" />
             </button>
           </div>
         </header>
@@ -128,8 +131,8 @@ export function CallStageModal() {
                   <div className={styles.theaterLabel}>
                     <span>
                       {theaterParticipant.isScreenSharing
-                        ? `📺 ${theaterParticipant.name}'s Screen`
-                        : `📌 ${theaterParticipant.name}`}
+                        ? <><AppIcon name="tv" /> {`${theaterParticipant.name}'s Screen`}</>
+                        : <><AppIcon name="pin" /> {`${theaterParticipant.name}`}</>}
                     </span>
                     {pinnedId && (
                       <button

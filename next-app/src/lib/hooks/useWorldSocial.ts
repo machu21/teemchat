@@ -28,6 +28,7 @@ import {
   rectContains,
   roomsForMap,
 } from '@/lib/world/rooms';
+import type { IconName } from '@/lib/icons';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOCK_TTL_MS = 20_000;
@@ -41,7 +42,7 @@ export interface PendingKnock {
   at: number;
 }
 
-type Toast = (icon: string, message: string, color: string) => void;
+type Toast = (icon: IconName, message: string, color: string) => void;
 
 interface Options {
   syncService: WorldSyncService | null;
@@ -251,9 +252,9 @@ export function useWorldSocial({ syncService, userId, mapTheme, onToast }: Optio
         case 'knock_reply':
           if (event.allow) {
             game?.grantRoomPass(event.roomId, KNOCK_PASS_MS);
-            toastRef.current('🚪', 'You were let in. Walk on in!', '#22C55E');
+            toastRef.current('door', 'You were let in. Walk on in!', '#22C55E');
           } else {
-            toastRef.current('🚪', 'Not right now. Try again later.', '#EF4444');
+            toastRef.current('door', 'Not right now. Try again later.', '#EF4444');
           }
           break;
       }
@@ -390,7 +391,7 @@ export function useWorldSocial({ syncService, userId, mapTheme, onToast }: Optio
   const knock = useCallback(() => {
     if (!knockTarget) return;
     const sent = syncService?.broadcastRoomEvent('knock', { roomId: knockTarget.id });
-    toastRef.current('✊', sent ? `Knocked on ${knockTarget.name}…` : 'Wait a moment before knocking again.', '#3B82F6');
+    toastRef.current('hand', sent ? `Knocked on ${knockTarget.name}…` : 'Wait a moment before knocking again.', '#3B82F6');
   }, [syncService, knockTarget]);
 
   const answerKnock = useCallback(

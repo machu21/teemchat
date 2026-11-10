@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { FocusTimerState, TIMER_PRESETS, formatClock, remaining } from '@/lib/world/focusTimer';
 import styles from './WorldSocial.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface FocusTimerProps {
   timer: FocusTimerState | null;
@@ -25,7 +26,7 @@ export function FocusTimer({ timer, onAction, autoFocusStatus, onToggleAutoFocus
   if (!timer) {
     return (
       <div className={styles.roomBadge}>
-        <span>⏱️ Focus timer</span>
+        <span><AppIcon name="timer" /> Focus timer</span>
         <select
           className={styles.hudBtn}
           aria-label="Timer length"
@@ -43,7 +44,7 @@ export function FocusTimer({ timer, onAction, autoFocusStatus, onToggleAutoFocus
           className={`${styles.hudBtn} ${styles.hudBtnPrimary}`}
           onClick={() => onAction('start', TIMER_PRESETS[preset])}
         >
-          ▶ Start for the room
+          <AppIcon name="play" /> Start for the room
         </button>
       </div>
     );
@@ -56,27 +57,27 @@ export function FocusTimer({ timer, onAction, autoFocusStatus, onToggleAutoFocus
   return (
     <div className={styles.roomBadge} role="timer" aria-label={`${isFocus ? 'Focus' : 'Break'} ${formatClock(left)} left`}>
       <span>
-        {isFocus ? '🎯 Focus' : '☕ Break'} · <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatClock(left)}</strong>
+        {isFocus ? <><AppIcon name="target" /> Focus</> : <><AppIcon name="coffee" /> Break</>} · <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatClock(left)}</strong>
         {timer.round > 0 && ` · round ${timer.round + (isFocus ? 1 : 0)}`}
       </span>
       {timer.running ? (
         <button type="button" className={styles.hudBtn} onClick={() => onAction('pause')}>
-          ⏸ Pause
+          <AppIcon name="pause" /> Pause
         </button>
       ) : (
         <button type="button" className={`${styles.hudBtn} ${styles.hudBtnPrimary}`} onClick={() => onAction('resume')}>
-          ▶ Resume
+          <AppIcon name="play" /> Resume
         </button>
       )}
       <button type="button" className={styles.hudBtn} onClick={() => onAction('skip')}>
-        ⏭ {isFocus ? 'Break' : 'Focus'}
+        <AppIcon name="skipForward" /> {isFocus ? 'Break' : 'Focus'}
       </button>
       <button type="button" className={styles.hudBtn} onClick={() => onAction('stop')} aria-label="Stop timer">
-        ⏹
+        <AppIcon name="stop" />
       </button>
       <label className={styles.hudBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
         <input type="checkbox" checked={autoFocusStatus} onChange={onToggleAutoFocus} />
-        🎧 auto Focus
+        <AppIcon name="headphones" /> auto Focus
       </label>
     </div>
   );

@@ -7,6 +7,7 @@ import { MeetingNote, MeetingNotesService } from '@/lib/services/meetingNotes';
 import { buildIcs, googleCalendarUrl, meetingJoinUrl, outlookCalendarUrl, startsIn } from '@/lib/calendar/ics';
 import { roomById, roomsForMap } from '@/lib/world/rooms';
 import styles from './Boards.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface MeetingsPanelProps {
   spaceId: string;
@@ -150,9 +151,9 @@ export function MeetingsPanel({
   };
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'upcoming', label: '📅 Upcoming' },
-    ...(canSchedule ? [{ id: 'schedule' as Tab, label: '➕ Schedule' }] : []),
-    { id: 'notes', label: '📝 Notes' },
+    { id: 'upcoming', label: 'Upcoming' },
+    ...(canSchedule ? [{ id: 'schedule' as Tab, label: 'Schedule' }] : []),
+    { id: 'notes', label: 'Notes' },
   ];
 
   return (
@@ -205,12 +206,12 @@ export function MeetingsPanel({
                   <div className={styles.muted}>
                     {m.startsAt.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     {' · '}
-                    {m.durationMin} min · {room ? `${room.icon} ${room.name}` : 'Anywhere'} · {status}
+                    {m.durationMin} min · {room ? <><AppIcon name={room.icon} /> {room.name}</> : 'Anywhere'} · {status}
                   </div>
                   {m.agenda && <div className={styles.muted}>{safeText(m.agenda)}</div>}
                   <div className={styles.row}>
                     <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={() => onJoin(m)}>
-                      🚪 {status === 'now' ? 'Join now' : 'Go to room'}
+                      <AppIcon name="door" /> {status === 'now' ? 'Join now' : 'Go to room'}
                     </button>
                     <a className={styles.btn} href={googleCalendarUrl(ev)} target="_blank" rel="noopener noreferrer">
                       Google
@@ -222,7 +223,7 @@ export function MeetingsPanel({
                       .ics
                     </button>
                     <button type="button" className={styles.btn} onClick={() => copyLink(m)}>
-                      🔗 Copy invite
+                      <AppIcon name="link" /> Copy invite
                     </button>
                     {(canSchedule || m.createdBy === userId) && (
                       <button type="button" className={`${styles.btn} ${styles.danger}`} onClick={() => remove(m)}>
@@ -289,7 +290,7 @@ export function MeetingsPanel({
               <option value="">Anywhere in the space</option>
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.icon} {r.name}
+                  <AppIcon name={r.icon} /> {r.name}
                 </option>
               ))}
             </select>
@@ -305,7 +306,7 @@ export function MeetingsPanel({
               placeholder="1. Updates  2. Blockers  3. Next steps"
             />
             <button type="submit" className={`${styles.btn} ${styles.primary}`} disabled={saving || !title.trim()}>
-              {saving ? 'Scheduling…' : '📅 Schedule meeting'}
+              {saving ? 'Scheduling…' : <><AppIcon name="calendar" /> Schedule meeting</>}
             </button>
           </form>
         )}
@@ -313,7 +314,7 @@ export function MeetingsPanel({
         {tab === 'notes' && (
           <div className={styles.list}>
             {!loading && notes.length === 0 && (
-              <p className={styles.muted}>No meeting notes yet. Press 📝 Take notes inside a room to start.</p>
+              <p className={styles.muted}>No meeting notes yet. Press <AppIcon name="notes" /> Take notes inside a room to start.</p>
             )}
             {notes.map((n) => (
               <button key={n.id} type="button" className={styles.item} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onOpenNote(n)}>

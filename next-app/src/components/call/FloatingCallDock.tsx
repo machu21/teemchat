@@ -26,6 +26,7 @@ export function FloatingCallDock() {
     leaveCall,
     setStageMaximized,
     setMinimized,
+    voiceOnly,
   } = useCallStore();
 
   // Show dock when call is active, but not when full stage modal is open
@@ -68,7 +69,8 @@ export function FloatingCallDock() {
         {isMicMuted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
       </button>
 
-      {/* Quick Camera */}
+      {/* Quick Camera (not in voice-only calls) */}
+      {!voiceOnly && (
       <button
         type="button"
         className={`${styles.actionBtn} ${isCameraActive ? styles.activeBtn : ''}`}
@@ -78,6 +80,7 @@ export function FloatingCallDock() {
       >
         {isCameraActive ? <VideoIcon size={18} /> : <VideoOffIcon size={18} />}
       </button>
+      )}
 
       {/* Expand Stage */}
       <button

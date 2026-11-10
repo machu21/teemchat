@@ -77,7 +77,7 @@ export function CompanionPanel({ isOpen, onClose, onUpgrade }: CompanionPanelPro
   );
 
   const onReminderDue = useCallback((text: string) => {
-    addLocalRef.current?.('assistant', `⏰ Reminder: ${text}`);
+    addLocalRef.current?.('assistant', `Reminder: ${text}`);
   }, []);
 
   const getWorld = useCallback(() => ({ zone: 'TeemChat Dashboard', activity: 'dashboard' }), []);

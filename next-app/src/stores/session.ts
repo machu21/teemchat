@@ -247,6 +247,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         p_avatar_config: avatarConfig as unknown as Record<string, unknown>,
         p_gender: gender,
         p_username: targetUsername,
+        p_country_code: guestIdentity?.country || null,
       });
 
       if (rpcErr) {
@@ -277,6 +278,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             tier: 'free',
             isPaid: false,
             hasAiCompanion: false,
+            countryCode: (res as { country_code?: string })?.country_code || guestIdentity?.country || 'XX',
           };
           try {
             if (typeof window !== 'undefined') {
@@ -295,7 +297,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
 
     // Fallback to local guest session
-    const localGuest = createGuestSession(displayName, gender, targetUsername);
+    const localGuest = createGuestSession(
+      displayName,
+      gender,
+      targetUsername,
+      guestIdentity?.country || 'XX'
+    );
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem('teem_guest_session', JSON.stringify(localGuest));

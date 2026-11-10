@@ -2,6 +2,8 @@
 
 import React from 'react';
 import styles from './SpaceTabsFilter.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
 export type SpaceCategoryTab = 'all' | 'my' | 'discover' | 'favorites';
 
@@ -25,11 +27,11 @@ export function SpaceTabsFilter({
   onSearchChange,
   counts,
 }: SpaceTabsFilterProps) {
-  const tabs: Array<{ id: SpaceCategoryTab; label: string; count: number }> = [
-    { id: 'all', label: '🌐 All Worlds', count: counts.all },
-    { id: 'my', label: '🏡 My Spaces', count: counts.my },
-    { id: 'discover', label: '⭐ Discover', count: counts.discover },
-    { id: 'favorites', label: '📌 Pinned', count: counts.favorites },
+  const tabs: Array<{ id: SpaceCategoryTab; icon: IconName; label: string; count: number }> = [
+    { id: 'all', icon: 'globe', label: 'All Worlds', count: counts.all },
+    { id: 'my', icon: 'house', label: 'My Spaces', count: counts.my },
+    { id: 'discover', icon: 'star', label: 'Discover', count: counts.discover },
+    { id: 'favorites', icon: 'pin', label: 'Pinned', count: counts.favorites },
   ];
 
   return (
@@ -43,7 +45,9 @@ export function SpaceTabsFilter({
             }`}
             onClick={() => onTabChange(tab.id)}
           >
-            <span>{tab.label}</span>
+            <span>
+              <AppIcon name={tab.icon} /> {tab.label}
+            </span>
             <span style={{ fontSize: '0.75rem', opacity: 0.75 }}>({tab.count})</span>
           </button>
         ))}
@@ -62,7 +66,7 @@ export function SpaceTabsFilter({
             onClick={() => onSearchChange('')}
             title="Clear search"
           >
-            ✕
+            <AppIcon name="close" />
           </button>
         )}
       </div>

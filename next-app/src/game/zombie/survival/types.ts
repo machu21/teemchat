@@ -1,5 +1,6 @@
 import type { AmmoType, WeaponId } from '../weapons';
 import type { Zombie } from '../zombieSim';
+import type { IconName } from '@/lib/icons';
 
 // ============================================================
 // ZOMBIE MODE — SURVIVAL DOMAIN MODELS (pure types, DOM-free)
@@ -88,7 +89,7 @@ export type ItemDefId = ConsumableId | `weapon:${WeaponId}` | `ammo:${AmmoType}`
 export interface ItemDef {
   id: ItemDefId;
   name: string;
-  icon: string;
+  icon: IconName;
   category: ItemCategory;
   /** kg per unit. */
   weight: number;

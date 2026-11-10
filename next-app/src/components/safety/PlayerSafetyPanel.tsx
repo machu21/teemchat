@@ -6,8 +6,10 @@ import { ModerationAction, SafetyService } from '@/lib/services/safety';
 import { useSafetyStore } from '@/stores/safety';
 import { ReportModal } from './ReportModal';
 import styles from './Safety.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
-type Toast = (icon: string, message: string, color: string) => void;
+type Toast = (icon: IconName, message: string, color: string) => void;
 
 interface PlayerSafetyPanelProps {
   currentUserId: string;
@@ -31,12 +33,12 @@ const DURATIONS: { label: string; minutes: number | null }[] = [
 ];
 
 const ACTION_LABEL: Record<ModerationAction, string> = {
-  kick: '👢 Kick',
-  ban: '⛔ Ban',
+  kick: 'Kick',
+  ban: 'Ban',
   unban: 'Unban',
-  mute_voice: '🔇 Mute voice',
-  mute_chat: '💬 Mute chat',
-  unmute: '🔊 Unmute',
+  mute_voice: 'Mute voice',
+  mute_chat: 'Mute chat',
+  unmute: 'Unmute',
 };
 
 export function PlayerSafetyPanel({
@@ -67,13 +69,13 @@ export function PlayerSafetyPanel({
     const ok = isBlocked ? await unblock(targetUserId) : await block(targetUserId);
     setBusy(false);
     if (!ok) {
-      toast('⚠️', 'Could not update block. Please try again.', '#EF4444');
+      toast('warning', 'Could not update block. Please try again.', '#EF4444');
       return;
     }
     if (isBlocked) {
-      toast('✅', `${targetName} is unblocked.`, '#22C55E');
+      toast('checkCircle', `${targetName} is unblocked.`, '#22C55E');
     } else {
-      toast('🚫', `${targetName} is blocked. You won't see or hear them.`, '#EF4444');
+      toast('ban', `${targetName} is blocked. You won't see or hear them.`, '#EF4444');
       onBlocked?.();
     }
   };
@@ -90,10 +92,10 @@ export function PlayerSafetyPanel({
     setBusy(false);
     setPending(null);
     if (!res.ok) {
-      toast('⚠️', res.error || 'Action failed.', '#EF4444');
+      toast('warning', res.error || 'Action failed.', '#EF4444');
       return;
     }
-    toast('🛡️', `${ACTION_LABEL[action].replace(/^\S+\s/, '')}: ${targetName}`, '#3B82F6');
+    toast('shield', `${ACTION_LABEL[action].replace(/^\S+\s/, '')}: ${targetName}`, '#3B82F6');
     onModerated?.(action);
   };
 
@@ -107,13 +109,13 @@ export function PlayerSafetyPanel({
           aria-pressed={isMuted}
           title="Hide this player's voice, bubbles and chat for this visit"
         >
-          {isMuted ? '🔊 Unmute' : '🔇 Mute'}
+          {isMuted ? <><AppIcon name="volume" /> Unmute</> : <><AppIcon name="volumeOff" /> Mute</>}
         </NeoButton>
         <NeoButton size="sm" variant={isBlocked ? 'secondary' : 'danger'} disabled={busy} onClick={handleBlock}>
-          {isBlocked ? 'Unblock' : '🚫 Block'}
+          {isBlocked ? 'Unblock' : <><AppIcon name="ban" /> Block</>}
         </NeoButton>
         <NeoButton size="sm" variant="secondary" onClick={() => setReportOpen(true)}>
-          🚩 Report
+          <AppIcon name="flag" /> Report
         </NeoButton>
       </div>
 

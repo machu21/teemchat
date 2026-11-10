@@ -468,6 +468,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           <thead>
             <tr>
               <th>User</th>
+              <th>Country</th>
               <th>Status</th>
               <th>Role</th>
               <th>Tier</th>
@@ -480,13 +481,13 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           <tbody>
             {loading && users.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '40px' }}>
                   <div className={styles.skeletonLoading}>Loading user records...</div>
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No user accounts found matching query criteria.
                 </td>
               </tr>
@@ -518,6 +519,14 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                         <span className={styles.userUsername}>@{user.username}</span>
                       </div>
                     </div>
+                  </td>
+                  <td>
+                    <NeoBadge
+                      color={!user.country_code || user.country_code === 'XX' ? 'var(--card-inner)' : '#3B82F6'}
+                      textColor={!user.country_code || user.country_code === 'XX' ? 'var(--text-muted)' : '#FFFFFF'}
+                    >
+                      {(user.country_code || 'XX').toUpperCase()}
+                    </NeoBadge>
                   </td>
                   <td>
                     <NeoBadge color={getStatusColor(user.status)} textColor="#FFFFFF">
@@ -1068,6 +1077,15 @@ export const UsersTab: React.FC<UsersTabProps> = ({
             >
               <div>
                 <strong>Email:</strong> {dossierUser.email || 'None'}
+              </div>
+              <div>
+                <strong>Country:</strong>{' '}
+                <NeoBadge
+                  color={!dossierUser.profile?.country_code || dossierUser.profile.country_code === 'XX' ? 'var(--card-inner)' : '#3B82F6'}
+                  textColor={!dossierUser.profile?.country_code || dossierUser.profile.country_code === 'XX' ? 'var(--text-muted)' : '#FFFFFF'}
+                >
+                  {String(dossierUser.profile?.country_code || 'XX').toUpperCase()}
+                </NeoBadge>
               </div>
               <div>
                 <strong>Email Confirmed:</strong>{' '}

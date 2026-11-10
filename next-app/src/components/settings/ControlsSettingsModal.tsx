@@ -6,6 +6,7 @@ import { NeoButton } from '@/components/neo/NeoButton';
 import { useControlsStore } from '@/stores/controls';
 import { CONTROL_ACTIONS, ControlAction, ControlSize, Handedness, SprintTouchMode, isBindable, keyLabel } from '@/lib/settings/controls';
 import styles from './ControlsSettingsModal.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface Props {
   isOpen: boolean;
@@ -107,12 +108,12 @@ export function ControlsSettingsModal({ isOpen, onClose }: Props) {
   const customCount = Object.keys(touch.positions.portrait).length + Object.keys(touch.positions.landscape).length;
 
   return (
-    <NeoModal isOpen={isOpen} onClose={close} title="⚙️ Controls" maxWidth="560px">
+    <NeoModal isOpen={isOpen} onClose={close} title="Controls" maxWidth="560px">
       <div className={styles.tabs} role="tablist" aria-label="Control type">
         {(
           [
-            ['keyboard', '⌨️ Keyboard'],
-            ['touch', '📱 Touch screen'],
+            ['keyboard', 'Keyboard'],
+            ['touch', 'Touch screen'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -176,7 +177,7 @@ export function ControlsSettingsModal({ isOpen, onClose }: Props) {
           ))}
           <div className={styles.footer}>
             <NeoButton size="sm" variant="secondary" onClick={() => resetBindings()}>
-              ↺ Reset keys
+              <AppIcon name="undo" /> Reset keys
             </NeoButton>
           </div>
         </div>
@@ -259,10 +260,10 @@ export function ControlsSettingsModal({ isOpen, onClose }: Props) {
             </div>
             <div className={styles.inline}>
               <NeoButton size="sm" variant="primary" onClick={startLayoutEditor}>
-                ✋ Arrange
+                <AppIcon name="hand" /> Arrange
               </NeoButton>
               <NeoButton size="sm" variant="secondary" onClick={() => resetLayout()} disabled={customCount === 0}>
-                ↺ Reset
+                <AppIcon name="undo" /> Reset
               </NeoButton>
             </div>
           </div>

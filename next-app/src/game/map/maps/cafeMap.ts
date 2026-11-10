@@ -1,3 +1,5 @@
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 // ============================================================
 // RETRO 16-BIT PIXEL-ART WORLD MAP: ROAST & READ BOOK CAFE
 // ============================================================
@@ -56,7 +58,7 @@ export function renderCafeMap(ctx: CanvasRenderingContext2D, iw: number, ih: num
   r(mX, mY, mW, mH, '#1C1917');
   ctx.font = 'bold 5px monospace';
   ctx.fillStyle = '#FEF08A';
-  ctx.fillText('☕ ESPRESSO $3.50  LATTE $4.75  MATCHA $5.00  CROISSANT $4.00 🥐', mX + 4, mY + 7);
+  ctx.fillText('ESPRESSO $3.50  LATTE $4.75  MATCHA $5.00  CROISSANT $4.00', mX + 4, mY + 7);
 
   // Large L-Shaped Barista Service Counter (Dark Walnut with Marble Top)
   const ctrX = barX + 30;
@@ -362,10 +364,10 @@ export function renderCafeMap(ctx: CanvasRenderingContext2D, iw: number, ih: num
   }
 
   // ── 6. ARTISAN CAFE WALNUT & GOLD SIGNS ─────────────────
-  const cafeSign = (text: string, x: number, y: number, color: string) => {
+  const cafeSign = (text: string, x: number, y: number, color: string, icon?: IconName) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
+    const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
     const bh = 11;
 
     // Wood shadow
@@ -377,12 +379,13 @@ export function renderCafeMap(ctx: CanvasRenderingContext2D, iw: number, ih: num
     r(x + 1, y + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
 
     ctx.fillStyle = '#FEF08A';
-    ctx.fillText(text, x + 4, y + 8);
+    if (icon) drawIcon(ctx, icon, x + 7.5, y + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, x + 4 + (icon ? 9 : 0), y + 8);
   };
 
-  cafeSign('☕ BARISTA ESPRESSO BAR', barX + 10, barY + 12, '#78350F');
-  cafeSign('🔥 FIREPLACE HEARTH', fX + 10, fY + 12, '#9A3412');
-  cafeSign('📚 BOOKSTORE STACKS', bstkX + 10, bstkY + 12, '#4C1D95');
-  cafeSign('🎸 ACOUSTIC LIVE STAGE', acX + 10, acY + 12, '#064E3B');
-  cafeSign('🌿 GARDEN PATIO', patX + 8, patY + 8, '#0C4A6E');
+  cafeSign('BARISTA ESPRESSO BAR', barX + 10, barY + 12, '#78350F', 'coffee');
+  cafeSign('FIREPLACE HEARTH', fX + 10, fY + 12, '#9A3412', 'flame');
+  cafeSign('BOOKSTORE STACKS', bstkX + 10, bstkY + 12, '#4C1D95', 'book');
+  cafeSign('ACOUSTIC LIVE STAGE', acX + 10, acY + 12, '#064E3B', 'guitar');
+  cafeSign('GARDEN PATIO', patX + 8, patY + 8, '#0C4A6E', 'leaf');
 }

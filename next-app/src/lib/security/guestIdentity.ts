@@ -7,6 +7,7 @@ export interface GuestIdentity {
   ipTag: string;
   username: string;
   displayName: string;
+  country?: string;
 }
 
 export function generateIpTag(ip: string, instanceSeed?: string): string {
@@ -43,6 +44,7 @@ export async function getOrFetchGuestIdentity(): Promise<GuestIdentity> {
     return {
       ipTag: fallbackTag,
       ...formatGuestHandles(fallbackTag),
+      country: 'XX',
     };
   }
 
@@ -73,6 +75,7 @@ export async function getOrFetchGuestIdentity(): Promise<GuestIdentity> {
           ipTag: data.ipTag,
           username: data.username,
           displayName: data.displayName,
+          country: data.country || 'XX',
         };
         sessionStorage.setItem('teem_guest_identity', JSON.stringify(identity));
         return identity;
@@ -87,6 +90,7 @@ export async function getOrFetchGuestIdentity(): Promise<GuestIdentity> {
   const identity: GuestIdentity = {
     ipTag: fallbackTag,
     ...formatGuestHandles(fallbackTag),
+    country: 'XX',
   };
   return identity;
 }

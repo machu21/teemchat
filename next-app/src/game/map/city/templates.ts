@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { FurnitureType } from '../../entities/furniture';
+import type { IconName } from '@/lib/icons';
 
 export type CityDistrict = 'downtown' | 'commercial' | 'residential' | 'park' | 'landmark';
 
@@ -12,6 +13,7 @@ export type BuildingKind =
   | 'house'
   | 'shop'
   | 'grocery'
+  | 'convenience'
   | 'pharmacy'
   | 'office'
   | 'apartment'
@@ -62,6 +64,7 @@ export type RoomKind =
   | 'bedroom'
   | 'bath'
   | 'salesFloor'
+  | 'convenienceFloor'
   | 'storage'
   | 'office'
   | 'lobby'
@@ -99,6 +102,15 @@ export const ROOM_TEMPLATES: Record<RoomKind, FurnitureSpec[]> = {
     { kind: 'shelf', w: 4, h: 1 },
     { kind: 'fridge', w: 2, h: 1 },
   ],
+  // Corner shop: till by the door, snack aisles, a wall of drinks fridges
+  convenienceFloor: [
+    { kind: 'checkout', w: 3, h: 1 },
+    { kind: 'fridge', w: 3, h: 1 },
+    { kind: 'shelf', w: 3, h: 1 },
+    { kind: 'shelf', w: 3, h: 1 },
+    { kind: 'fridge', w: 2, h: 1 },
+    { kind: 'shelf', w: 3, h: 1 },
+  ],
   storage: [
     { kind: 'shelf', w: 3, h: 1 },
     { kind: 'shelf', w: 1, h: 3 },
@@ -135,7 +147,7 @@ export const ROOM_TEMPLATES: Record<RoomKind, FurnitureSpec[]> = {
 export interface BuildingTemplate {
   kind: BuildingKind;
   names: string[];
-  icon: string;
+  icon: IconName;
   /** Exterior wall / brand colour (used for the map marker too). */
   color: string;
   /** Darker wall face colour (south-facing side of walls). */
@@ -151,13 +163,28 @@ export interface BuildingTemplate {
   lockChance: number;
   /** Inclusive [min, max] tile spacing between windows. */
   windowStep: [number, number];
+  /**
+   * Storefront sign colour: stores get a roof-edge sign (icon + name) on the
+   * street side so they're easy to spot. Omitted = no sign.
+   */
+  sign?: string;
+  /** Distinct looks for one kind (each its own name, icon and colours). */
+  variants?: StoreVariant[];
+}
+
+export interface StoreVariant {
+  name: string;
+  icon: IconName;
+  color: string;
+  wallFace: string;
+  sign: string;
 }
 
 export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   house: {
     kind: 'house',
     names: ['Maple House', 'Birch House', 'Cedar House', 'Willow House', 'Oak House', 'Elm House', 'Aspen House', 'Pine House'],
-    icon: '🏠',
+    icon: 'house',
     color: '#C9A27A',
     wallFace: '#8C6A4A',
     roof: '#7A4B3A',
@@ -170,8 +197,18 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   },
   shop: {
     kind: 'shop',
-    names: ['Corner Store', 'Hardware Shop', 'Book Nook', 'Thrift Shop', 'Electronics', 'Sports Outlet', 'Diner', 'Laundromat'],
-    icon: '🏪',
+    names: ['Hardware Shop', 'Book Nook', 'Thrift Shop', 'Electronics', 'Sports Outlet', 'Diner', 'Laundromat'],
+    icon: 'shoppingBag',
+    sign: '#475569',
+    variants: [
+      { name: 'Hardware Shop', icon: 'hammer', color: '#C9B48A', wallFace: '#8A7650', sign: '#B45309' },
+      { name: 'Book Nook', icon: 'book', color: '#C7A6C9', wallFace: '#87648A', sign: '#7E22CE' },
+      { name: 'Thrift Shop', icon: 'shirt', color: '#B9C9A6', wallFace: '#76885F', sign: '#4D7C0F' },
+      { name: 'Electronics', icon: 'tv', color: '#A9BFD6', wallFace: '#647D97', sign: '#1D4ED8' },
+      { name: 'Sports Outlet', icon: 'trophy', color: '#D6B0A9', wallFace: '#966B63', sign: '#B91C1C' },
+      { name: 'Diner', icon: 'diner', color: '#E3C38F', wallFace: '#A1814C', sign: '#C2410C' },
+      { name: 'Laundromat', icon: 'laundry', color: '#B6D6D9', wallFace: '#6F9497', sign: '#0E7490' },
+    ],
     color: '#B8C4CC',
     wallFace: '#77848C',
     roof: '#5E666B',
@@ -184,8 +221,9 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   },
   grocery: {
     kind: 'grocery',
-    names: ['FreshMart Grocery', 'Greenleaf Grocery'],
-    icon: '🛒',
+    names: ['FreshMart Grocery', 'Greenleaf Grocery', 'Harvest Foods', 'Valley Market'],
+    icon: 'shoppingCart',
+    sign: '#15803D',
     color: '#9FC79A',
     wallFace: '#5F8A5A',
     roof: '#4E5A52',
@@ -196,10 +234,26 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
     lockChance: 0.1,
     windowStep: [3, 4],
   },
+  convenience: {
+    kind: 'convenience',
+    names: ['QuickStop 24/7', 'Night Owl Mart', 'Handy Mart', 'Stop & Go', 'Sunrise Mart', 'Lucky Mart', 'Pit Stop Mart', 'Corner Mart'],
+    icon: 'store',
+    color: '#F3DFA2',
+    wallFace: '#B4923F',
+    roof: '#2F7D3B',
+    floor: GROUND.FLOOR_LINO,
+    floors: [1, 1],
+    groundRooms: ['convenienceFloor', 'storage'],
+    upperRooms: ['storage'],
+    lockChance: 0.05,
+    windowStep: [2, 3],
+    sign: '#DC2626',
+  },
   pharmacy: {
     kind: 'pharmacy',
-    names: ['Cross Pharmacy', 'Wellness Drugstore'],
-    icon: '💊',
+    names: ['Cross Pharmacy', 'Wellness Drugstore', 'Mercy Drugs'],
+    icon: 'pharmacy',
+    sign: '#0F766E',
     color: '#D7E3EE',
     wallFace: '#8FA3B5',
     roof: '#5C6670',
@@ -213,7 +267,7 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   office: {
     kind: 'office',
     names: ['Meridian Tower', 'Halcyon Offices', 'Granite Plaza', 'Summit Building', 'Atlas House', 'Beacon Center'],
-    icon: '🏢',
+    icon: 'office',
     color: '#9AA6B8',
     wallFace: '#5E6A7C',
     roof: '#4A5058',
@@ -227,7 +281,7 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   apartment: {
     kind: 'apartment',
     names: ['Riverside Apartments', 'Parkview Flats', 'Linden Court', 'Harbor Lofts', 'Union Residences'],
-    icon: '🏬',
+    icon: 'building',
     color: '#C08A6E',
     wallFace: '#7E5240',
     roof: '#4F4A48',
@@ -241,7 +295,8 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   police: {
     kind: 'police',
     names: ['Police Station'],
-    icon: '🚓',
+    icon: 'police',
+    sign: '#1E3A8A',
     color: '#7D93B8',
     wallFace: '#47597A',
     roof: '#3C4452',
@@ -255,7 +310,8 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   hospital: {
     kind: 'hospital',
     names: ['St. Mercy Hospital'],
-    icon: '🏥',
+    icon: 'hospital',
+    sign: '#B91C1C',
     color: '#E6E9EC',
     wallFace: '#9EA6AE',
     roof: '#6A7076',
@@ -269,7 +325,8 @@ export const BUILDING_TEMPLATES: Record<BuildingKind, BuildingTemplate> = {
   gasStation: {
     kind: 'gasStation',
     names: ['Fuel Stop'],
-    icon: '⛽',
+    icon: 'fuel',
+    sign: '#C0392B',
     color: '#E0B04A',
     wallFace: '#9A7428',
     roof: '#C0392B',
@@ -290,6 +347,7 @@ export const DISTRICT_KINDS: Record<CityDistrict, { kind: BuildingKind; weight: 
   ],
   commercial: [
     { kind: 'shop', weight: 12 },
+    { kind: 'convenience', weight: 2 },
     { kind: 'grocery', weight: 1 },
     { kind: 'pharmacy', weight: 1 },
   ],

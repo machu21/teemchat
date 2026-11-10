@@ -1,3 +1,5 @@
+import type { IconName } from '@/lib/icons';
+import { drawIcon } from '@/game/art/drawIcon';
 // ============================================================
 // HABBLAUD-INSPIRED 3/4 TOP-DOWN TECH OFFICE & COWORKING MAP
 // ============================================================
@@ -516,10 +518,10 @@ export function renderOfficeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
   // ════════════════════════════════════════════════════════════════
   // 7. ARCHITECTURAL CAMPUS DIRECTORY PLAQUES
   // ════════════════════════════════════════════════════════════════
-  const officePlaque = (text: string, lx: number, ly: number, color: string) => {
+  const officePlaque = (text: string, lx: number, ly: number, color: string, icon?: IconName) => {
     ctx.font = 'bold 6px monospace';
     const textWidth = ctx.measureText(text).width;
-    const bw = Math.ceil(textWidth) + 8;
+    const bw = Math.ceil(textWidth) + 8 + (icon ? 9 : 0);
     const bh = 11;
 
     // Plaque cast shadow
@@ -531,14 +533,15 @@ export function renderOfficeMap(ctx: CanvasRenderingContext2D, iw: number, ih: n
     r(lx + 1, ly + bh - 2, bw - 2, 1, 'rgba(0, 0, 0, 0.25)');
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(text, lx + 4, ly + 8);
+    if (icon) drawIcon(ctx, icon, lx + 7.5, ly + 5.5, 7, { color: String(ctx.fillStyle), strokeWidth: 2.6 });
+    ctx.fillText(text, lx + 4 + (icon ? 9 : 0), ly + 8);
   };
 
-  officePlaque('💻 ENGINEERING HUB', dX + 10, dY + 34, '#1E40AF');
-  officePlaque('📊 EXECUTIVE BOARDROOM', bX + 10, bY + 34, '#3730A3');
-  officePlaque('🏢 RECEPTION & LOBBY', 180, cCorY + 12, '#0F172A');
-  officePlaque('☕ BREAKROOM CAFE', kX + 10, kY + 34, '#065F46');
-  officePlaque('🏓 ALL-HANDS LOUNGE', lX + 10, lY + 34, '#92400E');
-  officePlaque('📱 PHONE BOOTHS', pX + 8, pY + 8, '#5B21B6');
-  officePlaque('🏙️ SKYLINE TERRACE', pX + 8, terY + 8, '#0369A1');
+  officePlaque('ENGINEERING HUB', dX + 10, dY + 34, '#1E40AF', 'laptop');
+  officePlaque('EXECUTIVE BOARDROOM', bX + 10, bY + 34, '#3730A3', 'chart');
+  officePlaque('RECEPTION & LOBBY', 180, cCorY + 12, '#0F172A', 'office');
+  officePlaque('BREAKROOM CAFE', kX + 10, kY + 34, '#065F46', 'coffee');
+  officePlaque('ALL-HANDS LOUNGE', lX + 10, lY + 34, '#92400E', 'sofa');
+  officePlaque('PHONE BOOTHS', pX + 8, pY + 8, '#5B21B6', 'smartphone');
+  officePlaque('SKYLINE TERRACE', pX + 8, terY + 8, '#0369A1', 'office');
 }

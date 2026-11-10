@@ -42,7 +42,14 @@ npm run cap:sync
 - Clean up everything in teardown: `cancelAnimationFrame`, window/DOM listeners, intervals/timeouts, `supabase.removeChannel(channel)`, LiveKit room disconnects.
 - Movement broadcasts: only while moving (plus one on stop), throttled to ≥100ms. Never `channel.track()` every frame. Never add coordinate tables to `supabase_realtime`.
 - Presence keys and inbound filtering use `clientInstanceId`, not `userId`.
+- Spaces (every map, not only Zombie Survival) are voice-only. There is no camera or screen share: the space token publishes microphone only, `livekit.isVideoVisible` returns false, and calls taken inside a space run with the call store's `voiceOnly` flag. Camera and screen share exist only in DM/group calls started outside a space.
 - All SQL is idempotent (`IF NOT EXISTS`, `DROP POLICY IF EXISTS`), RLS enabled on every public table, no destructive SQL without explicit confirmation.
 - Guests (`guest_*`) are real `auth.users` rows — RLS must keep working for them.
 - UI follows the Neo-brutalist tokens in `next-app/src/styles/colors.ts`: 2px solid borders, `3px 3.5px 0` shadows (no blur), Plus Jakarta Sans, light + dark mode, responsive 320px–1440px+.
+- **No emoji anywhere in the app**, including the landing page, OG images, toasts, canvas text, server/AI messages and data files. Use icons instead:
+  - React: `<AppIcon name="…" />` from `@/components/icons/AppIcon`.
+  - Canvas: `drawIcon(ctx, name, x, y, size)` from `@/game/art/drawIcon`.
+  - Icons are registered in `next-app/src/lib/icons/index.ts` (lucide icon data, plus custom weapon shapes). Add new ones there, and type icon fields as `IconName`, not `string`.
+  - Symbol glyphs used as icons are banned too: arrows (→ ← ↑), shapes (▶ ● ▢), ✓ ✕ ★ ♥ ♪ ⏸. Plain typography (· • … — ×) is fine.
+  - `tests/no_emoji.test.ts` scans `src/` (comments excluded) and fails on any of them. AI companion replies go through `stripEmoji()`. Stored legacy emoji (e.g. squad icons) render via `toIconName()`.
 - Prefer minimal, surgical diffs; inspect existing code before changing it.

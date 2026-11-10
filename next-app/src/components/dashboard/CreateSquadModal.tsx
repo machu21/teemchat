@@ -9,8 +9,10 @@ import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { useSocialStore } from '@/stores/social';
 import { useSessionStore } from '@/stores/session';
 import { GroupChatService } from '@/lib/services/groupChat';
+import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
-const SQUAD_ICONS = ['👾', '🚀', '🎮', '🌲', '🍕', '⚔️', '⛺', '🔮', '🐱'];
+const SQUAD_ICONS: IconName[] = ['logo', 'rocket', 'gamepad', 'tree', 'pizza', 'swords', 'tent', 'gem', 'cat'];
 
 export function CreateSquadModal() {
   const { session } = useSessionStore();
@@ -23,7 +25,7 @@ export function CreateSquadModal() {
   } = useSocialStore();
 
   const [squadName, setSquadName] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('👾');
+  const [selectedIcon, setSelectedIcon] = useState<IconName>('logo');
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,7 +66,7 @@ export function CreateSquadModal() {
     <NeoModal
       isOpen={isCreateSquadModalOpen}
       onClose={() => setCreateSquadModalOpen(false)}
-      title="👥 Form a Squad Group"
+      title="Form a Squad Group"
     >
       <form onSubmit={handleCreate} className={styles.squadForm}>
         <NeoInput
@@ -87,7 +89,7 @@ export function CreateSquadModal() {
                 }`}
                 onClick={() => setSelectedIcon(icon)}
               >
-                {icon}
+                <AppIcon name={icon} />
               </button>
             ))}
           </div>
@@ -127,7 +129,7 @@ export function CreateSquadModal() {
           size="lg"
           disabled={!squadName.trim() || isSubmitting}
         >
-          {isSubmitting ? 'Launching Squad...' : '🚀 Launch Squad'}
+          {isSubmitting ? 'Launching Squad...' : <><AppIcon name="rocket" /> Launch Squad</>}
         </NeoButton>
       </form>
     </NeoModal>

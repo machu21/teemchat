@@ -127,7 +127,7 @@ describe('meeting notes', () => {
         actionItems: [{ text: 'Write release notes', owner: 'Kim' }, { text: '' }, { owner: 'x' }],
       })
     );
-    expect(out?.summary).toContain('★★★★');
+    expect(out?.summary).toContain('****');
     expect(out?.decisions).toEqual(['Ship Friday']);
     expect(out?.actionItems).toEqual([{ text: 'Write release notes', owner: 'Kim' }]);
     expect(parseNotesResult('not json')).toBeNull();

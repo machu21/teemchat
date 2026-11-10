@@ -17,12 +17,14 @@ export interface UserSession {
   tier: 'free' | 'paid';
   isPaid: boolean;
   hasAiCompanion: boolean;
+  countryCode?: string;
 }
 
 export function createGuestSession(
   name?: string,
   gender: Gender = 'male',
-  preferredUsername?: string
+  preferredUsername?: string,
+  countryCode?: string
 ): UserSession {
   const randomId = Math.floor(Math.random() * 9000) + 1000;
   const cleanUsername = preferredUsername && preferredUsername.trim()
@@ -58,5 +60,6 @@ export function createGuestSession(
     tier: 'free',
     isPaid: false,
     hasAiCompanion: false,
+    countryCode: countryCode || 'XX',
   };
 }

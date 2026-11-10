@@ -199,6 +199,7 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
   const walls: Rect[] = [];
   const fenceTileList: { c: number; r: number }[] = [];
   const nameCount = new Map<BuildingKind, number>();
+  const usedNames = new Set<string>();
   let defaultSpawn = { x: size.w / 2, y: size.h / 2 };
 
   const blocks = getBlocks();
@@ -247,11 +248,13 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
       const lov = LOT_OVERRIDES[lot.id] ?? {};
       const rng = mulberry32(seed ^ hash32(lot.id));
       if (lov.skip) continue;
-      if (district === 'residential' && !lov.kind && rng() < 0.08) {
+      // Every other suburban block keeps a convenience store on its first corner lot
+      const neighbourhoodStore = district === 'residential' && !lov.kind && lot.index === 0 && (block.bi + block.bj) % 2 === 0;
+      if (district === 'residential' && !lov.kind && !neighbourhoodStore && rng() < 0.08) {
         fillGround(lot.rect, GROUND.DIRT); // vacant lot
         continue;
       }
-      const kind: BuildingKind = lov.kind ?? landmark ?? pickKind(rng, district);
+      const kind: BuildingKind = lov.kind ?? landmark ?? (neighbourhoodStore ? 'convenience' : pickKind(rng, district));
       const tpl = BUILDING_TEMPLATES[kind];
       const floorCount = Math.max(1, Math.min(4, lov.floors ?? randInt(rng, tpl.floors[0], tpl.floors[1])));
       const canon = footprintInLot(lot, kind);
@@ -266,7 +269,15 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
       const id = `bld_${lot.id.replace(':', '_')}`;
       const n = nameCount.get(kind) ?? 0;
       nameCount.set(kind, n + 1);
-      const name = lov.name ?? (kind === 'house' ? houseAddress(lot) : tpl.names[n % tpl.names.length]);
+      const variant = tpl.variants ? tpl.variants[n % tpl.variants.length] : null;
+      const baseName = lov.name ?? (kind === 'house' ? houseAddress(lot) : (variant?.name ?? tpl.names[n % tpl.names.length]));
+      // Unique names: a repeat gets its street ("FreshMart Grocery · Elm St"), then a number
+      let name = baseName;
+      if (usedNames.has(name)) name = `${baseName} · ${streetOf(lot)}`;
+      for (let k = 2; usedNames.has(name); k++) name = `${baseName} · ${streetOf(lot)} ${k}`;
+      usedNames.add(name);
+      const signColor = variant?.sign ?? tpl.sign;
+      const icon = variant?.icon ?? tpl.icon;
 
       // Floors in world orientation.
       const floors: CityFloor[] = layout.floors.map((f, k) => {
@@ -341,9 +352,10 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
         blockId: block.id,
         lotId: lot.id,
         name,
-        icon: tpl.icon,
-        color: tpl.color,
-        wallFace: tpl.wallFace,
+        icon,
+        color: variant?.color ?? tpl.color,
+        wallFace: variant?.wallFace ?? tpl.wallFace,
+        sign: signColor ? { text: baseName, icon, color: signColor } : undefined,
         roofColor: tpl.roof,
         floorKind: tpl.floor,
         footprint: px(fpTiles),
@@ -357,7 +369,12 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
       });
 
       // Lot dressing.
-      if (district === 'residential') {
+      if (district === 'residential' && kind === 'convenience') {
+        // Open paved forecourt (no yard fence) with a bin by the door
+        fillGround(lotRectToWorld(lot, { c: 0, r: 0, w: lot.rect.w, h: canon.r }), GROUND.SIDEWALK);
+        const bin = lotRectToWorld(lot, { c: canon.c + layout.doorCol + 3, r: Math.max(0, canon.r - 2), w: 1, h: 1 });
+        props.push({ type: 'trashCan', x: bin.c * T + 2, y: bin.r * T + 2 });
+      } else if (district === 'residential') {
         const gate = canon.c + layout.doorCol;
         for (const ft of fenceTiles(lot, gate)) fenceTileList.push(lotRectToWorld(lot, { c: ft.c, r: ft.r, w: 1, h: 1 }));
         // Front path from gate to door.
@@ -488,6 +505,12 @@ export function generateCity(seed: number = CITY_SEED): CityPlan {
     upperBandY,
     upperBandBottom,
   };
+}
+
+/** The street a lot's front faces. */
+function streetOf(lot: Lot): string {
+  const [, bj] = lot.blockId.slice(1).split('_').map(Number);
+  return STREET_NAMES[lot.facing === 'n' ? bj : bj + 1] ?? 'Road';
 }
 
 function houseAddress(lot: Lot): string {

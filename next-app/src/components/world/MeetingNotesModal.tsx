@@ -5,6 +5,7 @@ import { NeoModal } from '@/components/neo/NeoModal';
 import { MeetingNote, noteToText } from '@/lib/services/meetingNotes';
 import { TaskBoardService } from '@/lib/services/taskBoard';
 import styles from './Boards.module.css';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 interface MeetingNotesModalProps {
   note: MeetingNote;
@@ -57,7 +58,7 @@ export function MeetingNotesModal({ note, userId, getTaskBoards, canSendToBoard,
   };
 
   return (
-    <NeoModal isOpen onClose={onClose} title={`📝 ${safeText(note.title)}`} maxWidth="600px">
+    <NeoModal isOpen onClose={onClose} title={`${safeText(note.title)}`} maxWidth="600px">
       <div className={styles.stack}>
         <p className={styles.muted}>
           {note.createdAt.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -100,7 +101,7 @@ export function MeetingNotesModal({ note, userId, getTaskBoards, canSendToBoard,
 
         <div className={styles.row}>
           <button type="button" className={styles.btn} onClick={copy}>
-            📋 Copy as text
+            <AppIcon name="clipboard" /> Copy as text
           </button>
           {canSendToBoard && note.actionItems.length > 0 && taskBoards.length > 0 && (
             <>
@@ -118,7 +119,7 @@ export function MeetingNotesModal({ note, userId, getTaskBoards, canSendToBoard,
                 ))}
               </select>
               <button type="button" className={`${styles.btn} ${styles.primary}`} disabled={busy} onClick={sendToBoard}>
-                {busy ? 'Adding…' : '➕ Send to task board'}
+                {busy ? 'Adding…' : <><AppIcon name="plus" /> Send to task board</>}
               </button>
             </>
           )}

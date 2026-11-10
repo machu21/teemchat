@@ -1413,3 +1413,89 @@
     animation: none;
   }
 }
+
+/* Day / night clock (Zombie Survival) */
+.dayClock {
+  position: absolute;
+  top: max(64px, env(safe-area-inset-top, 0px) + 56px);
+  right: max(16px, env(safe-area-inset-right, 0px) + 8px);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  font-family: 'Plus Jakarta Sans', inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-main, #18181b);
+  background-color: var(--card-bg, #ffffff);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: var(--neo-radius, 12px);
+  box-shadow: 3px 3.5px 0 var(--card-border, #18181b);
+}
+
+.dayClock[data-phase='night'] {
+  color: #e0e7ff;
+  background-color: #1e1b4b;
+}
+
+.dayClockText {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.flashlightBtn {
+  min-width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  background-color: var(--card-inner, #f3f4f6);
+  border: 2px solid var(--card-border, #18181b);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--card-border, #18181b);
+}
+
+.flashlightOn {
+  background-color: #fde047;
+}
+
+.flashlightBtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--card-border, #18181b);
+}
+
+@media (max-width: 640px) {
+  /* The space top bar wraps to two rows here: sit beside the survival card instead of under the buttons */
+  .dayClock {
+    top: calc(104px + env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px) + 4px);
+    font-size: 0.72rem;
+    padding: 3px 4px 3px 8px;
+  }
+
+  /* Toasts go under the clock, right of the survival card, so neither covers the other */
+  .zombieToast {
+    top: calc(150px + env(safe-area-inset-top, 0px));
+    left: auto;
+    right: max(10px, env(safe-area-inset-right, 0px) + 4px);
+    max-width: calc(100vw - 190px);
+    transform: none;
+  }
+}
+
+/* Very narrow phones: the space top bar wraps to a third row, so drop the survival HUD below it */
+@media (max-width: 340px) {
+  .zombieHud,
+  .dayClock {
+    top: calc(152px + env(safe-area-inset-top, 0px));
+  }
+
+  .dayClock {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  .zombieToast {
+    top: calc(198px + env(safe-area-inset-top, 0px));
+  }
+}

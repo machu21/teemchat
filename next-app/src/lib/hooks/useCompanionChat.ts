@@ -230,7 +230,7 @@ export function useCompanionChat({ userId, userName, getWorld, onReply, onRemind
           res.status === 401 || res.status === 403
             ? 'Sign in with an account to chat with your companion.'
             : data.message || data.error || 'Companion is unavailable right now. Try again shortly.';
-        setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${reason}` }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: `${reason}` }]);
         return;
       }
 
@@ -267,7 +267,7 @@ export function useCompanionChat({ userId, userName, getWorld, onReply, onRemind
       console.error('Error in AI companion chat:', err);
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: '⚠️ Could not reach your companion. Check your connection.' },
+        { role: 'assistant', content: 'Could not reach your companion. Check your connection.' },
       ]);
     } finally {
       setIsThinking(false);

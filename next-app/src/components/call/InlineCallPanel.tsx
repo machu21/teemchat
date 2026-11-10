@@ -5,6 +5,7 @@ import styles from './InlineCallPanel.module.css';
 import { useCallStore } from '@/stores/call';
 import { CallParticipantTile } from './CallParticipantTile';
 import { CallControls } from './CallControls';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 export function InlineCallPanel() {
   const {
@@ -40,7 +41,7 @@ export function InlineCallPanel() {
           onClick={() => setStageMaximized(true)}
           title="Expand to Full Stage"
         >
-          ⤢ Stage Mode
+          <AppIcon name="maximize" /> Stage Mode
         </button>
       </div>
 

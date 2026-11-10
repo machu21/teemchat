@@ -63,7 +63,7 @@ function isBadWord(raw: string): boolean {
   return false;
 }
 
-const MASK = '★';
+const MASK = '*';
 
 function mask(token: string): string {
   return token.replace(/[^\s]/g, MASK);

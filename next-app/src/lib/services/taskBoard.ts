@@ -1,14 +1,15 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
+import type { IconName } from '@/lib/icons';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type TaskStatus = 'todo' | 'doing' | 'done';
 
-export const TASK_COLUMNS: { id: TaskStatus; label: string; icon: string }[] = [
-  { id: 'todo', label: 'To do', icon: '📝' },
-  { id: 'doing', label: 'Doing', icon: '⚙️' },
-  { id: 'done', label: 'Done', icon: '✅' },
+export const TASK_COLUMNS: { id: TaskStatus; label: string; icon: IconName }[] = [
+  { id: 'todo', label: 'To do', icon: 'notes' },
+  { id: 'doing', label: 'Doing', icon: 'loader' },
+  { id: 'done', label: 'Done', icon: 'checkCircle' },
 ];
 
 export const TASK_TITLE_MAX = 140;

@@ -49,6 +49,7 @@ import boardStyles from '@/components/world/Boards.module.css';
 import { PlayerStatus } from '@/lib/world/emotes';
 import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
 import { supabase } from '@/lib/supabase';
+import { AppIcon } from '@/components/icons/AppIcon';
 
 const SPACES_PAGE_SIZE = 8;
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -478,7 +479,7 @@ export default function DashboardPage() {
       {/* Top Navbar */}
       <header className={styles.header}>
         <button type="button" className={styles.brand} onClick={() => router.push('/')} aria-label="TeemChat home">
-          <span className={styles.logoIcon} aria-hidden="true">👾</span>
+          <span className={styles.logoIcon} aria-hidden="true"><AppIcon name="logo" /></span>
           <span className={styles.logoText}>TeemChat</span>
         </button>
 
@@ -496,7 +497,7 @@ export default function DashboardPage() {
             title="Open Messenger"
             className={styles.headerMessengerBtn}
           >
-            💬 Messenger
+            <AppIcon name="message" /> Messenger
             {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
           </NeoButton>
 
@@ -518,7 +519,7 @@ export default function DashboardPage() {
             title="Safety settings: chat filter, who can message you, blocked players"
             className={styles.headerMessengerBtn}
           >
-            🛡️ Safety
+            <AppIcon name="shield" /> Safety
           </NeoButton>
 
           {session && (
@@ -553,7 +554,7 @@ export default function DashboardPage() {
               onClick={() => setUpgradeModalOpen(true)}
               className={styles.headerUpgradeBtn}
             >
-              ⭐ Upgrade
+              <AppIcon name="star" /> Upgrade
             </NeoButton>
           )}
 
@@ -578,14 +579,14 @@ export default function DashboardPage() {
       <main className={styles.main}>
         {isLocalOnlyGuest && (
           <div className={styles.localGuestNotice} role="status">
-            ⚠️ Your guest session couldn&apos;t reach the server, so friends and chats are saved on
+            <AppIcon name="warning" /> Your guest session couldn&apos;t reach the server, so friends and chats are saved on
             this device only. Sign out and join again to get a full guest account.
           </div>
         )}
 
         {myMeetings.length > 0 && (
           <section className={boardStyles.item} aria-label="Upcoming meetings" style={{ marginBottom: 16 }}>
-            <span className={boardStyles.itemTitle}>📅 Upcoming meetings</span>
+            <span className={boardStyles.itemTitle}><AppIcon name="calendar" /> Upcoming meetings</span>
             {myMeetings.map((m) => (
               <div key={m.id} className={boardStyles.row} style={{ justifyContent: 'space-between' }}>
                 <span className={boardStyles.muted}>
@@ -619,10 +620,10 @@ export default function DashboardPage() {
 
           <div className={styles.actionButtons}>
             <NeoButton variant="secondary" onClick={openJoinModal}>
-              🎟️ Join by Code
+              <AppIcon name="ticket" /> Join by Code
             </NeoButton>
             <NeoButton variant="primary" onClick={openCreateModal}>
-              ➕ Create Space
+              <AppIcon name="plus" /> Create Space
             </NeoButton>
           </div>
         </div>
@@ -659,7 +660,7 @@ export default function DashboardPage() {
         ) : filteredSpaces.length === 0 ? (
           <div className={styles.emptyState}>
             <span className={styles.emptyStateIcon} aria-hidden="true">
-              {hasActiveFilter ? '🔍' : '🗺️'}
+              {hasActiveFilter ? <AppIcon name="search" /> : <AppIcon name="map" />}
             </span>
             <h2 className={styles.emptyStateTitle}>
               {hasActiveFilter ? 'No spaces match your filters' : 'No spaces yet'}
@@ -676,10 +677,10 @@ export default function DashboardPage() {
                 </NeoButton>
               )}
               <NeoButton variant="secondary" onClick={openJoinModal}>
-                🎟️ Join by Code
+                <AppIcon name="ticket" /> Join by Code
               </NeoButton>
               <NeoButton variant="primary" onClick={openCreateModal}>
-                ➕ Create Space
+                <AppIcon name="plus" /> Create Space
               </NeoButton>
             </div>
           </div>
@@ -705,7 +706,7 @@ export default function DashboardPage() {
                       title={spaceMapConfig.name}
                       aria-hidden="true"
                     >
-                      {spaceMapConfig.icon}
+                      <AppIcon name={spaceMapConfig.icon} />
                     </span>
 
                     <div className={styles.spaceRowMain}>
@@ -714,7 +715,7 @@ export default function DashboardPage() {
                         <NeoBadge color={tierInfo.badgeColor}>{tierInfo.badgeText}</NeoBadge>
                         {space.mode === 'zombie' && (
                           <span className={styles.zombieBadge} title="Zombie Survival space">
-                            <span aria-hidden="true">🧟</span>
+                            <span aria-hidden="true"><AppIcon name="skull" /></span>
                             Survival
                           </span>
                         )}
@@ -731,7 +732,7 @@ export default function DashboardPage() {
                       <div className={styles.spaceRowMeta}>
                         <span>{spaceMapConfig.name}</span>
                         <span aria-hidden="true">·</span>
-                        <span>👥 {space.maxCapacity} max</span>
+                        <span><AppIcon name="users" /> {space.maxCapacity} max</span>
                         <span aria-hidden="true">·</span>
                         {friendsInSpace.length > 0 ? (
                           <span className={styles.liveCountText}>
@@ -763,7 +764,7 @@ export default function DashboardPage() {
                         aria-label={isPinned ? `Unpin ${space.name}` : `Pin ${space.name} to favorites`}
                         aria-pressed={isPinned}
                       >
-                        {isPinned ? '📌' : '📍'}
+                        {isPinned ? <AppIcon name="pin" /> : <AppIcon name="mapPin" />}
                       </button>
                       <button
                         type="button"
@@ -771,7 +772,7 @@ export default function DashboardPage() {
                         onClick={() => handleCopySpaceLink(space)}
                         aria-label={`Copy invite link for ${space.name}`}
                       >
-                        {copiedSpaceId === space.id ? '✓ Copied' : '📋 Link'}
+                        {copiedSpaceId === space.id ? <><AppIcon name="check" /> Copied</> : <><AppIcon name="clipboard" /> Link</>}
                       </button>
                       {SpaceService.isSpaceOwner(space, session) && (
                         <button
@@ -789,7 +790,7 @@ export default function DashboardPage() {
                         onClick={() => router.push(`/space/${space.slug || space.id}`)}
                         aria-label={`Enter ${space.name}`}
                       >
-                        Enter →
+                        Enter <AppIcon name="arrowRight" />
                       </NeoButton>
                     </div>
                   </li>
@@ -804,7 +805,7 @@ export default function DashboardPage() {
                   onClick={() => setSpacePage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
                 >
-                  ← Prev
+                  <AppIcon name="arrowLeft" /> Prev
                 </NeoButton>
                 <span className={styles.pagerStatus} aria-live="polite">
                   Page {currentPage} of {totalPages}
@@ -814,7 +815,7 @@ export default function DashboardPage() {
                   onClick={() => setSpacePage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
                 >
-                  Next →
+                  Next <AppIcon name="arrowRight" />
                 </NeoButton>
               </nav>
             )}
@@ -840,7 +841,7 @@ export default function DashboardPage() {
             title="Open Messenger"
             aria-label={unreadCount > 0 ? `Open Messenger (${unreadCount} unread)` : 'Open Messenger'}
           >
-            <span aria-hidden="true">💬</span>
+            <span aria-hidden="true"><AppIcon name="message" /></span>
             <span>Messenger</span>
             {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
           </button>
@@ -940,10 +941,10 @@ export default function DashboardPage() {
             >
               {(
                 [
-                  { value: 'social', emoji: '🏡', label: 'Hangout' },
-                  { value: 'zombie', emoji: '🧟', label: 'Zombie Survival' },
+                  { value: 'social', icon: 'house', label: 'Hangout' },
+                  { value: 'zombie', icon: 'skull', label: 'Zombie Survival' },
                 ] as const
-              ).map(({ value, emoji, label }) => (
+              ).map(({ value, icon, label }) => (
                 <button
                   key={value}
                   type="button"
@@ -954,7 +955,7 @@ export default function DashboardPage() {
                   }`}
                   onClick={() => setNewSpaceMode(value)}
                 >
-                  <span aria-hidden="true">{emoji}</span>
+                  <AppIcon name={icon} />
                   {label}
                 </button>
               ))}
@@ -971,7 +972,7 @@ export default function DashboardPage() {
               <span className={styles.label}>Map</span>
               <div className={styles.lockedMapCard} aria-label="Map: Zombie City (locked)">
                 <span className={styles.lockedMapIcon} aria-hidden="true">
-                  🏙️
+                  <AppIcon name="office" />
                 </span>
                 <span className={styles.lockedMapText}>
                   <span className={styles.lockedMapName}>Zombie City</span>
@@ -1056,14 +1057,14 @@ export default function DashboardPage() {
                 className={`${styles.genderBtn} ${editGender === 'male' ? styles.genderBtnMaleActive : ''}`}
                 onClick={() => handleSelectGender('male')}
               >
-                <span>👨 Male</span>
+                <span><AppIcon name="male" /> Male</span>
               </button>
               <button
                 type="button"
                 className={`${styles.genderBtn} ${editGender === 'female' ? styles.genderBtnFemaleActive : ''}`}
                 onClick={() => handleSelectGender('female')}
               >
-                <span>👩 Female</span>
+                <span><AppIcon name="female" /> Female</span>
               </button>
             </div>
           </div>
@@ -1239,7 +1240,7 @@ export default function DashboardPage() {
                     setUpgradeModalOpen(true);
                   }}
                 >
-                  ⭐ Upgrade Account
+                  <AppIcon name="star" /> Upgrade Account
                 </NeoButton>
               )}
               {!session.isGuest && <AiAddonCard session={session} onPurchased={initSession} />}
@@ -1309,9 +1310,9 @@ export default function DashboardPage() {
             spaces. During the beta, every account gets Member features for free:
           </p>
           <ul className={styles.upgradeList}>
-            <li>✨ Up to 10 Virtual Spaces</li>
-            <li>👥 Rooms of up to 50 players</li>
-            <li>🎨 Custom Map Decorator & Persistent Furniture</li>
+            <li><AppIcon name="sparkles" /> Up to 10 Virtual Spaces</li>
+            <li><AppIcon name="users" /> Rooms of up to 50 players</li>
+            <li><AppIcon name="palette" /> Custom Map Decorator & Persistent Furniture</li>
           </ul>
           <p>The AI Companion (60 messages every 5 hours, with memory) is a paid add-on.</p>
           <NeoButton

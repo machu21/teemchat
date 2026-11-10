@@ -15,6 +15,10 @@ const ALPHA_UNSEEN = 235;
 const ALPHA_REMEMBERED = 175; // seen before, not now: show layout, hide zombies
 const ALPHA_PERIPHERAL = 120;
 const ALPHA_VISIBLE = 0;
+/** Night values: remembered streets fade to near-black. */
+const NIGHT_PERIPHERAL = 170;
+const NIGHT_REMEMBERED = 228;
+const NIGHT_UNSEEN = 250;
 
 export class FovMaskRenderer {
   private canvas: HTMLCanvasElement;
@@ -38,10 +42,16 @@ export class FovMaskRenderer {
     }
   }
 
-  /** Call once per FOV recompute (not necessarily every frame). */
-  update(fov: FovResult): void {
+  /**
+   * Call once per FOV recompute (not necessarily every frame).
+   * `darkness` (0 day → 1 night) deepens everything outside your sight.
+   */
+  update(fov: FovResult, darkness: number = 0): void {
     const d = this.image.data;
     const vis = fov.vis;
+    const peripheral = Math.round(ALPHA_PERIPHERAL + (NIGHT_PERIPHERAL - ALPHA_PERIPHERAL) * darkness);
+    const remembered = Math.round(ALPHA_REMEMBERED + (NIGHT_REMEMBERED - ALPHA_REMEMBERED) * darkness);
+    const unseen = Math.round(ALPHA_UNSEEN + (NIGHT_UNSEEN - ALPHA_UNSEEN) * darkness);
     for (let i = 0; i < vis.length; i++) {
       const v = vis[i];
       if (v !== 0) this.explored[i] = 1;
@@ -49,10 +59,10 @@ export class FovMaskRenderer {
         v === VIS_VISIBLE
           ? ALPHA_VISIBLE
           : v === VIS_PERIPHERAL
-            ? ALPHA_PERIPHERAL
+            ? peripheral
             : this.explored[i]
-              ? ALPHA_REMEMBERED
-              : ALPHA_UNSEEN;
+              ? remembered
+              : unseen;
     }
     this.ctx.putImageData(this.image, 0, 0);
   }

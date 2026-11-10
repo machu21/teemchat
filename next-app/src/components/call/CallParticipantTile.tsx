@@ -6,6 +6,8 @@ import { CallParticipantModel } from '@/lib/models/call';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { defaultAvatarConfig } from '@/lib/models/avatar';
 import { attachTrackToElement } from '@/lib/services/livekit';
+import { AppIcon } from '@/components/icons/AppIcon';
+import { useCallStore } from '@/stores/call';
 
 interface CallParticipantTileProps {
   participant: CallParticipantModel;
@@ -21,6 +23,7 @@ export function CallParticipantTile({
   showPinBtn = true,
 }: CallParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const voiceOnly = useCallStore((s) => s.voiceOnly);
 
   // Attach video track when available
   useEffect(() => {
@@ -29,7 +32,7 @@ export function CallParticipantTile({
     return attachTrackToElement(track, el);
   }, [participant.videoTrack, participant.screenTrack]);
 
-  const hasActiveVideo = Boolean(
+  const hasActiveVideo = !voiceOnly && Boolean(
     participant.isScreenSharing
       ? participant.screenTrack
       : participant.isCameraOn && participant.videoTrack
@@ -71,23 +74,23 @@ export function CallParticipantTile({
           onClick={onPin}
           title={isPinned ? 'Unpin participant' : 'Pin to main stage'}
         >
-          {isPinned ? '📌 Pinned' : '📌 Pin'}
+          {isPinned ? <><AppIcon name="pin" /> Pinned</> : <><AppIcon name="pin" /> Pin</>}
         </button>
       )}
 
       {/* Name and State Pill */}
       <div className={styles.nameBadge}>
         <span>{participant.name}</span>
-        {participant.isScreenSharing && (
+        {participant.isScreenSharing && !voiceOnly && (
           <span className={styles.screenShareBadge}>LIVE</span>
         )}
         {participant.isMuted ? (
           <span className={`${styles.statusIcon} ${styles.mutedIcon}`} title="Muted">
-            🔇
+            <AppIcon name="volumeOff" />
           </span>
         ) : participant.isSpeaking ? (
           <span className={styles.statusIcon} title="Speaking">
-            🟢
+            <AppIcon name="dotFilled" />
           </span>
         ) : null}
       </div>

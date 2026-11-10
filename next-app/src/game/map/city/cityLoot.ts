@@ -25,6 +25,7 @@ const TABLES: Record<BuildingKind, { chance: number; max: number; items: Weighte
   office: { chance: 0.5, max: 2, items: [[gun('pistol'), 3], [gun('m16'), 1], [ammo('9mm'), 3], [ammo('556'), 2]] },
   shop: { chance: 0.35, max: 1, items: [[gun('pistol'), 2], [ammo('9mm'), 3], [ammo('12ga'), 2]] },
   grocery: { chance: 0.3, max: 1, items: [[ammo('9mm'), 2], [ammo('12ga'), 2]] },
+  convenience: { chance: 0.25, max: 1, items: [[ammo('9mm'), 3], [ammo('12ga'), 1]] },
   pharmacy: { chance: 0.3, max: 1, items: [[gun('pistol'), 1], [ammo('9mm'), 2]] },
   hospital: { chance: 1, max: 3, items: [[gun('pistol'), 2], [ammo('9mm'), 3], [gun('shotgun'), 1]] },
   gasStation: { chance: 1, max: 2, items: [[gun('shotgun'), 2], [ammo('12ga'), 3]] },
@@ -40,6 +41,8 @@ const SUPPLY_RESTOCK_SECONDS = 300;
  */
 const SUPPLIES: Record<BuildingKind, { chance: number; max: number; restock: boolean; items: Weighted<ConsumableId> }> = {
   grocery: { chance: 1, max: 7, restock: true, items: [['canned_beans', 5], ['bread', 3], ['apple', 3], ['chips', 3], ['water_bottle', 5], ['soda', 2], ['energy_drink', 1]] },
+  // Corner shops: the most reliable snack + drink stop between groceries
+  convenience: { chance: 1, max: 6, restock: true, items: [['chips', 4], ['soda', 3], ['water_bottle', 4], ['energy_drink', 2], ['coffee', 2], ['canned_beans', 2], ['bread', 1]] },
   shop: { chance: 1, max: 4, restock: true, items: [['chips', 4], ['soda', 3], ['water_bottle', 3], ['energy_drink', 2], ['coffee', 2]] },
   gasStation: { chance: 1, max: 4, restock: true, items: [['chips', 3], ['water_bottle', 3], ['energy_drink', 3], ['coffee', 2]] },
   pharmacy: { chance: 1, max: 4, restock: true, items: [['bandage', 5], ['water_bottle', 2], ['energy_drink', 1]] },

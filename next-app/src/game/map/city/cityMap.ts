@@ -17,6 +17,7 @@ import { cityPropCollider, generateCity } from './cityPlan';
 import { generateCityLoot } from './cityLoot';
 import { renderCityChunk, renderCityEntrance, renderCityFloor, renderCityProp, renderCityRoof } from './renderCity';
 import type { CityBuilding, CityPlan, CityProp, CityStairLink } from './types';
+import type { IconName } from '@/lib/icons';
 
 /** City-only prop types (everything else in CityPropType is an existing FurnitureType). */
 const CITY_ONLY_PROPS: ReadonlySet<string> = new Set(['car', 'dumpster', 'fuelPump', 'trashCan']);
@@ -80,11 +81,20 @@ function toBuilding(plan: CityPlan, b: CityBuilding): BuildingDefinition {
   };
 }
 
+const DISTRICT_ICONS: Record<CityPlan['zones'][number]['district'], IconName> = {
+  downtown: 'office',
+  commercial: 'store',
+  residential: 'house',
+  park: 'tree',
+  landmark: 'landmark',
+};
+
 function toZones(plan: CityPlan): ZoneDefinition[] {
   return plan.zones.map((z) => ({
     id: z.id,
     name: z.name,
     tag: z.tag,
+    icon: DISTRICT_ICONS[z.district],
     description: z.name,
     x: Math.round(z.rect.x + z.rect.w / 2),
     y: Math.round(z.rect.y + z.rect.h / 2),
@@ -113,7 +123,7 @@ export function buildZombieCityConfig(plan: CityPlan = generateCity()): MapTheme
     name: 'Zombie City',
     tagline: 'Abandoned downtown, suburbs and a hospital — survive the night',
     category: 'Survival',
-    icon: '🧟',
+    icon: 'skull',
     badgeColor: '#DC2626',
     previewGradient: 'linear-gradient(135deg, #3F3F46 0%, #7F1D1D 55%, #14532D 100%)',
     description: 'A fixed, hand-tuned city for Zombie Survival spaces: streets, multi-storey buildings, doors and windows.',
@@ -131,7 +141,7 @@ export function buildZombieCityConfig(plan: CityPlan = generateCity()): MapTheme
     isPositionInWater: () => false,
     getCurrentZone: (x, y) => {
       const z = plan.zones.find((zz) => x >= zz.rect.x && x < zz.rect.x + zz.rect.w && y >= zz.rect.y && y < zz.rect.y + zz.rect.h);
-      if (z) return { name: z.name, tag: z.tag, color: z.color };
+      if (z) return { name: z.name, tag: z.tag, color: z.color, icon: DISTRICT_ICONS[z.district] };
       const road = plan.roads.find((r) => x >= r.rect.x && x < r.rect.x + r.rect.w && y >= r.rect.y && y < r.rect.y + r.rect.h);
       return road ? { name: road.name, tag: 'STREET', color: '#71717A' } : { name: 'Zombie City', tag: 'CITY', color: '#DC2626' };
     },
