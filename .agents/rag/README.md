@@ -15,6 +15,7 @@ Welcome to the **TeemChat Agent RAG (Retrieval-Augmented Generation) Knowledge B
 | [`chat_system_and_retention.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/chat_system_and_retention.md) | Messaging & Lifecycle | `postgres_changes` replication, 30s hard removal architecture (DB trigger/pg_cron + React client interval) |
 | [`companion_architecture.md`](companion_architecture.md) | Living AI Companion | Server-side persona, memory facts + diary, bond XP, proactive brain, guide actions, tour, canvas pet states, presence badge |
 | [`zombie_mode_architecture.md`](zombie_mode_architecture.md) | Zombie Survival Mode | Tile grid, entrances/barricades, directional FOV shadowcasting, fog mask, noise propagation, flow-field AI, host-authoritative sync |
+| [`chat_games.md`](chat_games.md) | Chat Mini-Games | `chat_games` table + RPCs, invite messages, `chatgame:<id>` broadcast (refetch on `moved`), Chess / Dama / Tic-Tac-Toe / Block Drop rules |
 | [`known_issues_and_solutions.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/known_issues_and_solutions.md) | Post-Mortems & Bug Bank | Avatar invisibility root cause, WebSocket broadcast rate-limiting, React StrictMode listener teardown |
 
 ---

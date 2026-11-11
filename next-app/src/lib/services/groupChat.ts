@@ -1,6 +1,7 @@
 import { supabase, cleanupExistingChannel } from '../supabase';
 import { GroupConversationModel, SocialMessageModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
+import { messagePreview } from '../games/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export class GroupChatService {
@@ -191,7 +192,7 @@ export class GroupChatService {
           .from('group_conversations')
           .update({
             last_message_at: data.created_at,
-            last_preview: trimmed.slice(0, 50),
+            last_preview: messagePreview(trimmed).slice(0, 50),
           })
           .eq('id', conversationId);
       }

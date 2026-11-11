@@ -28,6 +28,28 @@ import { removeRealtimeChannel } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { toIconName, type IconName } from '@/lib/icons';
+import { GamePicker } from '@/components/games/GamePicker';
+import { GameOverlay } from '@/components/games/GameOverlay';
+import { GameInviteCard } from '@/components/games/GameInviteCard';
+import { ChatGameService } from '@/lib/services/chatGames';
+import { encodeInvite, parseInvite, type ChatGameRow, type GameKind } from '@/lib/games/types';
+import { initialChess } from '@/lib/games/chess';
+import { initialDama } from '@/lib/games/dama';
+import { initialTtt } from '@/lib/games/tictactoe';
+
+function initialGameState(kind: GameKind): Record<string, unknown> {
+  switch (kind) {
+    case 'chess':
+      return { ...initialChess() };
+    case 'dama':
+      return { ...initialDama() };
+    case 'tictactoe':
+      return { ...initialTtt() };
+    case 'blockdrop':
+      // Both players get the same piece sequence.
+      return { seed: Math.floor(Math.random() * 2 ** 31), scores: {} };
+  }
+}
 
 /** One-tap replies: the button shows an icon, the message is plain text. */
 const QUICK_REACTIONS: readonly { icon: IconName; text: string }[] = [
@@ -75,6 +97,16 @@ export function MessengerDrawer() {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Chat mini-games
+  const [gamePickerOpen, setGamePickerOpen] = useState(false);
+  const [gameBusy, setGameBusy] = useState(false);
+  const [gameError, setGameError] = useState<string | null>(null);
+  /** The open game, tied to the chat it was opened in. */
+  const [openGame, setOpenGame] = useState<{ chatId: string; gameId: string } | null>(null);
+  const [gameRows, setGameRows] = useState<Record<string, ChatGameRow>>({});
+  const [now] = useState(() => Date.now());
+  const activeGameId = openGame && openGame.chatId === activeChat?.id ? openGame.gameId : null;
 
   const isInCallWithThisChat =
     callStatus === 'connected' &&
@@ -147,6 +179,54 @@ export function MessengerDrawer() {
       setMessages([]);
     };
   }, [activeChat]);
+
+  // Load the state of every game invite shown in this chat.
+  useEffect(() => {
+    const missing = messages
+      .map((m) => parseInvite(m.content)?.gameId)
+      .filter((id): id is string => Boolean(id) && !gameRows[id as string]);
+    if (missing.length === 0) return;
+    let alive = true;
+    ChatGameService.loadMany(missing).then((rows) => {
+      if (!alive || rows.length === 0) return;
+      setGameRows((prev) => {
+        const next = { ...prev };
+        for (const r of rows) next[r.id] = r;
+        return next;
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [messages, gameRows]);
+
+  const rememberGameRow = (row: ChatGameRow) => {
+    setGameRows((prev) => (prev[row.id]?.version === row.version && prev[row.id]?.status === row.status ? prev : { ...prev, [row.id]: row }));
+  };
+
+  const handlePickGame = async (kind: GameKind) => {
+    if (!activeChat || !session || gameBusy) return;
+    setGameBusy(true);
+    setGameError(null);
+    try {
+      const row = await ChatGameService.create(activeChat.type, activeChat.id, kind, initialGameState(kind));
+      rememberGameRow(row);
+      await handleSendMessage(encodeInvite(row.id, kind));
+      setGamePickerOpen(false);
+      setOpenGame({ chatId: activeChat.id, gameId: row.id });
+    } catch (e) {
+      setGameError(e instanceof Error ? e.message : 'Could not start the game.');
+    } finally {
+      setGameBusy(false);
+    }
+  };
+
+  const nameOfPlayer = (userId: string): string => {
+    if (session && userId === session.id) return session.displayName;
+    if (activeChat?.type === 'dm' && userId === activeChat.otherUserId) return safeText(activeChat.title);
+    const fromMsg = messages.find((m) => m.senderId === userId);
+    return fromMsg ? safeText(fromMsg.senderName) : 'Player';
+  };
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -277,6 +357,19 @@ export function MessengerDrawer() {
                     </button>
                   </>
                 )}
+                <button
+                  type="button"
+                  className={styles.callHeaderBtn}
+                  onClick={() => {
+                    setGameError(null);
+                    setGamePickerOpen(true);
+                  }}
+                  disabled={otherBlocked}
+                  title="Play a game"
+                  aria-label="Play a game"
+                >
+                  <AppIcon name="gamepad" />
+                </button>
                 {activeChat.type === 'dm' && otherUserId && session && (
                   <>
                     <button
@@ -309,6 +402,18 @@ export function MessengerDrawer() {
             {/* Embedded Active Call Panel */}
             {isInCallWithThisChat && <InlineCallPanel />}
 
+            {activeGameId && session ? (
+              <GameOverlay
+                key={activeGameId}
+                gameId={activeGameId}
+                meId={session.id}
+                nameOf={nameOfPlayer}
+                onClose={() => setOpenGame(null)}
+                onRematch={(kind) => handlePickGame(kind)}
+                onRowChange={rememberGameRow}
+              />
+            ) : (
+            <>
             {/* Message History */}
             <div className={styles.messagesScrollArea} ref={scrollRef}>
               {messages.length === 0 ? (
@@ -322,6 +427,21 @@ export function MessengerDrawer() {
               ) : (
                 messages.filter((m) => !blockedIds.has(m.senderId)).map((m) => {
                   const isMine = m.senderId === session?.id;
+                  const invite = parseInvite(m.content);
+                  if (invite && session) {
+                    return (
+                      <GameInviteCard
+                        key={m.id}
+                        kind={invite.kind}
+                        row={gameRows[invite.gameId]}
+                        senderName={isMine ? 'You' : safeText(m.senderName)}
+                        createdAt={m.createdAt}
+                        meId={session.id}
+                        now={now}
+                        onOpen={() => setOpenGame({ chatId: activeChat.id, gameId: invite.gameId })}
+                      />
+                    );
+                  }
                   const isCallEvent =
                     m.content.includes('Started a voice call') ||
                     m.content.includes('Started a video call');
@@ -394,18 +514,6 @@ export function MessengerDrawer() {
               </div>
             )}
 
-            {activeChat.type === 'dm' && otherUserId && session && (
-              <ReportModal
-                isOpen={reportOpen}
-                onClose={() => setReportOpen(false)}
-                reporterId={session.id}
-                reportedUserId={otherUserId}
-                reportedName={safeText(activeChat.title)}
-                onBlock={async () => {
-                  await blockUser(otherUserId);
-                }}
-              />
-            )}
 
             {/* Quick Reactions */}
             <div className={styles.quickReactions}>
@@ -446,6 +554,29 @@ export function MessengerDrawer() {
                 Send
               </NeoButton>
             </form>
+            </>
+            )}
+
+            <GamePicker
+              isOpen={gamePickerOpen}
+              busy={gameBusy}
+              error={gameError}
+              onClose={() => setGamePickerOpen(false)}
+              onPick={handlePickGame}
+            />
+
+            {activeChat.type === 'dm' && otherUserId && session && (
+              <ReportModal
+                isOpen={reportOpen}
+                onClose={() => setReportOpen(false)}
+                reporterId={session.id}
+                reportedUserId={otherUserId}
+                reportedName={safeText(activeChat.title)}
+                onBlock={async () => {
+                  await blockUser(otherUserId);
+                }}
+              />
+            )}
           </div>
         ) : (
           /* Conversation & Friends Navigation Tabs */

@@ -7,7 +7,8 @@
 // ============================================================
 
 import {
-  Accessibility, AlarmClock, Annoyed, Apple, ArrowBigUp, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp,
+  Accessibility, AlarmClock, Blocks, ChessBishop, ChessKing, ChessKnight, ChessPawn, ChessQueen, ChessRook, Grid3x3,
+  RotateCw, Annoyed, Apple, ArrowBigUp, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp,
   Armchair, Axe, Backpack, Ban, Bandage, Bed, Bell, BellRing, Biohazard, BookOpen, BookOpenText, Bot, Briefcase,
   Building, Building2, Calendar, Camera, ChartColumn, Check, ChevronLeft, ChevronRight, ChevronsRight, Circle,
   CircleCheck, CircleDot, CircleMinus, CircleUser, Clipboard, ClipboardList, CloudFog, Coffee, Cookie, Copy, Crosshair,
@@ -201,6 +202,16 @@ export const ICONS = {
   disc: Disc3,
   joystick: Joystick,
   gamepad: Gamepad2,
+  // Chat mini-games
+  chessKing: ChessKing,
+  chessQueen: ChessQueen,
+  chessRook: ChessRook,
+  chessBishop: ChessBishop,
+  chessKnight: ChessKnight,
+  chessPawn: ChessPawn,
+  grid3x3: Grid3x3,
+  blocks: Blocks,
+  rotate: RotateCw,
   guitar: Guitar,
   dice: Dices,
   gem: Gem,

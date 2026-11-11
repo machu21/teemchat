@@ -1,6 +1,7 @@
 import { supabase, cleanupExistingChannel, removeRealtimeChannel } from '../supabase';
 import { DirectConversationModel, SocialMessageModel, FriendModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
+import { messagePreview } from '../games/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 /** The recipient does not accept messages from this sender (block, privacy or Family Mode). */
@@ -180,7 +181,7 @@ export class DirectMessageService {
           .from('buddy_conversations')
           .update({
             last_message_at: data.created_at,
-            last_preview: trimmed.slice(0, 50),
+            last_preview: messagePreview(trimmed).slice(0, 50),
           })
           .eq('id', conversationId);
       }

@@ -23,6 +23,7 @@
     "@capacitor/ios": "^8.5.3",
     "@google/genai": "^2.29.1",
     "@supabase/supabase-js": "^2.117.3",
+    "chess.js": "1.4.0",
     "livekit-client": "^2.22.4",
     "livekit-server-sdk": "^2.19.1",
     "lucide": "1.61.0",
