@@ -617,23 +617,32 @@ export const LogsTab: React.FC<LogsTabProps> = ({ capabilities, onNotify }) => {
                           {createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}
                         </td>
                         <td>
-                          <span style={{ fontWeight: 800 }}>
-                            {String(log.guest_username || log.id || 'guest')}
-                          </span>
+                          {log.guest_username ? (
+                            <span style={{ fontWeight: 800 }}>{String(log.guest_username)}</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>Not recorded</span>
+                          )}
                         </td>
                         <td>
-                          <NeoBadge
-                            color={String(log.country_code || 'XX') === 'XX' ? 'var(--card-inner)' : '#3B82F6'}
-                            textColor={String(log.country_code || 'XX') === 'XX' ? 'var(--text-muted)' : '#FFFFFF'}
-                          >
-                            {String(log.country_code || 'XX').toUpperCase()}
-                          </NeoBadge>
+                          {(() => {
+                            // 'XX' is the server's "unknown" sentinel (no geo header, e.g. local dev).
+                            const code = String(log.country_code || 'XX').toUpperCase();
+                            const known = code !== 'XX';
+                            return (
+                              <NeoBadge
+                                color={known ? '#3B82F6' : 'var(--card-inner)'}
+                                textColor={known ? '#FFFFFF' : 'var(--text-muted)'}
+                              >
+                                {known ? code : 'Unknown'}
+                              </NeoBadge>
+                            );
+                          })()}
                         </td>
                         <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
                           {String(log.client_ip || log.ip_address || '-')}
                         </td>
                         <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
-                          {String(log.session_id || log.id || '').slice(0, 12)}...
+                          {log.session_id ? `${String(log.session_id).slice(0, 12)}...` : '-'}
                         </td>
                       </>
                     )}

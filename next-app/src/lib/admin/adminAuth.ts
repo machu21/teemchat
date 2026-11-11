@@ -34,6 +34,13 @@ export type AdminAuthResult =
 
 let cachedAdminClient: SupabaseClient<Database> | null = null;
 
+export class AdminConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AdminConfigError';
+  }
+}
+
 /**
  * Returns a privileged Supabase client powered by the service role key.
  * This client bypasses PostgreSQL Row Level Security (RLS) and is strictly reserved
@@ -44,11 +51,15 @@ export function getSupabaseAdminClient(): SupabaseClient<Database> {
 
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://pirpqkbdayorovfzczpq.supabase.co';
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    '';
+  // Never fall back to the anon/publishable key: admin RPCs (e.g. get_admin_overview_metrics)
+  // are granted to service_role only, and an anon "admin" client fails with
+  // "permission denied" while silently running privileged handlers as anon.
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!serviceRoleKey) {
+    throw new AdminConfigError(
+      'SUPABASE_SERVICE_ROLE_KEY is not set on the server. Admin APIs are unavailable until it is configured.'
+    );
+  }
 
   cachedAdminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -89,7 +100,20 @@ export async function verifyAdminRequest(
     };
   }
 
-  const supabaseAdmin = getSupabaseAdminClient();
+  let supabaseAdmin: SupabaseClient<Database>;
+  try {
+    supabaseAdmin = getSupabaseAdminClient();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Admin client misconfigured.';
+    console.error('[AdminAuth]', message);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Server misconfigured', message },
+        { status: 503, headers: getRateLimitHeaders(rateResult) }
+      ),
+    };
+  }
 
   // 1. Check for Machine API Key authorization (X-Admin-Api-Key)
   const apiKeyHeader = req.headers.get('x-admin-api-key');
