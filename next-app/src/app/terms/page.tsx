@@ -39,7 +39,7 @@ export default function TermsPage() {
       <ul>
         <li>
           The AI Companion add-on costs {AI_ADDON_PRICE_TEXT.month} or {AI_ADDON_PRICE_TEXT.year} (US dollars, plus
-          any applicable tax). Accounts without it get 5 free AI messages in total.
+          any applicable tax). AI features are only available to accounts with an active add-on.
         </li>
         <li>
           It includes up to 60 AI messages in each 5-hour window. The window starts with your first message and

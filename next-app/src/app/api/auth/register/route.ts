@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
+    const rawBody = await req.json().catch(() => ({}));
+    const body = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
     const {
       email,
       password,
@@ -53,7 +54,18 @@ export async function POST(req: NextRequest) {
       phone_alt,
       // Anti-Bot Form Velocity: Tracks form render duration
       renderedAt,
-    } = body;
+    } = body as {
+      email?: string;
+      password?: string;
+      username?: string;
+      displayName?: string;
+      gender?: string;
+      birthDate?: string;
+      website_url?: unknown;
+      company_site_field?: unknown;
+      phone_alt?: unknown;
+      renderedAt?: number;
+    };
 
     // 2. Honeypot Trap Verification
     if (website_url || company_site_field || phone_alt) {
@@ -93,7 +105,7 @@ export async function POST(req: NextRequest) {
     const cleanEmail = normalizeEmail(email);
 
     // 5. Username Validation
-    const userCheck = validateUsername(username);
+    const userCheck = validateUsername(typeof username === 'string' ? username : '');
     if (!userCheck.valid) {
       return NextResponse.json(
         { error: userCheck.reason },
@@ -122,9 +134,10 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanGender = gender === 'female' ? 'female' : 'male';
+    const cleanUsername = username ? username.trim() : '';
     const cleanDisplayName = (displayName && typeof displayName === 'string')
       ? displayName.trim().slice(0, 32)
-      : username.trim();
+      : cleanUsername;
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.json(
@@ -134,7 +147,6 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const cleanUsername = username.trim();
 
     // 7. Username availability (profiles are publicly readable; username is UNIQUE)
     const { data: takenProfile, error: usernameLookupError } = await supabase

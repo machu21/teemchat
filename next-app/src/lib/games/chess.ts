@@ -10,7 +10,11 @@ export type PromotionPiece = 'q' | 'r' | 'b' | 'n';
 export interface ChessState {
   fen: string;
   lastMove: { from: string; to: string } | null;
+  /** Moves so far in SAN ("e4", "Nf3", "O-O"), for the move list. */
+  history: string[];
 }
+
+const MAX_HISTORY = 400;
 
 export interface ChessSquare {
   square: string;
@@ -18,13 +22,13 @@ export interface ChessSquare {
 }
 
 export function initialChess(): ChessState {
-  return { fen: START_FEN, lastMove: null };
+  return { fen: START_FEN, lastMove: null, history: [] };
 }
 
 const SQUARE_RE = /^[a-h][1-8]$/;
 
 export function parseChess(raw: unknown): ChessState {
-  const r = (raw ?? {}) as { fen?: unknown; lastMove?: unknown };
+  const r = (raw ?? {}) as { fen?: unknown; lastMove?: unknown; history?: unknown };
   let fen = START_FEN;
   if (typeof r.fen === 'string' && r.fen.length < 120) {
     try {
@@ -39,7 +43,10 @@ export function parseChess(raw: unknown): ChessState {
     lm && typeof lm.from === 'string' && typeof lm.to === 'string' && SQUARE_RE.test(lm.from) && SQUARE_RE.test(lm.to)
       ? { from: lm.from, to: lm.to }
       : null;
-  return { fen, lastMove };
+  const history = Array.isArray(r.history)
+    ? r.history.filter((m): m is string => typeof m === 'string' && m.length <= 10).slice(-MAX_HISTORY)
+    : [];
+  return { fen, lastMove, history };
 }
 
 export function chessTurn(state: ChessState): ChessColor {
@@ -98,11 +105,40 @@ export function applyChessMove(
 ): ChessState | null {
   if (!SQUARE_RE.test(from) || !SQUARE_RE.test(to)) return null;
   const g = new Chess(state.fen);
+  let san: string;
   try {
     const m = g.move({ from, to, promotion });
     if (!m) return null;
+    san = m.san;
   } catch {
     return null;
   }
-  return { fen: g.fen(), lastMove: { from, to } };
+  return { fen: g.fen(), lastMove: { from, to }, history: [...(state.history ?? []), san].slice(-MAX_HISTORY) };
+}
+
+const START_COUNTS: Record<ChessPieceType, number> = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
+const VALUES: Record<ChessPieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+/**
+ * Pieces each side has captured (from what is missing on the board), and the
+ * material lead in pawns. Promotions can hide a capture; counts never go negative.
+ */
+export function chessCaptured(state: ChessState): {
+  byWhite: ChessPieceType[];
+  byBlack: ChessPieceType[];
+  /** Positive: white is ahead. */
+  material: number;
+} {
+  const count = { w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 } };
+  let material = 0;
+  for (const { piece } of chessBoard(state)) {
+    if (!piece) continue;
+    count[piece.color][piece.type]++;
+    material += (piece.color === 'w' ? 1 : -1) * VALUES[piece.type];
+  }
+  const missing = (color: ChessColor) =>
+    (['q', 'r', 'b', 'n', 'p'] as ChessPieceType[]).flatMap((t) =>
+      Array<ChessPieceType>(Math.max(0, START_COUNTS[t] - count[color][t])).fill(t)
+    );
+  return { byWhite: missing('b'), byBlack: missing('w'), material };
 }

@@ -28,7 +28,8 @@ import { removeRealtimeChannel } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { toIconName, type IconName } from '@/lib/icons';
-import { GamePicker } from '@/components/games/GamePicker';
+import { GamePicker, type GameStartOptions } from '@/components/games/GamePicker';
+import { SoloGame } from '@/components/games/SoloGame';
 import { GameOverlay } from '@/components/games/GameOverlay';
 import { GameInviteCard } from '@/components/games/GameInviteCard';
 import { ChatGameService } from '@/lib/services/chatGames';
@@ -107,6 +108,9 @@ export function MessengerDrawer() {
   const [gameRows, setGameRows] = useState<Record<string, ChatGameRow>>({});
   const [now] = useState(() => Date.now());
   const activeGameId = openGame && openGame.chatId === activeChat?.id ? openGame.gameId : null;
+  /** A local game against the computer; `round` remounts it for "play again". */
+  const [soloGame, setSoloGame] = useState<(GameStartOptions & { chatId: string; round: number }) | null>(null);
+  const activeSolo = soloGame && soloGame.chatId === activeChat?.id ? soloGame : null;
 
   const isInCallWithThisChat =
     callStatus === 'connected' &&
@@ -204,15 +208,25 @@ export function MessengerDrawer() {
     setGameRows((prev) => (prev[row.id]?.version === row.version && prev[row.id]?.status === row.status ? prev : { ...prev, [row.id]: row }));
   };
 
-  const handlePickGame = async (kind: GameKind) => {
+  const handleStartGame = async (opts: GameStartOptions) => {
     if (!activeChat || !session || gameBusy) return;
-    setGameBusy(true);
     setGameError(null);
-    try {
-      const row = await ChatGameService.create(activeChat.type, activeChat.id, kind, initialGameState(kind));
-      rememberGameRow(row);
-      await handleSendMessage(encodeInvite(row.id, kind));
+    if (opts.mode === 'solo') {
+      setOpenGame(null);
+      setSoloGame((prev) => ({ ...opts, chatId: activeChat.id, round: (prev?.round ?? 0) + 1 }));
       setGamePickerOpen(false);
+      return;
+    }
+    setGameBusy(true);
+    try {
+      const row = await ChatGameService.create(activeChat.type, activeChat.id, opts.kind, initialGameState(opts.kind), {
+        baseMs: opts.timeControl.baseMs,
+        incMs: opts.timeControl.incMs,
+      });
+      rememberGameRow(row);
+      await handleSendMessage(encodeInvite(row.id, opts.kind));
+      setGamePickerOpen(false);
+      setSoloGame(null);
       setOpenGame({ chatId: activeChat.id, gameId: row.id });
     } catch (e) {
       setGameError(e instanceof Error ? e.message : 'Could not start the game.');
@@ -226,6 +240,12 @@ export function MessengerDrawer() {
     if (activeChat?.type === 'dm' && userId === activeChat.otherUserId) return safeText(activeChat.title);
     const fromMsg = messages.find((m) => m.senderId === userId);
     return fromMsg ? safeText(fromMsg.senderName) : 'Player';
+  };
+
+  const avatarOfPlayer = (userId: string) => {
+    if (session && userId === session.id) return session.avatarConfig;
+    if (activeChat?.type === 'dm' && userId === activeChat.otherUserId) return activeChat.avatarConfig;
+    return messages.find((m) => m.senderId === userId && m.senderAvatar)?.senderAvatar;
   };
 
   // Auto-scroll on new messages
@@ -364,7 +384,6 @@ export function MessengerDrawer() {
                     setGameError(null);
                     setGamePickerOpen(true);
                   }}
-                  disabled={otherBlocked}
                   title="Play a game"
                   aria-label="Play a game"
                 >
@@ -402,18 +421,38 @@ export function MessengerDrawer() {
             {/* Embedded Active Call Panel */}
             {isInCallWithThisChat && <InlineCallPanel />}
 
-            {activeGameId && session ? (
+            {activeSolo && session && (
+              <SoloGame
+                key={activeSolo.round}
+                kind={activeSolo.kind}
+                difficulty={activeSolo.difficulty}
+                timeControl={activeSolo.timeControl}
+                coachMode={activeSolo.coachMode}
+                me={{ name: session.displayName, avatar: session.avatarConfig }}
+                onBack={() => setSoloGame(null)}
+                onRematch={() => setSoloGame((prev) => (prev ? { ...prev, round: prev.round + 1 } : prev))}
+              />
+            )}
+            {!activeSolo && activeGameId && session && (
               <GameOverlay
                 key={activeGameId}
                 gameId={activeGameId}
                 meId={session.id}
                 nameOf={nameOfPlayer}
+                avatarOf={avatarOfPlayer}
                 onClose={() => setOpenGame(null)}
-                onRematch={(kind) => handlePickGame(kind)}
+                onRematch={(kind, tc) =>
+                  handleStartGame({
+                    kind,
+                    mode: 'friend',
+                    difficulty: 'medium',
+                    timeControl: { id: 'rematch', label: '', baseMs: tc.baseMs, incMs: tc.incMs },
+                  })
+                }
                 onRowChange={rememberGameRow}
               />
-            ) : (
-            <>
+            )}
+
             {/* Message History */}
             <div className={styles.messagesScrollArea} ref={scrollRef}>
               {messages.length === 0 ? (
@@ -438,7 +477,10 @@ export function MessengerDrawer() {
                         createdAt={m.createdAt}
                         meId={session.id}
                         now={now}
-                        onOpen={() => setOpenGame({ chatId: activeChat.id, gameId: invite.gameId })}
+                        onOpen={() => {
+                          setSoloGame(null);
+                          setOpenGame({ chatId: activeChat.id, gameId: invite.gameId });
+                        }}
                       />
                     );
                   }
@@ -554,15 +596,15 @@ export function MessengerDrawer() {
                 Send
               </NeoButton>
             </form>
-            </>
-            )}
 
             <GamePicker
               isOpen={gamePickerOpen}
               busy={gameBusy}
               error={gameError}
+              friendLabel={activeChat.type === 'dm' ? safeText(activeChat.title) : 'the group'}
+              friendAvailable={!otherBlocked}
               onClose={() => setGamePickerOpen(false)}
-              onPick={handlePickGame}
+              onStart={handleStartGame}
             />
 
             {activeChat.type === 'dm' && otherUserId && session && (

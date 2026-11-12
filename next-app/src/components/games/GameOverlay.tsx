@@ -3,31 +3,45 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './ChatGames.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
+import type { AvatarConfig } from '@/lib/models/avatar';
 import { ChatGameService, type GameLive } from '@/lib/services/chatGames';
 import { GAME_INFO, type ChatGameRow, type GameKind } from '@/lib/games/types';
 import { parseBlockDrop } from '@/lib/games/blockdrop';
+import { TIME_CONTROLS, remainingMs } from '@/lib/games/clock';
 import type { BoardMove, Seat } from './boardTypes';
+import { GameShell, useNow, type PlayerInfo, type ResultInfo, type StatusInfo } from './GameShell';
 import { TicTacToeBoard } from './TicTacToeBoard';
-import { ChessBoard, chessStatus } from './ChessBoard';
-import { DamaBoard, damaStatus } from './DamaBoard';
-import { BlockDropGame, type BlockDropEvents } from './BlockDropGame';
+import { ChessBoard, ChessCaptured, MoveList, chessStatus } from './ChessBoard';
+import { DamaBoard, DamaCaptured, damaLost, damaStatus } from './DamaBoard';
+import { BlockDropGame, type BlockDropEnd, type BlockDropEvents } from './BlockDropGame';
 
 interface Props {
   gameId: string;
   meId: string;
   nameOf: (userId: string) => string;
+  avatarOf?: (userId: string) => AvatarConfig | null | undefined;
   onClose: () => void;
-  onRematch: (kind: GameKind) => void;
+  onRematch: (kind: GameKind, timeControl: { baseMs: number; incMs: number }) => void;
   /** Called whenever the row changes, so the chat's invite card stays current. */
   onRowChange?: (row: ChatGameRow) => void;
 }
 
-export function GameOverlay({ gameId, meId, nameOf, onClose, onRematch, onRowChange }: Props) {
+type Side = Exclude<Seat, null>;
+
+function timeControlLabel(row: ChatGameRow): string {
+  if (!row.timeBaseMs) return '';
+  const known = TIME_CONTROLS.find((t) => t.baseMs === row.timeBaseMs && t.incMs === row.timeIncMs);
+  return known ? known.label : `${Math.round(row.timeBaseMs / 60000)} min`;
+}
+
+export function GameOverlay({ gameId, meId, nameOf, avatarOf, onClose, onRematch, onRowChange }: Props) {
   const [row, setRow] = useState<ChatGameRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [live, setLive] = useState<GameLive | null>(null);
+  /** Local clock minus server clock, so countdowns match the server. */
+  const [skew, setSkew] = useState(0);
   const eventsRef = useRef<BlockDropEvents>({});
   const onRowChangeRef = useRef(onRowChange);
   useEffect(() => {
@@ -50,6 +64,9 @@ export function GameOverlay({ gameId, meId, nameOf, onClose, onRematch, onRowCha
       if (!alive) return;
       setLoading(false);
       applyRow(r);
+    });
+    ChatGameService.measureClockSkew().then((s) => {
+      if (alive) setSkew(s);
     });
     const clientId = `${meId}_${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
     const conn = ChatGameService.connect(gameId, meId, clientId, {
@@ -76,59 +93,100 @@ export function GameOverlay({ gameId, meId, nameOf, onClose, onRematch, onRowCha
     };
   }, []);
 
-  const run = async (fn: () => Promise<ChatGameRow | null>) => {
-    setBusy(true);
-    setNotice(null);
-    try {
-      const next = await fn();
-      if (next) {
-        applyRow(next);
-        live?.sendMoved(next.version);
-      } else {
-        setNotice('Your opponent moved first. Board updated.');
+  const run = useCallback(
+    async (fn: () => Promise<ChatGameRow | null>, staleMessage = 'Your opponent moved first. Board updated.') => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        const next = await fn();
+        if (next) {
+          applyRow(next);
+          live?.sendMoved(next.version);
+        } else {
+          setNotice(staleMessage);
+          await reload();
+        }
+      } catch (e) {
+        setNotice(e instanceof Error ? e.message : 'Something went wrong.');
         await reload();
+      } finally {
+        setBusy(false);
       }
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'Something went wrong.');
-      await reload();
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [applyRow, live, reload]
+  );
 
-  if (loading) {
+  // ---- Clocks -------------------------------------------------------------
+  const timed = Boolean(row && row.timeBaseMs > 0 && row.game !== 'blockdrop');
+  const startedAt = row?.turnStartedAt ? Date.parse(row.turnStartedAt) : null;
+  const clockRunning = Boolean(timed && row?.status === 'active' && startedAt !== null);
+  const now = useNow(clockRunning);
+  const serverNow = now - skew;
+  const turnSide: Side | null = row?.currentTurn ? (row.currentTurn === row.playerOne ? 'one' : 'two') : null;
+  const clockOf = (side: Side) => {
+    if (!row || !timed) return undefined;
+    const base = (side === 'one' ? row.clockOneMs : row.clockTwoMs) ?? row.timeBaseMs;
+    return remainingMs(base, clockRunning && turnSide === side, startedAt, serverNow);
+  };
+  const flagged = Boolean(clockRunning && turnSide && (clockOf(turnSide) ?? 1) <= 0);
+  const isPlayer = Boolean(row && (row.playerOne === meId || row.playerTwo === meId));
+
+  // When the side to move runs out, either player's client ends the game.
+  const claimRef = useRef(0);
+  useEffect(() => {
+    if (!flagged || !isPlayer || !row) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let alive = true;
+    const attempt = async () => {
+      if (Date.now() - claimRef.current < 1500) return;
+      claimRef.current = Date.now();
+      const r = await ChatGameService.claimTimeout(row.id);
+      if (!alive) return;
+      if (r && r.status !== 'active') {
+        applyRow(r);
+        live?.sendMoved(r.version);
+      } else {
+        // Clocks can disagree by a moment; try again shortly.
+        timer = setTimeout(attempt, 1600);
+      }
+    };
+    attempt();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [flagged, isPlayer, row, applyRow, live]);
+
+  if (loading || !row) {
     return (
-      <div className={styles.overlay}>
-        <Header title="Loading game..." onClose={onClose} />
-      </div>
-    );
-  }
-  if (!row) {
-    return (
-      <div className={styles.overlay}>
-        <Header title="Game" onClose={onClose} />
-        <div className={`${styles.status} ${styles.statusError}`}>This game is unavailable.</div>
-      </div>
+      <GameShell
+        kind="chess"
+        subtitle={loading ? 'Loading game' : 'Unavailable'}
+        onBack={onClose}
+        status={loading ? { text: 'Loading', thinking: true } : { text: 'This game is unavailable.', tone: 'alert' }}
+      />
     );
   }
 
   const info = GAME_INFO[row.game];
   const seat: Seat = row.playerOne === meId ? 'one' : row.playerTwo === meId ? 'two' : null;
   const opponentId = seat === 'one' ? row.playerTwo : seat === 'two' ? row.playerOne : null;
-  const seatId = (s: Exclude<Seat, null>) => (s === 'one' ? row.playerOne : row.playerTwo);
+  const seatId = (s: Side) => (s === 'one' ? row.playerOne : row.playerTwo);
   const isActive = row.status === 'active';
-  const canMove = isActive && !busy && seat !== null && row.currentTurn === meId;
+  const canMove = isActive && !busy && !flagged && seat !== null && row.currentTurn === meId;
+  const tcLabel = timeControlLabel(row);
 
   const submitBoardMove = (move: BoardMove) => {
     if (!seat || !opponentId) return;
     const winner = move.winner ? seatId(move.winner) : null;
-    // Show the move straight away; the server row replaces it.
+    // Show the move straight away; the server row replaces it. Our clock stops while it saves.
     setRow({
       ...row,
       state: move.state,
       currentTurn: move.finished ? null : opponentId,
       status: move.finished ? 'finished' : 'active',
       winner,
+      turnStartedAt: null,
     });
     run(() =>
       ChatGameService.submitMove({
@@ -142,62 +200,114 @@ export function GameOverlay({ gameId, meId, nameOf, onClose, onRematch, onRowCha
     );
   };
 
-  const onTopOut = (score: number, lines: number, oppScore: number, oppLines: number) => {
-    if (!seat || !opponentId || row.status !== 'active') return;
+  const onBlockDropEnd = (end: BlockDropEnd) => {
+    if (!seat || !opponentId || row.status !== 'active' || end.won) return;
     const prev = parseBlockDrop(row.state);
     const state = {
       seed: prev.seed,
       scores: {
-        [meId]: { score, lines, over: true },
-        [opponentId]: { score: oppScore, lines: oppLines, over: false },
+        [meId]: { score: end.score, lines: end.lines, over: true },
+        [opponentId]: { score: end.oppScore, lines: end.oppLines, over: false },
       },
     };
     run(() =>
-      ChatGameService.submitMove({
-        gameId: row.id,
-        expectedVersion: row.version,
-        state,
-        nextTurn: null,
-        finished: true,
-        winner: opponentId,
-      })
+      ChatGameService.submitMove({ gameId: row.id, expectedVersion: row.version, state, nextTurn: null, finished: true, winner: opponentId })
     );
   };
 
-  const statusText = (() => {
-    const p1 = nameOf(row.playerOne);
-    const p2 = row.playerTwo ? nameOf(row.playerTwo) : null;
+  // ---- Players ------------------------------------------------------------
+  const sideLabel = (s: Side) =>
+    row.game === 'chess' ? (s === 'one' ? 'White' : 'Black') : row.game === 'dama' ? (s === 'one' ? 'White pieces' : 'Black pieces') : row.game === 'tictactoe' ? (s === 'one' ? 'Plays X' : 'Plays O') : '';
+  const extra = (s: Side) =>
+    row.game === 'chess' ? (
+      <ChessCaptured state={row.state} color={s === 'one' ? 'w' : 'b'} />
+    ) : row.game === 'dama' ? (
+      <DamaCaptured count={damaLost(row.state, s === 'one' ? 'b' : 'w')} color={s === 'one' ? 'b' : 'w'} />
+    ) : null;
+  const player = (s: Side): PlayerInfo | undefined => {
+    const id = seatId(s);
+    if (!id) return undefined;
+    return {
+      name: id === meId ? `${nameOf(id)} (you)` : nameOf(id),
+      avatar: avatarOf?.(id) ?? null,
+      side: row.game === 'chess' || row.game === 'dama' ? (s === 'one' ? 'light' : 'dark') : null,
+      sideLabel: sideLabel(s),
+      active: isActive && row.currentTurn === id,
+      clockMs: clockOf(s),
+      clockRunning: clockRunning && turnSide === s,
+      extra: extra(s),
+    };
+  };
+  const bottomSide: Side = seat === 'two' ? 'two' : 'one';
+  const topSide: Side = bottomSide === 'one' ? 'two' : 'one';
+  const showPlayers = row.game !== 'blockdrop' && row.playerTwo !== null;
+
+  // ---- Status and result ----------------------------------------------------
+  const p2 = row.playerTwo ? nameOf(row.playerTwo) : null;
+  const status: StatusInfo | null = (() => {
     switch (row.status) {
       case 'invited':
-        if (seat === 'one') return `Waiting for ${p2 ?? 'someone'} to accept...`;
-        return `${p1} challenged ${p2 ?? 'the chat'}.`;
+        return seat === 'one'
+          ? { text: `Waiting for ${p2 ?? 'someone'} to accept`, thinking: true }
+          : { text: `${nameOf(row.playerOne)} challenged ${p2 ?? 'the chat'}`, tone: 'mine' };
       case 'declined':
-        return 'Invite declined.';
+        return { text: 'Invite declined.', tone: 'alert' };
       case 'abandoned':
-        return 'Invite cancelled.';
-      case 'finished': {
-        const extra = row.game === 'chess' ? chessStatus(row.state) : row.game === 'dama' ? damaStatus(row.state) : null;
-        const prefix = row.result === 'resign' ? 'Resigned. ' : extra ? `${extra}. ` : '';
-        if (!row.winner) return `${prefix}It's a draw.`;
-        return `${prefix}${row.winner === meId ? 'You won!' : `${nameOf(row.winner)} won.`}`;
-      }
+        return { text: 'Invite cancelled.', tone: 'alert' };
+      case 'finished':
+        return null;
       case 'active': {
-        if (info.realtime) return seat ? 'Clear lines to send garbage. Last one standing wins.' : 'Watching live.';
+        if (info.realtime) return seat ? null : { text: 'Watching live' };
+        if (flagged) return { text: 'Time is up', tone: 'alert' };
         const check = row.game === 'chess' ? chessStatus(row.state) : null;
-        const turn = row.currentTurn === meId ? 'Your turn' : `${row.currentTurn ? nameOf(row.currentTurn) : '...'}'s turn`;
-        return check ? `${check}. ${turn}` : turn;
+        if (row.currentTurn === meId) return { text: check ? `${check}! Your move` : 'Your move', tone: 'mine' };
+        return { text: `${row.currentTurn ? nameOf(row.currentTurn) : 'Opponent'} is thinking`, thinking: true };
       }
     }
   })();
 
-  const canAccept = row.status === 'invited' && seat !== 'one' && (row.playerTwo === null || row.playerTwo === meId);
-  const swatch = (s: Exclude<Seat, null>) =>
-    row.game === 'blockdrop' ? null : (
-      <span className={`${styles.swatch} ${s === 'one' ? styles.swatchLight : styles.swatchDark}`} aria-hidden />
-    );
+  const result: ResultInfo | null = (() => {
+    if (row.status !== 'finished') return null;
+    const detail =
+      row.result === 'resign'
+        ? 'Resigned'
+        : row.result === 'timeout'
+          ? 'Out of time'
+          : row.game === 'chess'
+            ? chessStatus(row.state) ?? undefined
+            : row.game === 'dama'
+              ? damaStatus(row.state) ?? undefined
+              : row.game === 'blockdrop'
+                ? (() => {
+                  const sc = parseBlockDrop(row.state).scores;
+                  return [row.playerOne, row.playerTwo]
+                    .filter((id): id is string => Boolean(id))
+                    .map((id) => `${id === meId ? 'You' : nameOf(id)} ${sc[id]?.score ?? 0}`)
+                    .join(' · ');
+                })()
+                : undefined;
+    if (!row.winner) return { outcome: 'draw', title: 'Draw', detail };
+    if (row.winner === meId) return { outcome: 'win', title: 'You win!', detail };
+    if (seat) return { outcome: 'lose', title: `${nameOf(row.winner)} wins`, detail };
+    return { outcome: 'draw', title: `${nameOf(row.winner)} wins`, detail };
+  })();
 
+  const canAccept = row.status === 'invited' && seat !== 'one' && (row.playerTwo === null || row.playerTwo === meId);
+
+  // ---- Board (Multiplayer has NO AI Coach / engine assistance for fair play) ----
   const board = (() => {
-    if (row.status === 'invited' || row.status === 'declined' || row.status === 'abandoned') return null;
+    if (row.status === 'invited' || row.status === 'declined' || row.status === 'abandoned') {
+      return (
+        <div className={styles.panel} style={{ width: '100%', textAlign: 'center', padding: 18 }}>
+          <AppIcon name={info.icon} size={40} />
+          <div style={{ fontWeight: 800, marginTop: 6 }}>{info.title}</div>
+          <div className={styles.panelLabel} style={{ marginTop: 4 }}>
+            {info.blurb}
+            {tcLabel ? ` · ${tcLabel}` : ''}
+          </div>
+        </div>
+      );
+    }
     const props = { state: row.state, seat, canMove, onMove: submitBoardMove };
     switch (row.game) {
       case 'tictactoe':
@@ -207,103 +317,77 @@ export function GameOverlay({ gameId, meId, nameOf, onClose, onRematch, onRowCha
       case 'dama':
         return <DamaBoard {...props} />;
       case 'blockdrop': {
-        if (row.status === 'finished') {
-          const scores = parseBlockDrop(row.state).scores;
-          return (
-            <div className={styles.dropSide}>
-              {[row.playerOne, row.playerTwo].filter((id): id is string => Boolean(id)).map((id) => (
-                <div key={id} className={styles.stat}>
-                  {nameOf(id)} <strong>{scores[id]?.score ?? 0} pts · {scores[id]?.lines ?? 0} lines</strong>
-                </div>
-              ))}
-            </div>
-          );
-        }
-        const watchIds = seat
-          ? opponentId ? [opponentId] : []
-          : [row.playerOne, row.playerTwo].filter((id): id is string => Boolean(id));
+        const watch = [row.playerOne, row.playerTwo].filter((id): id is string => Boolean(id)).map((id) => ({ id, name: nameOf(id) }));
         return (
-          <BlockDropGame
-            seed={parseBlockDrop(row.state).seed}
-            meId={meId}
-            playing={isActive && seat !== null}
-            watchIds={watchIds}
-            nameOf={nameOf}
-            live={live}
-            subscribe={subscribe}
-            opponentId={opponentId}
-            onTopOut={onTopOut}
-          />
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <BlockDropGame
+              seed={parseBlockDrop(row.state).seed}
+              meId={meId}
+              playing={isActive && seat !== null}
+              opponent={{ kind: 'remote', id: opponentId, name: opponentId ? nameOf(opponentId) : 'Opponent', live, subscribe }}
+              watch={watch}
+              coachMode="off"
+              onEnd={onBlockDropEnd}
+            />
+          </div>
         );
       }
     }
   })();
 
+  const subtitle = [
+    seat ? `vs ${opponentId ? nameOf(opponentId) : p2 ?? 'the chat'}` : 'Spectating',
+    tcLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className={styles.overlay}>
-      <Header title={info.title} icon={info.icon} onClose={onClose} />
-
-      {row.playerTwo && (
-        <div className={styles.players}>
-          {(['one', 'two'] as const).map((s) => {
-            const id = seatId(s)!;
-            return (
-              <div key={s} className={`${styles.playerChip} ${isActive && row.currentTurn === id ? styles.playerChipActive : ''}`}>
-                {swatch(s)}
-                <span>{id === meId ? 'You' : nameOf(id)}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className={styles.status} role="status" aria-live="polite">{statusText}</div>
-      {notice && <div className={`${styles.status} ${styles.statusError}`} role="alert">{notice}</div>}
-
-      {board && <div className={styles.boardWrap}>{board}</div>}
-
-      <div className={styles.actions}>
-        {canAccept && (
-          <button type="button" className={`${styles.smallBtn} ${styles.primaryBtn}`} disabled={busy} onClick={() => run(() => ChatGameService.accept(row.id))}>
-            <AppIcon name="check" /> Accept
-          </button>
-        )}
-        {row.status === 'invited' && (seat === 'one' || row.playerTwo === meId) && (
-          <button type="button" className={styles.smallBtn} disabled={busy} onClick={() => run(() => ChatGameService.decline(row.id))}>
-            {seat === 'one' ? 'Cancel invite' : 'Decline'}
-          </button>
-        )}
-        {isActive && seat && (
-          <button
-            type="button"
-            className={`${styles.smallBtn} ${styles.dangerBtn}`}
-            disabled={busy}
-            onClick={() => {
-              if (window.confirm('Resign this game?')) run(() => ChatGameService.resign(row.id));
-            }}
-          >
-            <AppIcon name="flag" /> Resign
-          </button>
-        )}
-        {row.status !== 'active' && row.status !== 'invited' && seat && (
-          <button type="button" className={`${styles.smallBtn} ${styles.primaryBtn}`} disabled={busy} onClick={() => onRematch(row.game)}>
-            <AppIcon name="repeat" /> {row.status === 'finished' ? 'Rematch' : 'Invite again'}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Header({ title, icon, onClose }: { title: string; icon?: React.ComponentProps<typeof AppIcon>['name']; onClose: () => void }) {
-  return (
-    <div className={styles.overlayHeader}>
-      <span className={styles.overlayTitle}>
-        {icon && <AppIcon name={icon} />} {title}
-      </span>
-      <button type="button" className={styles.smallBtn} onClick={onClose}>
-        <AppIcon name="message" /> Back to chat
-      </button>
-    </div>
+    <GameShell
+      kind={row.game}
+      subtitle={subtitle}
+      onBack={onClose}
+      top={showPlayers ? player(topSide) : undefined}
+      bottom={showPlayers ? player(bottomSide) : undefined}
+      status={status}
+      notice={notice}
+      below={row.game === 'chess' && row.status !== 'invited' ? <MoveList state={row.state} /> : undefined}
+      result={result}
+      onRematch={seat ? () => onRematch(row.game, { baseMs: row.timeBaseMs, incMs: row.timeIncMs }) : undefined}
+      rematchLabel="Rematch"
+      actions={
+        <>
+          {canAccept && (
+            <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy} onClick={() => run(() => ChatGameService.accept(row.id))}>
+              <AppIcon name="check" /> Accept
+            </button>
+          )}
+          {row.status === 'invited' && (seat === 'one' || row.playerTwo === meId) && (
+            <button type="button" className={styles.btn} disabled={busy} onClick={() => run(() => ChatGameService.decline(row.id))}>
+              {seat === 'one' ? 'Cancel invite' : 'Decline'}
+            </button>
+          )}
+          {isActive && seat && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              disabled={busy}
+              onClick={() => {
+                if (window.confirm('Resign this game?')) run(() => ChatGameService.resign(row.id));
+              }}
+            >
+              <AppIcon name="flag" /> Resign
+            </button>
+          )}
+          {(row.status === 'declined' || row.status === 'abandoned') && seat && (
+            <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy} onClick={() => onRematch(row.game, { baseMs: row.timeBaseMs, incMs: row.timeIncMs })}>
+              <AppIcon name="repeat" /> Invite again
+            </button>
+          )}
+        </>
+      }
+    >
+      {board}
+    </GameShell>
   );
 }

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
-import { authenticateCompanionRequest, checkCompanionQuota, formatWindowReset } from '@/lib/companionAuth';
+import {
+  AI_ADDON_REQUIRED_MESSAGE,
+  AI_UNAVAILABLE_MESSAGE,
+  authenticateCompanionRequest,
+  checkCompanionQuota,
+  formatWindowReset,
+} from '@/lib/companionAuth';
 import {
   MAX_BODY_BYTES,
   NOTES_RESPONSE_SCHEMA,
@@ -58,11 +64,13 @@ export async function POST(req: NextRequest) {
             quota.limitType === 'window'
               ? `You've used your AI messages for now. They reset ${formatWindowReset(quota.resetsAt)}.`
               : quota.isTrial
-                ? 'Your free AI messages are used up. Get the AI add-on to make meeting notes.'
-                : 'Daily AI limit reached. Try again tomorrow.',
+                ? AI_ADDON_REQUIRED_MESSAGE
+                : quota.limitType === 'unavailable'
+                  ? AI_UNAVAILABLE_MESSAGE
+                  : 'Daily AI limit reached. Try again tomorrow.',
           upgradeRequired: quota.isTrial,
         },
-        { status: 402 }
+        { status: quota.limitType === 'unavailable' ? 503 : 402 }
       );
     }
 

@@ -8,6 +8,26 @@ export interface BoardMove {
   winner: Exclude<Seat, null> | null;
 }
 
+export interface ChessCoachHint {
+  /** Your own pieces that are currently under attack by the opponent. */
+  threatenedSquares?: string[];
+  /** Clue 1: highlights only WHICH piece to think about (no destination spoiler). */
+  focusSquare?: string | null;
+  /** Clue 2: only shown when the learner asks for the full idea after Clue 1. */
+  arrow?: { from: string; to: string } | null;
+}
+
+export interface DamaCoachHint {
+  /** Clue 1: highlights only WHICH piece to think about. */
+  focusSquare?: number | null;
+  /** Clue 2: only shown when the learner asks for the full idea after Clue 1. */
+  arrow?: { from: number; path: number[] } | null;
+}
+
+export interface TttCoachHint {
+  focusCell?: number | null;
+}
+
 export interface TurnBoardProps {
   state: unknown;
   seat: Seat;

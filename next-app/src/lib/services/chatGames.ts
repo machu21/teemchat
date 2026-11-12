@@ -45,7 +45,8 @@ export class ChatGameService {
     conversationType: ChatKind,
     conversationId: string,
     game: GameKind,
-    initialState: Record<string, unknown>
+    initialState: Record<string, unknown>,
+    timeControl: { baseMs: number; incMs: number } = { baseMs: 0, incMs: 0 }
   ): Promise<ChatGameRow> {
     if (!UUID_REGEX.test(conversationId)) throw new ChatGameError('Games are not available in this chat yet.');
     const { data, error } = await supabase.rpc('create_chat_game', {
@@ -53,6 +54,8 @@ export class ChatGameService {
       p_conversation_id: conversationId,
       p_game: game,
       p_state: initialState,
+      p_time_base_ms: timeControl.baseMs,
+      p_time_increment_ms: timeControl.incMs,
     });
     const row = firstRow(data);
     if (error || !row) throw new ChatGameError(friendly(error?.message));
@@ -94,6 +97,27 @@ export class ChatGameService {
     const row = firstRow(data);
     if (error || !row) throw new ChatGameError(friendly(error?.message));
     return row;
+  }
+
+  /** Ends a timed game whose side-to-move ran out of time. Null when time is not up yet. */
+  static async claimTimeout(gameId: string): Promise<ChatGameRow | null> {
+    const { data, error } = await supabase.rpc('claim_chat_game_timeout', { p_game_id: gameId });
+    if (error) return null;
+    return firstRow(data);
+  }
+
+  /**
+   * Milliseconds to subtract from Date.now() to get server time (0 when unknown).
+   * Measured from one round trip, assuming the reply took half of it.
+   */
+  static async measureClockSkew(): Promise<number> {
+    const sent = Date.now();
+    const { data, error } = await supabase.rpc('chat_games_server_now');
+    const received = Date.now();
+    if (error || typeof data !== 'string') return 0;
+    const server = Date.parse(data);
+    if (!Number.isFinite(server)) return 0;
+    return Math.round((sent + received) / 2 - server);
   }
 
   /**

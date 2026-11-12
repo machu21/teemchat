@@ -130,9 +130,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { spaceId, roomName, displayName } = body;
-    const targetRoom = roomName || (spaceId ? `space-${spaceId}` : null);
+    const rawBody = await req.json();
+    const body = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
+    const { spaceId, roomName, displayName } = body as Record<string, unknown>;
+    const targetRoom = (typeof roomName === 'string' && roomName) || (typeof spaceId === 'string' && spaceId ? `space-${spaceId}` : null);
 
     if (!targetRoom || typeof targetRoom !== 'string') {
       return NextResponse.json({ error: 'Missing roomName or spaceId' }, { status: 400 });

@@ -27,7 +27,12 @@ export async function GET(req: NextRequest) {
     if (search) {
       const sanitizedSearch = search.replace(/[,()]/g, ' ').trim();
       if (sanitizedSearch) {
-        query = query.or(`stripe_invoice_id.ilike.%${sanitizedSearch}%,user_id.ilike.%${sanitizedSearch}%,status.ilike.%${sanitizedSearch}%`);
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedSearch);
+        if (isUuid) {
+          query = query.or(`stripe_invoice_id.ilike.%${sanitizedSearch}%,user_id.eq.${sanitizedSearch},status.ilike.%${sanitizedSearch}%`);
+        } else {
+          query = query.or(`stripe_invoice_id.ilike.%${sanitizedSearch}%,status.ilike.%${sanitizedSearch}%`);
+        }
       }
     }
 

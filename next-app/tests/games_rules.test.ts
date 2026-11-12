@@ -66,7 +66,7 @@ describe('chess', () => {
   });
 
   it('detects stalemate', () => {
-    expect(chessOutcome({ fen: '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1', lastMove: null })).toEqual({
+    expect(chessOutcome({ fen: '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1', lastMove: null, history: [] })).toEqual({
       over: true,
       winner: null,
       reason: 'stalemate',
@@ -80,7 +80,7 @@ describe('chess', () => {
   });
 
   it('flags promotion targets and promotes', () => {
-    const s: ChessState = { fen: '8/P7/8/8/8/8/8/k6K w - - 0 1', lastMove: null };
+    const s: ChessState = { fen: '8/P7/8/8/8/8/8/k6K w - - 0 1', lastMove: null, history: [] };
     expect(chessTargetsFrom(s, 'a7')).toEqual([{ to: 'a8', promotion: true }]);
     const n = applyChessMove(s, 'a7', 'a8', 'n')!;
     expect(chessBoard(n)[0].piece).toEqual({ type: 'n', color: 'w' });
@@ -175,7 +175,7 @@ describe('block drop', () => {
     for (let y = ROWS - 4; y < ROWS; y++) for (let x = 1; x < COLS; x++) g.grid[y * COLS + x] = 3;
     g.active = { kind: 'I', rot: 1, x: -2, y: 0 };
     const ev = g.hardDrop()!;
-    expect(ev).toEqual({ cleared: 4, sent: 4, over: false });
+    expect(ev).toEqual({ cleared: 4, rows: [16, 17, 18, 19], sent: 4, over: false });
   });
 
   it('raises received garbage after the next lock', () => {

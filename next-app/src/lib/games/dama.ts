@@ -168,7 +168,13 @@ export function damaMovesFrom(state: DamaState, from: number): DamaMove[] {
 /** Plays the legal move from `from` ending at `to`; null when there is none. */
 export function applyDamaMove(state: DamaState, from: number, to: number): DamaState | null {
   const move = damaMovesFrom(state, from).find((m) => m.path[m.path.length - 1] === to);
-  if (!move) return null;
+  return move ? playDamaMove(state, move) : null;
+}
+
+/** Plays a move taken from `damaLegalMoves(state)` (not re-validated). */
+export function playDamaMove(state: DamaState, move: DamaMove): DamaState {
+  const { from } = move;
+  const to = move.path[move.path.length - 1];
   const board = state.board.slice();
   const piece = board[from];
   board[from] = '';

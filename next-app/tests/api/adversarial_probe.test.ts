@@ -48,7 +48,18 @@ vi.mock('@supabase/supabase-js', () => ({
       signUp: mockSignUp,
       getUser: mockGetUser,
     },
-    from: vi.fn(() => {
+    from: vi.fn((table: string) => {
+      if (table === 'user_subscriptions') {
+        // The probing caller holds a paid AI add-on, so the probes reach the handlers
+        const sub = {
+          select: vi.fn(() => sub),
+          eq: vi.fn(() => sub),
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({ data: { status: 'active', has_ai_addon: true, current_period_end: null }, error: null })
+          ),
+        };
+        return sub;
+      }
       // Username availability lookups (register route) find no existing row
       let byUsername = false;
       const builder = {

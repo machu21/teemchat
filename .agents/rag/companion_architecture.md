@@ -22,4 +22,5 @@ A pixel pet (cat / robot / dog / wisp) that follows its owner on the canvas, spe
 - Bond XP is written only by `award_companion_bond()` (SECURITY DEFINER, +≤5 per call, once per 20s). The `guard_companion_bond_columns` trigger blocks direct client writes.
 - Remote visibility rides the existing presence payload (`companion: {name, species}`) through `WorldSyncService.setCompanionBadge()`, which costs one throttled re-track. Never put memories in presence.
 - Guests get a locked "egg" (the API returns 403 for them).
+- AI is paid-only, with no free trial. Every Gemini route (`companion/chat`, `companion/screen-help`, `meetings/notes`) goes through `authenticateCompanionRequest` in `lib/companionAuth.ts`, which returns 402 `{ upgradeRequired: true }` unless the caller's `user_subscriptions` row has `has_ai_addon` on an active, unexpired subscription. `check_and_increment_ai_usage()` enforces the same rule in SQL (`has_active_ai_addon`), and `checkCompanionQuota` fails closed. Any new AI route must use both. Migration: `supabase/migrations/20261116_ai_paid_only.sql`.
 - Migration: `supabase/migrations/20261104_companion_life.sql` (also appended to `schema.sql`).

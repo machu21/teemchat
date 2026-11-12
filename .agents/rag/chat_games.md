@@ -51,3 +51,35 @@ Move legality is checked on the client only; this is acceptable for casual games
 ## No emoji
 
 Chess pieces use the lucide `ChessKing`/... icons, registered as `chessKing` etc. in `src/lib/icons`. Never use the Unicode chess glyphs.
+
+## Solo mode (vs computer)
+
+Solo games run locally in `components/games/SoloGame.tsx`. They have no database row and post no chat message. The human is always seat one (white / X) and the computer is seat two.
+
+Bots are in `lib/games/bots.ts`. They are rule-based search, with no AI service:
+- **Tic-Tac-Toe:** memoized minimax. Easy and Medium make random mistakes.
+- **Chess:** alpha-beta negamax over material and piece-square tables.
+  - Iterative deepening with a time cap per level: Easy 300 ms, Medium 600 ms, Hard 1000 ms, up to depth 3.
+  - A mate in one is always played.
+  - Easier levels choose among near-best moves and sometimes blunder.
+- **Dama:** alpha-beta search (depth 1, 3 or 5) on material plus advancement.
+- **Block Drop:** `BlockDropCpu` ranks every rotation and column of the current piece (height, holes, bumpiness, lines), then steers the piece there at the level's speed. Lines it clears send garbage to the player.
+
+Chess and Dama searches run in `bot.worker.ts` through `botRunner.ts`, so the board and clocks stay smooth while the computer thinks. If a Worker can't start, the search runs inline instead.
+
+## Chess clocks
+
+Clock data:
+- Time controls are in `lib/games/clock.ts`: none, 3+2, 5+0, 10+0, 15+10.
+- Columns added by `20261115_chat_game_clocks.sql`: `time_base_ms`, `time_increment_ms`, `clock_one_ms`, `clock_two_ms`, `turn_started_at`.
+
+The server owns the clocks:
+- `submit_chat_game_move` charges the mover `now() - turn_started_at` and then adds the increment.
+- White's first move is free: `turn_started_at` stays null until then.
+- A move made with no time left ends the game as `result = 'timeout'`.
+- `claim_chat_game_timeout` lets either player end a game once the side to move has run out.
+
+The client side:
+- `GameOverlay` shows the clocks using the skew measured from `chat_games_server_now()`.
+- When the shown time hits zero it calls `claim_chat_game_timeout`, retrying every 1.6 s until the server agrees.
+- Solo chess uses the same rules with local clocks; the computer's thinking time counts against its own clock.

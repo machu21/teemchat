@@ -278,7 +278,10 @@
 .activeChatContainer {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* Take the space left under the drawer header. height: 100% made it as tall
+     as the whole drawer, so long chats pushed the message input off screen. */
+  flex: 1;
+  min-height: 0;
 }
 
 .activeChatHeader {
@@ -451,6 +454,7 @@
 
 .messagesScrollArea {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
   display: flex;

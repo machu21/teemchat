@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
-import { authenticateCompanionRequest, checkCompanionQuota, formatWindowReset } from '@/lib/companionAuth';
+import {
+  AI_ADDON_REQUIRED_MESSAGE,
+  AI_UNAVAILABLE_MESSAGE,
+  authenticateCompanionRequest,
+  checkCompanionQuota,
+  formatWindowReset,
+} from '@/lib/companionAuth';
 import { COMPANION_REPLY_SCHEMA, buildSystemPrompt } from '@/lib/companion/prompt';
 import { normalizeWorldContext, oneLine, parseCompanionReply } from '@/lib/companion/normalize';
 import {
@@ -65,8 +71,9 @@ export async function POST(req: NextRequest) {
     if (!auth.ok) return auth.response;
     const { user, supabase } = auth;
 
-    const body = await req.json();
-    const { userName, userMessage, recentHistory = [] } = (body && typeof body === 'object' ? body : {}) as {
+    const rawBody = await req.json();
+    const body = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
+    const { userName, userMessage, recentHistory = [] } = body as {
       userName?: unknown;
       userMessage?: unknown;
       recentHistory?: unknown;
@@ -89,7 +96,9 @@ export async function POST(req: NextRequest) {
         response: quota.limitType === 'window'
           ? `You've used your AI messages for this 5-hour window. Your limit resets ${formatWindowReset(quota.resetsAt)}.`
           : quota.isTrial
-          ? "You've used your 5 free AI messages. Get the AI add-on to keep chatting — 60 messages every 5 hours."
+          ? AI_ADDON_REQUIRED_MESSAGE
+          : quota.limitType === 'unavailable'
+          ? AI_UNAVAILABLE_MESSAGE
           : "I've reached my daily energy limit (50/50 messages). Energy recharges at midnight UTC! Let's chat again tomorrow.",
         quotaExceeded: true,
         upgradeRequired: quota.isTrial,

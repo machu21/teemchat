@@ -29,6 +29,13 @@ export interface ChatGameRow {
   result: GameResult | null;
   createdAt: string;
   updatedAt: string;
+  /** Chess clock: 0 = untimed. */
+  timeBaseMs: number;
+  timeIncMs: number;
+  clockOneMs: number | null;
+  clockTwoMs: number | null;
+  /** When the side to move's clock started (ISO), or null when not running. */
+  turnStartedAt: string | null;
 }
 
 const STATUSES: GameStatus[] = ['invited', 'active', 'finished', 'declined', 'abandoned'];
@@ -39,6 +46,7 @@ export function isGameKind(v: unknown): v is GameKind {
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /** Maps a `chat_games` row from the database; null when it is malformed. */
 export function rowFromDb(raw: unknown): ChatGameRow | null {
@@ -66,6 +74,11 @@ export function rowFromDb(raw: unknown): ChatGameRow | null {
     result: RESULTS.includes(r.result as GameResult) ? (r.result as GameResult) : null,
     createdAt: str(r.created_at) ?? new Date(0).toISOString(),
     updatedAt: str(r.updated_at) ?? new Date(0).toISOString(),
+    timeBaseMs: num(r.time_base_ms) ?? 0,
+    timeIncMs: num(r.time_increment_ms) ?? 0,
+    clockOneMs: num(r.clock_one_ms),
+    clockTwoMs: num(r.clock_two_ms),
+    turnStartedAt: str(r.turn_started_at),
   };
 }
 

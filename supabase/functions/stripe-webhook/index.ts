@@ -92,6 +92,41 @@ serve(async (req: Request) => {
             .eq("stripe_subscription_id", subscriptionId);
           if (error) throw error;
         }
+
+        // Record or update the invoice log in billing_invoices
+        try {
+          let userId = invoice.metadata?.userId || invoice.subscription_details?.metadata?.userId;
+          if (!userId && subscriptionId) {
+            const { data: sub } = await supabaseAdmin
+              .from("user_subscriptions")
+              .select("user_id")
+              .eq("stripe_subscription_id", subscriptionId)
+              .maybeSingle();
+            userId = sub?.user_id;
+          }
+          if (!userId && invoice.customer) {
+            const { data: sub } = await supabaseAdmin
+              .from("user_subscriptions")
+              .select("user_id")
+              .eq("stripe_customer_id", invoice.customer as string)
+              .maybeSingle();
+            userId = sub?.user_id;
+          }
+
+          if (userId && invoice.id) {
+            await supabaseAdmin.from("billing_invoices").upsert({
+              user_id: userId,
+              stripe_invoice_id: invoice.id,
+              amount_cents: invoice.amount_paid ?? invoice.total ?? 0,
+              currency: invoice.currency ?? "usd",
+              status: invoice.status === "paid" ? "paid" : "open",
+              invoice_pdf: invoice.invoice_pdf || null,
+              paid_at: invoice.status === "paid" ? new Date().toISOString() : null,
+            }, { onConflict: "stripe_invoice_id" });
+          }
+        } catch (invoiceErr) {
+          console.warn("Failed to record billing invoice:", invoiceErr);
+        }
         break;
       }
 

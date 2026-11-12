@@ -27,6 +27,8 @@ vi.mock('@/lib/companionAuth', () => ({
   authenticateCompanionRequest: mocks.authenticate,
   checkCompanionQuota: mocks.quota,
   formatWindowReset: () => 'soon',
+  AI_ADDON_REQUIRED_MESSAGE: 'add-on required',
+  AI_UNAVAILABLE_MESSAGE: 'unavailable',
 }));
 
 vi.mock('@google/genai', () => ({
@@ -98,6 +100,13 @@ describe('POST /api/meetings/notes', () => {
     const res = await POST(req(validBody));
     expect(res.status).toBe(402);
     expect((await res.json()).upgradeRequired).toBe(true);
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 without calling the AI when the quota check is unavailable', async () => {
+    mocks.quota.mockResolvedValueOnce({ allowed: false, isTrial: false, limitType: 'unavailable' });
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(503);
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 

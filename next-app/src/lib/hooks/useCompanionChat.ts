@@ -45,7 +45,7 @@ export interface CompanionChatMessage {
   screenshot?: string;
   /** Labels for actions the companion took (e.g. "Leading you to Crystal Bay") */
   chips?: string[];
-  /** Trial used up: show the AI add-on payment buttons under this reply. */
+  /** No paid AI add-on: show the payment buttons under this reply. */
   upgrade?: boolean;
 }
 
@@ -225,6 +225,18 @@ export function useCompanionChat({ userId, userName, getWorld, onReply, onRemind
       });
 
       const data = await res.json().catch(() => ({}));
+      if (res.status === 402 && data.upgradeRequired) {
+        // AI is paid-only: the server refused, so offer the add-on instead of a reply.
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.message || 'AI features are part of the paid AI Companion add-on.',
+            upgrade: true,
+          },
+        ]);
+        return;
+      }
       if (!res.ok) {
         const reason =
           res.status === 401 || res.status === 403

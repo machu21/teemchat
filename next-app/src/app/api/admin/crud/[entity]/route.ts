@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Apply simple equality filters from query params
     url.searchParams.forEach((value, key) => {
-      if (!['page', 'limit', 'sortBy', 'sortOrder', 'search'].includes(key)) {
+      if (!['page', 'limit', 'sortBy', 'sortOrder', 'search'].includes(key) && /^[a-zA-Z0-9_]+$/.test(key)) {
         query = query.eq(key, value);
       }
     });

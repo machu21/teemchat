@@ -8,8 +8,8 @@ import { AI_ADDON_PRICES, AiAddonInterval, startAiAddonCheckout } from '@/lib/se
 import styles from './AiUpgradePrompt.module.css';
 
 /**
- * Payment buttons shown under the companion's reply once the 5 free AI messages
- * are used. Opens Stripe Checkout (system browser in the Android app); hidden in
+ * Payment buttons shown under the companion's reply when the account has no paid
+ * AI add-on. Opens Stripe Checkout (system browser in the Android app); hidden in
  * the iOS app, where Apple requires in-app purchase.
  */
 export function AiUpgradePrompt() {

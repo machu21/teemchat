@@ -3,7 +3,7 @@
  *
  * During the beta, every registered (non-guest) account gets Member features for free;
  * the AI add-on is the only paid product and is enforced server-side
- * (check_and_increment_ai_usage). Flip BETA_FREE_MEMBERSHIP to false when the
+ * (authenticateCompanionRequest + check_and_increment_ai_usage; no free AI trial). Flip BETA_FREE_MEMBERSHIP to false when the
  * paid Member plan launches.
  */
 export const BETA_FREE_MEMBERSHIP = true;

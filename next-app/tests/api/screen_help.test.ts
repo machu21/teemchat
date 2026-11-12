@@ -30,12 +30,14 @@ vi.mock('@google/genai', () => ({
 // 4. Mock @supabase/supabase-js
 const mockGetUser = vi.fn();
 const mockRpc = vi.fn();
+const mockSubscription = vi.fn();
 
 const mockSupabase = {
   auth: {
     getUser: mockGetUser,
   },
   rpc: mockRpc,
+  from: vi.fn(() => ({ select: () => ({ eq: () => ({ maybeSingle: mockSubscription }) }) })),
 };
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -86,6 +88,12 @@ describe('POST /api/companion/screen-help', () => {
         return Promise.resolve({ data: { allowed: true }, error: null });
       }
       return Promise.resolve({ data: null, error: null });
+    });
+
+    // Default caller holds a paid, active AI add-on
+    mockSubscription.mockResolvedValue({
+      data: { status: 'active', has_ai_addon: true, current_period_end: null },
+      error: null,
     });
 
     mockGenerateContent.mockResolvedValue({
@@ -208,8 +216,52 @@ describe('POST /api/companion/screen-help', () => {
     });
   });
 
+  describe('Paid AI add-on gate', () => {
+    const blockedRows: Array<[string, { data: unknown; error: unknown }]> = [
+      ['no subscription row', { data: null, error: null }],
+      ['a subscription without the AI add-on', { data: { status: 'active', has_ai_addon: false, current_period_end: null }, error: null }],
+      ['a canceled add-on', { data: { status: 'canceled', has_ai_addon: true, current_period_end: null }, error: null }],
+      ['a past-due add-on', { data: { status: 'past_due', has_ai_addon: true, current_period_end: null }, error: null }],
+      ['an expired add-on period', { data: { status: 'active', has_ai_addon: true, current_period_end: '2020-01-01T00:00:00Z' }, error: null }],
+      ['a failed subscription lookup', { data: null, error: { message: 'db down' } }],
+    ];
+
+    it.each(blockedRows)('returns 402 and never calls the AI for %s', async (_label, row) => {
+      mockSubscription.mockResolvedValue(row);
+
+      const res = await POST(
+        new NextRequest('http://localhost:3000/api/companion/screen-help', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer valid-user-token' },
+          body: JSON.stringify(validPayload()),
+        })
+      );
+      expect(res.status).toBe(402);
+      const data = await res.json();
+      expect(data.upgradeRequired).toBe(true);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when the quota RPC errors', async () => {
+      mockRpc.mockImplementation(() => Promise.resolve({ data: null, error: { message: 'rpc failed' } }));
+
+      const res = await POST(
+        new NextRequest('http://localhost:3000/api/companion/screen-help', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer valid-user-token' },
+          body: JSON.stringify(validPayload()),
+        })
+      );
+      const data = await res.json();
+      expect(data.quotaExceeded).toBe(true);
+      expect(data.upgradeRequired).toBe(false);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Daily Quota Exhaustion', () => {
-    it('returns status 200 with quotaExceeded: true for trial accounts', async () => {
+    it('returns quotaExceeded with the purchase prompt when the quota RPC reports no add-on', async () => {
       mockRpc.mockImplementation((rpcName: string) => {
         if (rpcName === 'check_and_increment_ai_usage') {
           return Promise.resolve({ data: { allowed: false, is_trial: true }, error: null });
@@ -231,7 +283,7 @@ describe('POST /api/companion/screen-help', () => {
 
       const data = await res.json();
       expect(data.quotaExceeded).toBe(true);
-      expect(data.response).toContain("used your 5 free AI messages");
+      expect(data.response).toContain('paid AI Companion add-on');
       expect(data.upgradeRequired).toBe(true);
       expect(mockGenerateContent).not.toHaveBeenCalled();
     });

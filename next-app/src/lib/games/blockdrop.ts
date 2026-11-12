@@ -42,6 +42,22 @@ export function mulberry32(seed: number) {
   };
 }
 
+/** True when piece `p` fits on `grid` (cells above the top count as free). */
+export function fitsGrid(grid: number[], p: { kind: PieceKind; rot: number; x: number; y: number }): boolean {
+  return pieceCells(p.kind, p.rot).every(([cx, cy]) => {
+    const x = p.x + cx;
+    const y = p.y + cy;
+    if (x < 0 || x >= COLS || y >= ROWS) return false;
+    return y < 0 || grid[y * COLS + x] === 0;
+  });
+}
+
+/** Spawn position for a piece kind. */
+export function spawnOf(kind: PieceKind): { kind: PieceKind; rot: number; x: number; y: number } {
+  const size = kind === 'I' ? 4 : kind === 'O' ? 2 : 3;
+  return { kind, rot: 0, x: Math.floor((COLS - size) / 2), y: kind === 'I' ? -1 : 0 };
+}
+
 export interface ActivePiece {
   kind: PieceKind;
   rot: number;
@@ -51,6 +67,8 @@ export interface ActivePiece {
 
 export interface LockEvent {
   cleared: number;
+  /** Row indexes (before collapsing) that were cleared, for a flash effect. */
+  rows?: number[];
   /** Garbage lines to send to the opponent. */
   sent: number;
   over: boolean;
@@ -67,6 +85,8 @@ export class BlockDrop {
   lines = 0;
   over = false;
   pendingGarbage = 0;
+  /** Increments every time a new piece spawns. */
+  pieceId = 0;
   private bag: PieceKind[] = [];
   private rng: () => number;
   private fallMs = 0;
@@ -98,20 +118,15 @@ export class BlockDrop {
   }
 
   fits(p: ActivePiece): boolean {
-    return pieceCells(p.kind, p.rot).every(([cx, cy]) => {
-      const x = p.x + cx;
-      const y = p.y + cy;
-      if (x < 0 || x >= COLS || y >= ROWS) return false;
-      return y < 0 || this.grid[y * COLS + x] === 0;
-    });
+    return fitsGrid(this.grid, p);
   }
 
   private spawn() {
     const kind = this.queue.shift()!;
     this.queue.push(this.draw());
-    const size = kind === 'I' ? 4 : kind === 'O' ? 2 : 3;
-    const piece: ActivePiece = { kind, rot: 0, x: Math.floor((COLS - size) / 2), y: kind === 'I' ? -1 : 0 };
+    const piece: ActivePiece = spawnOf(kind);
     this.fallMs = 0;
+    this.pieceId++;
     if (!this.fits(piece)) {
       this.active = null;
       this.over = true;
@@ -205,6 +220,10 @@ export class BlockDrop {
     this.active = null;
 
     let cleared = 0;
+    const rows: number[] = [];
+    for (let y = 0; y < ROWS; y++) {
+      if (this.grid.slice(y * COLS, y * COLS + COLS).every((v) => v !== 0)) rows.push(y);
+    }
     for (let y = ROWS - 1; y >= 0; y--) {
       const row = this.grid.slice(y * COLS, y * COLS + COLS);
       if (row.every((v) => v !== 0)) {
@@ -229,7 +248,7 @@ export class BlockDrop {
 
     if (toppedOut) this.over = true;
     else this.spawn();
-    return { cleared, sent, over: this.over };
+    return { cleared, rows, sent, over: this.over };
   }
 
   /** Pushes `n` garbage rows (one hole each) up from the bottom. True when blocks spill off the top. */

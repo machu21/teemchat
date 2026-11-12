@@ -1250,7 +1250,6 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
                 <li><CheckIcon size={16} color="#10B981" /> Rooms of up to 50 people</li>
                 <li><CheckIcon size={16} color="#10B981" /> World decorator &amp; custom outfits</li>
                 <li><CheckIcon size={16} color="#10B981" /> Screen sharing &amp; video calls</li>
-                <li><CheckIcon size={16} color="#10B981" /> 5 free AI Companion messages</li>
               </ul>
 
               <NeoButton
