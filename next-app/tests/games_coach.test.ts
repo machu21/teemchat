@@ -122,6 +122,16 @@ describe('AI Game Coach — Socratic Tic-Tac-Toe Guide', () => {
   });
 });
 
+describe('AI Game Coach — finished Tic-Tac-Toe', () => {
+  it('reports on a won board that still has empty squares', () => {
+    const won = { board: ['X', 'X', 'X', '', 'O', 'O', '', '', ''] } as Parameters<typeof analyzeTttCoach>[0];
+    const before = { board: ['X', 'X', '', '', 'O', 'O', '', '', ''] } as Parameters<typeof analyzeTttCoach>[0];
+    const report = analyzeTttCoach(won, 'X', before);
+    expect(report.clue).toBeNull();
+    expect(report.lastMoveReview?.grade).toBe('best');
+  });
+});
+
 describe('AI Game Coach — Block Drop Stack Coach', () => {
   it('diagnoses covered holes and stack health without giving cheat placements', () => {
     const grid = Array(COLS * ROWS).fill(0);

@@ -124,6 +124,8 @@
     border-radius: 0;
     box-shadow: none;
     padding-bottom: env(safe-area-inset-bottom);
+    /* Boards here are as wide as the screen allows: a scrollbar coming or going must not resize them. */
+    scrollbar-gutter: stable;
   }
 
   .topBar {
@@ -684,47 +686,54 @@
 
 .tttGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Fixed, equal tracks: minmax(0, 1fr) stops a cell's contents from widening
+     its column or row, so every square is the same size, marked or empty. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 8px;
   aspect-ratio: 1;
 }
 
 .cell {
   position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
   border: 2px solid var(--g-ink);
   border-radius: 10px;
   background: #fff;
   color: var(--g-ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
   box-shadow: 3px 3.5px 0 var(--g-ink);
   padding: 0;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+  font: inherit;
+  line-height: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 0.15s ease;
+}
+
+/* Marks are laid over the square, so they never take part in its sizing. */
+.cell > svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
 }
 
 .cell:disabled { cursor: default; }
 
 @media (hover: hover) {
-  .cell:not(:disabled):hover {
-    background: #fffbeb;
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2.5px 0 var(--g-ink);
-  }
+  .cell:not(:disabled):hover { background: #fffbeb; }
 }
 
 .cellX { color: #db2777; }
 .cellO { color: #2563eb; }
 
-.cellWin {
-  background: var(--g-ink);
-  transform: translate(2px, 2px);
-  box-shadow: none;
-}
-
-.cellWin.cellX { color: #f9a8d4; }
-.cellWin.cellO { color: #93c5fd; }
+/* The winning line changes colour only: same border, shadow and position as every other square. */
+.cellWin { background: #fde047; }
 
 .ghost {
   opacity: 0;
@@ -900,13 +909,14 @@
   position: relative;
   width: 100%;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
   justify-content: center;
 }
 
 .dropWell {
   position: relative;
+  flex-shrink: 0;
   padding: 5px;
   border: 2px solid var(--card-border);
   border-radius: 10px;
@@ -916,7 +926,8 @@
 
 .dropCanvas {
   display: block;
-  width: clamp(150px, min(52vw, calc((100dvh - 290px) / 2)), 300px);
+  /* As wide as the two side columns and the height of the screen allow. */
+  width: clamp(132px, min(calc(100vw - 196px), calc((100dvh - 330px) / 2)), 300px);
   height: auto;
   aspect-ratio: 1 / 2;
   border-radius: 4px;
@@ -949,11 +960,18 @@
   color: var(--text-muted);
 }
 
+.panelName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .panelValue {
   display: block;
   font-size: 1rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .nextCanvas {
@@ -981,6 +999,11 @@
   color: var(--g-ink);
 }
 
+.incoming .panelLabel { color: var(--g-ink); }
+
+/* Always in the layout, so the column does not jump when garbage arrives. */
+.incomingIdle { opacity: 0.45; }
+
 .countdown {
   position: absolute;
   inset: 5px;
@@ -1000,15 +1023,42 @@
   animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
+/* "T-Spin Double", "Combo 3"... shown over the well for a moment. */
+.dropCallout {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  max-width: calc(100% - 14px);
+  padding: 4px 8px;
+  border: 2px solid #000;
+  border-radius: 8px;
+  background: var(--g-accent);
+  color: var(--g-ink);
+  box-shadow: 3px 3.5px 0 #000;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: calloutIn 0.2s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes calloutIn {
+  from { transform: translateX(-50%) scale(0.7); opacity: 0.4; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
 .pad {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   width: min(100%, 340px);
 }
 
 .padBtn {
-  min-height: 48px;
+  min-height: 46px;
+  padding: 0 4px;
   border: 2px solid var(--card-border);
   border-radius: 10px;
   background: var(--card-inner);
@@ -1017,8 +1067,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
   cursor: pointer;
-  touch-action: manipulation;
+  /* Held buttons must not scroll, zoom or open the long-press menu. */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -1028,7 +1085,13 @@
   box-shadow: none;
 }
 
+.padHold {
+  background: #fde047;
+  color: var(--g-ink);
+}
+
 .padDrop {
+  grid-column: span 2;
   background: var(--g-accent);
   color: var(--g-ink);
 }
@@ -1042,6 +1105,16 @@
 
 @media (hover: none) {
   .keysHint { display: none; }
+}
+
+/* Narrow phones: slimmer side columns leave the well as much room as possible. */
+@media (max-width: 420px) {
+  .dropStage { gap: 6px; }
+  .dropSide { width: 62px; gap: 6px; }
+  .dropCanvas { width: clamp(132px, min(calc(100vw - 176px), calc((100dvh - 330px) / 2)), 300px); }
+  .panel { padding: 4px; }
+  .panelLabel { font-size: 0.52rem; letter-spacing: 0.03em; }
+  .panelValue { font-size: 0.8rem; }
 }
 
 /* ===================== Picker ===================== */
@@ -1807,10 +1880,111 @@
   flex-shrink: 0;
 }
 
+/* Block Drop right-sidebar Opponent / Computer Screen card */
+.oppScreenCard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card-inner);
+  color: var(--text-main);
+  box-shadow: var(--g-shadow);
+}
+
+.oppScreenHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.oppScreenIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.oppScreenAvatar {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 1.5px 1.5px 0 var(--card-border);
+}
+
+.oppScreenTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oppScreenBadge {
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border: 1.5px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--g-accent);
+  color: var(--g-ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.oppScreenBody {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+
+.oppScreenWell {
+  flex-shrink: 0;
+  padding: 4px;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--g-ink);
+  box-shadow: 3px 3.5px 0 var(--card-border);
+}
+
+.oppScreenCanvas {
+  display: block;
+  width: 136px;
+  height: auto;
+  aspect-ratio: 1 / 2;
+  border-radius: 3px;
+  background: var(--g-ink);
+}
+
+.oppScreenStats {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .oppScreenCanvas {
+    width: 104px;
+  }
+}
+
 @media (max-width: 360px) {
   .tiles { grid-template-columns: 1fr; }
   .tileArt { height: 70px; }
-  .dropSide { width: 80px; }
   .clock { min-width: 64px; font-size: 0.95rem; }
 }
 
@@ -1824,6 +1998,7 @@
   .tile,
   .btn,
   .cell,
+  .dropCallout,
   .evalBarFillWhite {
     animation: none !important;
     transition: none !important;

@@ -4,7 +4,7 @@
 export const SITE_NAME = 'TeemChat';
 export const SITE_TITLE = 'TeemChat - 16-Bit Proximity Virtual Space';
 export const SITE_DESCRIPTION =
-  'A collaborative 16-bit virtual space with spatial proximity voice, Supabase Realtime, customizable pixel avatars, and an interactive AI Companion.';
+  'A collaborative 16-bit virtual space with spatial proximity voice, real-time multiplayer sync, customizable pixel avatars, and an interactive AI Companion.';
 
 export const SITE_KEYWORDS = [
   'TeemChat',

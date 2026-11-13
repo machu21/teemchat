@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 
       <h2>Who processes it for us</h2>
       <ul>
-        <li><strong>Supabase</strong>: database, login and real-time features.</li>
+        <li><strong>Cloud database & authentication infrastructure</strong>: encrypted database storage, authentication, and real-time multiplayer synchronization.</li>
         <li><strong>LiveKit</strong>: live voice and video.</li>
         <li><strong>Google (Gemini API)</strong>: generates AI Companion and Screen Help replies.</li>
         <li><strong>Stripe</strong>: payments and billing.</li>

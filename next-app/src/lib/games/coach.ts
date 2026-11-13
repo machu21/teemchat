@@ -799,7 +799,8 @@ export function analyzeTttCoach(
   prevState?: TttState | null
 ): TttCoachReport {
   const turn = tttNextMark(state);
-  const empty = state.board.map((c, i) => (c === '' ? i : -1)).filter((i) => i >= 0);
+  // A won board has no moves left to score, even with empty squares.
+  const empty = tttWinner(state) ? [] : state.board.map((c, i) => (c === '' ? i : -1)).filter((i) => i >= 0);
 
   const scored = empty
     .map((cell) => {

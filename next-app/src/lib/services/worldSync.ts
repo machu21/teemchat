@@ -169,8 +169,8 @@ export class WorldSyncService {
           const y = Number(data.y ?? raw.y ?? 300);
           const direction = (data.direction as 'up' | 'down' | 'left' | 'right') || 'down';
           const isMoving = Boolean(data.is_moving ?? raw.is_moving ?? false);
-          const name = String(data.display_name || raw.display_name || 'Explorer');
-          const cfg = normalizeAvatarConfig(data.avatar_config || raw.avatar_config);
+          const rawName = data.display_name ?? raw.display_name;
+          const rawCfg = data.avatar_config ?? raw.avatar_config;
 
           const actualUserId = senderUserId || effectiveId;
           const existing = this.remotePlayers.get(effectiveId);
@@ -181,15 +181,19 @@ export class WorldSyncService {
             existing.y = y;
             existing.direction = direction;
             existing.isMoving = isMoving;
-            existing.displayName = name;
-            existing.avatarConfig = cfg;
+            if (typeof rawName === 'string' && rawName) {
+              existing.displayName = rawName;
+            }
+            if (rawCfg && typeof rawCfg === 'object') {
+              existing.avatarConfig = normalizeAvatarConfig(rawCfg);
+            }
             existing.lastSeen = Date.now();
           } else {
             this.remotePlayers.set(effectiveId, {
               userId: actualUserId,
               clientId: senderClientId,
-              displayName: name,
-              avatarConfig: cfg,
+              displayName: String(rawName || 'Explorer'),
+              avatarConfig: normalizeAvatarConfig(rawCfg),
               x,
               y,
               direction,
@@ -550,16 +554,25 @@ export class WorldSyncService {
     this.channel.send({
       type: 'broadcast',
       event: 'movement',
-      payload: {
-        user_id: this.currentUserId,
-        client_id: this.clientInstanceId,
-        display_name: this.displayName,
-        avatar_config: this.avatarConfig,
-        x,
-        y,
-        direction,
-        is_moving: isMoving,
-      },
+      payload: force
+        ? {
+            user_id: this.currentUserId,
+            client_id: this.clientInstanceId,
+            display_name: this.displayName,
+            avatar_config: this.avatarConfig,
+            x,
+            y,
+            direction,
+            is_moving: isMoving,
+          }
+        : {
+            user_id: this.currentUserId,
+            client_id: this.clientInstanceId,
+            x,
+            y,
+            direction,
+            is_moving: isMoving,
+          },
     });
   }
 

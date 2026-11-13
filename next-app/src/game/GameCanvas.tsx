@@ -92,7 +92,7 @@ interface GameCanvasProps {
   zombieMode?: boolean;
 }
 
-export const GameCanvas: React.FC<GameCanvasProps> = ({
+const GameCanvasInner: React.FC<GameCanvasProps> = ({
   space,
   session,
   syncService,
@@ -1109,3 +1109,5 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     </div>
   );
 };
+
+export const GameCanvas = React.memo(GameCanvasInner);

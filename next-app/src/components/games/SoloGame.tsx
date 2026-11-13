@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './ChatGames.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
 import type { AvatarConfig } from '@/lib/models/avatar';
@@ -9,6 +9,7 @@ import { DIFFICULTIES, tttBotMove, type Difficulty } from '@/lib/games/bots';
 import { requestChessCoach, requestChessMove, requestDamaCoach, requestDamaMove } from '@/lib/games/botRunner';
 import {
   analyzeTttCoach,
+  type BlockDropCoachReport,
   type ClueLevel,
   type CoachMode,
   type LastMoveReview,
@@ -23,7 +24,12 @@ import type { BoardMove, ChessCoachHint, DamaCoachHint, Seat, TttCoachHint } fro
 import { TicTacToeBoard } from './TicTacToeBoard';
 import { ChessBoard, ChessCaptured, MoveList } from './ChessBoard';
 import { DamaBoard, DamaCaptured, damaLost } from './DamaBoard';
-import { BlockDropGame, type BlockDropEnd } from './BlockDropGame';
+import {
+  BlockDropCoachCard,
+  BlockDropGame,
+  BlockDropOpponentCard,
+  type BlockDropEnd,
+} from './BlockDropGame';
 
 type TurnKind = Exclude<GameKind, 'blockdrop'>;
 type Side = Exclude<Seat, null>;
@@ -292,8 +298,9 @@ function SoloTurnGame({
   })();
 
   const check = kind === 'chess' && !finished ? chessOutcome(parseChess(state)) : null;
+  // The pill stays when the game ends, so the board under it does not jump.
   const status = finished
-    ? null
+    ? { text: 'Game over' }
     : turn === BOT
       ? { text: 'Computer is thinking', thinking: true }
       : { text: check && !check.over && check.check ? 'Check! Your move' : 'Your move', tone: 'mine' as const };
@@ -317,6 +324,8 @@ function SoloTurnGame({
       kind={kind}
       subtitle={`Solo practice · ${DIFFICULTIES.find((d) => d.id === difficulty)?.label}${timed ? ` · ${timeControl.label}` : ''}`}
       onBack={leave}
+      backLabel="Games"
+      backIcon="gamepad"
       top={player('two')}
       bottom={player('one')}
       status={status}
@@ -371,6 +380,9 @@ function SoloBlockDrop({ difficulty, coachMode: initialCoachMode = 'live', me, o
   const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31));
   const [end, setEnd] = useState<BlockDropEnd | null>(null);
   const [coachMode, setCoachMode] = useState<CoachMode>(initialCoachMode);
+  const [oppStats, setOppStats] = useState({ score: 0, lines: 0 });
+  const [coachReport, setCoachReport] = useState<BlockDropCoachReport | null>(null);
+  const oppCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const name = botName(difficulty);
 
   const result: ResultInfo | null = end
@@ -386,6 +398,8 @@ function SoloBlockDrop({ difficulty, coachMode: initialCoachMode = 'live', me, o
       onBack={() => {
         if (end || window.confirm('Leave this game? It will not be saved.')) onBack();
       }}
+      backLabel="Games"
+      backIcon="gamepad"
       topAction={
         <button
           type="button"
@@ -397,7 +411,24 @@ function SoloBlockDrop({ difficulty, coachMode: initialCoachMode = 'live', me, o
           <span>Coach: {coachMode === 'off' ? 'Off' : 'On'}</span>
         </button>
       }
-      status={end ? null : { text: `${GAME_INFO.blockdrop.blurb}` }}
+      status={{ text: end ? 'Game over' : GAME_INFO.blockdrop.blurb }}
+      coach={
+        <BlockDropCoachCard
+          mode={coachMode}
+          onModeChange={setCoachMode}
+          report={coachReport}
+        />
+      }
+      below={
+        <BlockDropOpponentCard
+          name={name}
+          bot
+          canvasRef={oppCanvasRef}
+          score={end ? end.oppScore : oppStats.score}
+          lines={end ? end.oppLines : oppStats.lines}
+          finished={Boolean(end)}
+        />
+      }
       result={result}
       onRematch={onRematch}
       actions={
@@ -413,6 +444,9 @@ function SoloBlockDrop({ difficulty, coachMode: initialCoachMode = 'live', me, o
           playing
           opponent={{ kind: 'cpu', difficulty, name }}
           coachMode={coachMode}
+          oppCanvasRef={oppCanvasRef}
+          onOppStatsChange={setOppStats}
+          onCoachReportChange={setCoachReport}
           onEnd={setEnd}
         />
       </div>

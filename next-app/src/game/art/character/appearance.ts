@@ -99,11 +99,16 @@ export function hash32(input: string): number {
   return h >>> 0;
 }
 
+const appearanceKeyCache = new WeakMap<Appearance, string>();
+const configAppearanceCache = new WeakMap<AvatarConfig, Appearance>();
+
 /**
  * Stable cache key for character sprites.
  */
 export function appearanceKey(a: Appearance): string {
-  return [
+  const cached = appearanceKeyCache.get(a);
+  if (cached !== undefined) return cached;
+  const key = [
     a.skin,
     a.hair,
     a.hairStyle,
@@ -120,12 +125,17 @@ export function appearanceKey(a: Appearance): string {
     a.facialHair ?? '-',
     a.bottomStyle ?? '-',
   ].join('|');
+  appearanceKeyCache.set(a, key);
+  return key;
 }
 
 /**
  * Maps legacy and extended TeemChat AvatarConfig to Habblaud Appearance.
  */
 export function configToAppearance(config: AvatarConfig): Appearance {
+  const cached = configAppearanceCache.get(config);
+  if (cached) return cached;
+
   const isFemale = config.gender === 'female';
   const look: 'f' | 'm' = isFemale ? 'f' : 'm';
 
@@ -170,7 +180,7 @@ export function configToAppearance(config: AvatarConfig): Appearance {
   const shoes = config.shoesColor || '#2B2B33';
   const accessoryColor = ACC_COLORS[accessory]?.[0] || '#2B2B33';
 
-  return {
+  const appearance: Appearance = {
     skin: config.skinColor || '#f6cfb0',
     hair: config.hairColor || '#3f2c22',
     hairStyle,
@@ -187,4 +197,6 @@ export function configToAppearance(config: AvatarConfig): Appearance {
     facialHair: config.facialHair || 'none',
     bottomStyle,
   };
+  configAppearanceCache.set(config, appearance);
+  return appearance;
 }

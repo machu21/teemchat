@@ -50,6 +50,8 @@ import { PlayerStatus } from '@/lib/world/emotes';
 import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
 import { supabase } from '@/lib/supabase';
 import { AppIcon } from '@/components/icons/AppIcon';
+import { GamePicker, type GameStartOptions } from '@/components/games/GamePicker';
+import { SoloGame } from '@/components/games/SoloGame';
 
 const SPACES_PAGE_SIZE = 8;
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -85,6 +87,8 @@ export default function DashboardPage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [companionOpen, setCompanionOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const [gamesPickerOpen, setGamesPickerOpen] = useState(false);
+  const [soloGame, setSoloGame] = useState<(GameStartOptions & { round: number }) | null>(null);
   const [myStatus, setMyStatus] = useState<PlayerStatus>('available');
   const [myMeetings, setMyMeetings] = useState<MeetingWithSpace[]>([]);
   const meetingsUserId = session?.id;
@@ -499,6 +503,17 @@ export default function DashboardPage() {
           >
             <AppIcon name="message" /> Messenger
             {unreadCount > 0 && <span className={styles.floatingBadge}>{unreadCount}</span>}
+          </NeoButton>
+
+          <NeoButton
+            variant="secondary"
+            size="sm"
+            onClick={() => setGamesPickerOpen(true)}
+            title="Play Games vs Computer (with AI Coach)"
+            className={styles.headerMessengerBtn}
+            aria-pressed={gamesPickerOpen || Boolean(soloGame)}
+          >
+            <AppIcon name="gamepad" /> Games
           </NeoButton>
 
           <NeoButton
@@ -1334,6 +1349,32 @@ export default function DashboardPage() {
           </p>
         </div>
       </NeoModal>
+
+      <GamePicker
+        isOpen={gamesPickerOpen}
+        mode="solo"
+        onClose={() => setGamesPickerOpen(false)}
+        onStart={(opts) => {
+          setGamesPickerOpen(false);
+          setSoloGame((prev) => ({ ...opts, round: (prev?.round ?? 0) + 1 }));
+        }}
+      />
+
+      {soloGame && session && (
+        <SoloGame
+          key={soloGame.round}
+          kind={soloGame.kind}
+          difficulty={soloGame.difficulty}
+          timeControl={soloGame.timeControl}
+          coachMode={soloGame.coachMode}
+          me={{ name: session.displayName, avatar: session.avatarConfig }}
+          onBack={() => {
+            setSoloGame(null);
+            setGamesPickerOpen(true);
+          }}
+          onRematch={() => setSoloGame((prev) => (prev ? { ...prev, round: prev.round + 1 } : prev))}
+        />
+      )}
     </div>
   );
 }

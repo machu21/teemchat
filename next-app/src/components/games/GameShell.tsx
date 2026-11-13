@@ -4,6 +4,7 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './ChatGames.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import type { AvatarConfig } from '@/lib/models/avatar';
 import { GAME_INFO, type GameKind } from '@/lib/games/types';
@@ -111,6 +112,8 @@ interface ShellProps {
   result?: ResultInfo | null;
   onRematch?: () => void;
   rematchLabel?: string;
+  backLabel?: string;
+  backIcon?: IconName;
 }
 
 export function GameShell({
@@ -129,6 +132,8 @@ export function GameShell({
   result,
   onRematch,
   rematchLabel = 'Play again',
+  backLabel = 'Back to chat',
+  backIcon = 'message',
 }: ShellProps) {
   const info = GAME_INFO[kind];
   // The result card can be closed to look at the final position; a new result shows it again.
@@ -169,8 +174,8 @@ export function GameShell({
             <span className={styles.topSub}>{subtitle}</span>
           </span>
           {topAction}
-          <button type="button" className={`${styles.btn} ${styles.btnOnAccent}`} onClick={onBack} aria-label="Back to chat" title="Back to chat (Esc)">
-            <AppIcon name="message" /> <span className={styles.hideNarrow}>Back to chat</span>
+          <button type="button" className={`${styles.btn} ${styles.btnOnAccent}`} onClick={onBack} aria-label={backLabel} title={`${backLabel} (Esc)`}>
+            <AppIcon name={backIcon} /> <span className={styles.hideNarrow}>{backLabel}</span>
           </button>
         </div>
 

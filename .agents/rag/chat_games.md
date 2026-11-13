@@ -40,8 +40,14 @@ Games played inside any DM or group chat in `MessengerDrawer`.
   - A side with no legal move loses.
   - 80 quiet king plies is a draw.
 - **Block Drop:** original falling-block versus (do not call it or style it after any trademarked game).
-  - Both players share a seed, so they get the same 7-bag piece sequence.
-  - Clearing 2, 3 or 4 lines sends 1, 2 or 4 garbage lines.
+  - Both players share a seed, so they get the same 7-bag piece sequence. Five next pieces are shown.
+  - Hold: one stored piece, swapped at most once per piece drop (`hold()`, `canHold`).
+  - Rotation uses standard wall-kick tables (`kicksFor`), five tests per rotation.
+  - Gravity is delta-time based; a resting piece locks after `LOCK_DELAY_MS` (500 ms). A move or rotation restarts that delay, at most `MAX_LOCK_RESETS` (15) times per new low row. `softDrop()` never locks; `hardDrop()` locks at once.
+  - T-spins use the three-corner rule (`tSpinType`) and only count when the last successful move was a rotation. Mini when just one corner beside the T's point is filled, unless the last (long) kick was used.
+  - Clearing 2, 3 or 4 lines sends 1, 2 or 4 garbage lines. T-spin single/double/triple send 2/4/6, a mini double sends 1, back-to-back (quad or T-spin after another) adds 1, and combos add up to 4.
+  - A lock can send more than 4 lines; the component splits it into `garbage` messages of at most 4, because receivers clamp each message to 0..4.
+  - Input lives in `BlockDropGame.tsx`: one RAF loop does held-key auto-repeat (`DAS_MS`, `ARR_MS`), soft drop, gravity and drawing. Keyboard repeat events are ignored. The well's canvas backing store follows its CSS size and the device pixel ratio through a `ResizeObserver`.
   - The player who tops out reports their own loss. The RPC refuses `winner = caller` for Block Drop.
 
 ## Trust model

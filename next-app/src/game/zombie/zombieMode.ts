@@ -31,7 +31,7 @@ import type {
   ZombieStrike,
   ZombieSyncService,
 } from '@/lib/services/zombieSync';
-import type { AbilityFlag, Bag, ConsumableId, DifficultyCoefficients, ItemCategory, PlayerVitals, SpecialZombieType, StatusEffect } from './survival/types';
+import type { AbilityFlag, Bag, ConsumableId, DifficultyCoefficients, ItemCategory, PlayerVitals, SpecialZombieType, StatusEffect, StatusEffectKind } from './survival/types';
 import { ABILITY_FLAGS, ZOMBIE_KINDS } from './survival/types';
 import { addEffect, damageVitals, freshVitals, tickVitals } from './survival/vitals';
 import { BAG_MAX_WEIGHT, BAG_SLOTS, ITEM_DEFS, addToBag, bagWeight, freshLoadout, useConsumable as applyConsumable } from './survival/inventory';
@@ -1482,54 +1482,101 @@ export class ZombieMode {
   }
 
   private emitHud() {
+    const hp = Math.ceil(this.hp);
+    const alive = this.sim.zombies.length;
+    const dead = this.deadTimer > 0;
+    const hunger = Math.ceil(this.vitals.hunger);
+    const hydration = Math.ceil(this.vitals.hydration);
+    const stamina = Math.ceil(this.vitals.stamina);
+    const threat = Math.floor(this.difficulty.level);
+    const clock = clockLabel(this.tod);
+
+    let chasing = 0;
+    const specialSet = new Set<SpecialZombieType>();
+    for (const z of this.sim.zombies) {
+      const active = z.state === 'chase' || z.state === 'attack';
+      if (active) chasing++;
+      if ((active || z.locked) && isSpecial(z)) {
+        specialSet.add(zombieKind(z) as SpecialZombieType);
+      }
+    }
+
+    const spec = WEAPONS[this.weapon];
+    const mag = spec.ammo ? (this.mags[this.weapon] ?? 0) : null;
+    const reserve = spec.ammo ? this.reserve[spec.ammo] : 0;
+    const reloading = this.reloadT >= 0 && spec.reloadSeconds > 0 ? Math.min(1, this.reloadT / spec.reloadSeconds) : 0;
+
+    let ownedKey = '';
+    for (const w of WEAPON_ORDER) {
+      if (this.owned.has(w)) ownedKey += (ownedKey ? ',' : '') + w;
+    }
+
+    const entProgress = this.barricade ? Math.min(1, this.barricade.t / BARRICADE_SECONDS) : 0;
+    const entKey = this.nearEntrance
+      ? `${this.nearEntrance.e.kind}${this.nearEntrance.e.state}${this.nearEntrance.e.planks}${Math.round(entProgress * 10)}`
+      : '-';
+
+    const effects: StatusEffectKind[] = [];
+    for (const e of this.vitals.effects) {
+      if (e.kind === 'regen' && this.vitals.health >= PLAYER_MAX_HP) continue;
+      if (!effects.includes(e.kind)) effects.push(e.kind);
+    }
+
+    let supplyKey = '';
+    for (const it of this.bag.items) {
+      supplyKey += `${it.def}:${it.qty};`;
+    }
+
+    const specials = [...specialSet];
+    const wk = `${spec.id}${mag}/${reserve}/${Math.round(reloading * 10)}|${ownedKey}|${this.toast?.text ?? ''}`;
+    const vk = `${hunger}|${hydration}|${Math.round(stamina / 2)}|${this.vitals.exhausted}|${this.sprinting}|${this.sprintLatched}|${effects.join(',')}|${supplyKey}|${threat}|${specials.join(',')}|${this.safe}`;
+    const key = `${hp}|${alive}|${this.kills}|${chasing}|${dead}|${entKey}|${wk}|${vk}|${clock}|${this.flashlightOn}`;
+    if (key === this.hudKey) return;
+    this.hudKey = key;
+
     const hud: ZombieHud = {
-      hp: Math.ceil(this.hp),
+      hp,
       maxHp: PLAYER_MAX_HP,
-      alive: this.sim.zombies.length,
+      alive,
       kills: this.kills,
-      chasing: this.sim.zombies.filter((z) => z.state === 'chase' || z.state === 'attack').length,
-      dead: this.deadTimer > 0,
+      chasing,
+      dead,
       entrance: this.nearEntrance
         ? {
-            kind: this.nearEntrance.e.kind,
-            state: this.nearEntrance.e.state,
-            planks: this.nearEntrance.e.planks,
-            progress: this.barricade ? Math.min(1, this.barricade.t / BARRICADE_SECONDS) : 0,
-          }
+          kind: this.nearEntrance.e.kind,
+          state: this.nearEntrance.e.state,
+          planks: this.nearEntrance.e.planks,
+          progress: entProgress,
+        }
         : null,
-      weapon: this.weaponHud(),
+      weapon: {
+        id: spec.id,
+        name: spec.name,
+        icon: spec.icon,
+        mag,
+        magSize: spec.magSize,
+        reserve,
+        reloading,
+      },
       owned: WEAPON_ORDER.filter((w) => this.owned.has(w)),
       toast: this.toast?.text ?? null,
       toastIcon: this.toast?.icon ?? null,
-      hunger: Math.ceil(this.vitals.hunger),
-      hydration: Math.ceil(this.vitals.hydration),
-      stamina: Math.ceil(this.vitals.stamina),
+      hunger,
+      hydration,
+      stamina,
       exhausted: this.vitals.exhausted,
       sprinting: this.sprinting,
       sprintLatched: this.sprintLatched,
-      effects: [...new Set(this.vitals.effects.map((e) => e.kind))].filter((k) => k !== 'regen' || this.vitals.health < PLAYER_MAX_HP),
+      effects,
       supplies: this.supplyHud(),
       bagFill: Math.min(1, Math.max(this.bag.items.length / this.bag.slots, bagWeight(this.bag) / this.bag.maxWeight)),
-      threat: Math.floor(this.difficulty.level),
-      specials: [
-        ...new Set(
-          this.sim.zombies
-            .filter((z) => isSpecial(z) && (z.state === 'chase' || z.state === 'attack' || z.locked))
-            .map((z) => zombieKind(z) as SpecialZombieType)
-        ),
-      ],
+      threat,
+      specials,
       safe: this.safe,
-      clock: clockLabel(this.tod),
+      clock,
       phase: this.tod.phase,
       flashlight: this.flashlightOn,
     };
-    const ent = hud.entrance;
-    const wk = `${hud.weapon.id}${hud.weapon.mag}/${hud.weapon.reserve}/${Math.round(hud.weapon.reloading * 10)}|${hud.owned.join(',')}|${hud.toast ?? ''}`;
-    const entKey = ent ? `${ent.kind}${ent.state}${ent.planks}${Math.round(ent.progress * 10)}` : '-';
-    const vk = `${hud.hunger}|${hud.hydration}|${Math.round(hud.stamina / 2)}|${hud.exhausted}|${hud.sprinting}|${hud.sprintLatched}|${hud.effects.join(',')}|${hud.supplies.map((s) => s.id + s.qty).join(',')}|${hud.threat}|${hud.specials.join(',')}|${hud.safe}`;
-    const key = `${hud.hp}|${hud.alive}|${hud.kills}|${hud.chasing}|${hud.dead}|${entKey}|${wk}|${vk}|${hud.clock}|${hud.flashlight}`;
-    if (key === this.hudKey) return;
-    this.hudKey = key;
     this.onHudChanged?.(hud);
   }
 

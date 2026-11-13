@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState, useRef, useCallback, use, useMemo } from 'react';
+import nextDynamic from 'next/dynamic';
 import styles from './world.module.css';
 import { useSessionStore } from '@/stores/session';
 import { useSocialStore } from '@/stores/social';
@@ -28,7 +29,6 @@ import { MapSelector } from '@/components/neo/MapSelector';
 import { Gender, defaultMaleAvatarConfig, defaultFemaleAvatarConfig, AvatarConfig } from '@/lib/models/avatar';
 import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIdentity';
 import { FriendService } from '@/lib/services/friends';
-import { CallOverlayContainer } from '@/components/call/CallOverlayContainer';
 import { playMuteSound, playUnmuteSound, playChatNotificationSound } from '@/lib/utils/callSounds';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -43,11 +43,9 @@ import {
 import { ScreenHelpBar } from '@/components/companion/ScreenHelpBar';
 import { useSpaceCompanion } from '@/lib/hooks/useSpaceCompanion';
 import { useChatAutoScroll } from '@/lib/hooks/useChatAutoScroll';
-import { ControlsSettingsModal } from '@/components/settings/ControlsSettingsModal';
 import { AiUpgradePrompt } from '@/components/billing/AiUpgradePrompt';
 import { SafetyGate } from '@/components/safety/SafetyGate';
 import { PlayerSafetyPanel } from '@/components/safety/PlayerSafetyPanel';
-import { SafetySettingsModal } from '@/components/settings/SafetySettingsModal';
 import safetyStyles from '@/components/safety/Safety.module.css';
 import { cachedTextFilter, isHiddenUser, useSafeText, useSafetyStore } from '@/stores/safety';
 import { NO_RESTRICTIONS, SafetyService, SpaceRestrictions } from '@/lib/services/safety';
@@ -56,16 +54,37 @@ import { useWorldSocial } from '@/lib/hooks/useWorldSocial';
 import { EmoteWheel } from '@/components/world/EmoteWheel';
 import { StatusPicker } from '@/components/world/StatusPicker';
 import { RoomHud } from '@/components/world/RoomHud';
-import { WhiteboardModal } from '@/components/world/WhiteboardModal';
-import { StickyNoteEditor } from '@/components/world/StickyNoteEditor';
 import { FocusTimer } from '@/components/world/FocusTimer';
-import { MeetingsPanel } from '@/components/world/MeetingsPanel';
-import { MeetingNotesModal } from '@/components/world/MeetingNotesModal';
 import { useMeetings } from '@/lib/hooks/useMeetings';
 import boardStyles from '@/components/world/Boards.module.css';
 import worldStyles from '@/components/world/WorldSocial.module.css';
-import { TaskBoardModal, PlayerOption } from '@/components/world/TaskBoardModal';
+import type { PlayerOption } from '@/components/world/TaskBoardModal';
 import { INTERACTABLES, ObjectRef, StickyNoteProps, parseStickyNote } from '@/lib/world/interactables';
+
+const CallOverlayContainer = nextDynamic(() =>
+  import('@/components/call/CallOverlayContainer').then((m) => m.CallOverlayContainer)
+);
+const ControlsSettingsModal = nextDynamic(() =>
+  import('@/components/settings/ControlsSettingsModal').then((m) => m.ControlsSettingsModal)
+);
+const SafetySettingsModal = nextDynamic(() =>
+  import('@/components/settings/SafetySettingsModal').then((m) => m.SafetySettingsModal)
+);
+const WhiteboardModal = nextDynamic(() =>
+  import('@/components/world/WhiteboardModal').then((m) => m.WhiteboardModal)
+);
+const StickyNoteEditor = nextDynamic(() =>
+  import('@/components/world/StickyNoteEditor').then((m) => m.StickyNoteEditor)
+);
+const MeetingsPanel = nextDynamic(() =>
+  import('@/components/world/MeetingsPanel').then((m) => m.MeetingsPanel)
+);
+const MeetingNotesModal = nextDynamic(() =>
+  import('@/components/world/MeetingNotesModal').then((m) => m.MeetingNotesModal)
+);
+const TaskBoardModal = nextDynamic(() =>
+  import('@/components/world/TaskBoardModal').then((m) => m.TaskBoardModal)
+);
 import { canHear } from '@/lib/world/rooms';
 import { AppIcon } from '@/components/icons/AppIcon';
 import type { IconName } from '@/lib/icons';
@@ -179,6 +198,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   const [isUploadingTrack, setIsUploadingTrack] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const playlistModalOpenRef = useRef(playlistModalOpen);
+  useEffect(() => {
+    playlistModalOpenRef.current = playlistModalOpen;
+  }, [playlistModalOpen]);
 
   useEffect(() => {
     const updateState = () => {
@@ -196,11 +219,17 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     PlaylistService.onStateChanged = updateState;
     PlaylistService.onTimeUpdate = (curr, dur) => {
-      setPlaylistState((prev) => ({
-        ...prev,
-        currentTime: curr,
-        duration: dur,
-      }));
+      if (!playlistModalOpenRef.current) return;
+      setPlaylistState((prev) => {
+        if (Math.floor(prev.currentTime) === Math.floor(curr) && prev.duration === dur) {
+          return prev;
+        }
+        return {
+          ...prev,
+          currentTime: curr,
+          duration: dur,
+        };
+      });
     };
 
     updateState();
@@ -951,6 +980,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     companionHandleProximity(distances);
   }, [getLiveKit, companionHandleProximity]);
 
+  const handleRemotePlayerTap = useCallback(
+    (player: { userId: string; displayName: string; avatarConfig: AvatarConfig; x: number; y: number }) => {
+      setSelectedPlayer(player);
+      setFriendReqSent(false);
+      setFriendReqStatus(null);
+    },
+    []
+  );
+
   const handleCompanionTap = companionOnTap;
 
   if (session && space && joinBlocked) {
@@ -1055,11 +1093,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           initialTargetZone={zombieMode ? null : initialTargetZone}
           isMicOn={isMicOn}
           onCompanionTap={companionEnabled ? handleCompanionTap : undefined}
-          onRemotePlayerTap={(player) => {
-            setSelectedPlayer(player);
-            setFriendReqSent(false);
-            setFriendReqStatus(null);
-          }}
+          onRemotePlayerTap={handleRemotePlayerTap}
           onProximityChanged={handleProximityChanged}
           hiddenUserIds={hiddenUserIds}
           textFilter={canvasTextFilter}
@@ -1438,7 +1472,14 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
         <button
           className={`${styles.dockBtn} ${playlistState.isPlaying ? styles.dockBtnActive : ''}`}
-          onClick={() => setPlaylistModalOpen(true)}
+          onClick={() => {
+            setPlaylistState((prev) => ({
+              ...prev,
+              currentTime: PlaylistService.currentTime,
+              duration: PlaylistService.duration,
+            }));
+            setPlaylistModalOpen(true);
+          }}
           title={
             playlistState.currentTrack
               ? `Music: ${playlistState.currentTrack.title} (${

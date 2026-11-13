@@ -685,7 +685,28 @@ export class WorldGame {
     }
   }
 
+  private clearCanvasLayers() {
+    if (this.preRenderedMap) {
+      this.preRenderedMap.width = 0;
+      this.preRenderedMap.height = 0;
+      this.preRenderedMap = null;
+    }
+    for (const c of this.roofLayers.values()) {
+      c.width = 0;
+      c.height = 0;
+    }
+    this.roofLayers.clear();
+    for (const c of this.levelLayers.values()) {
+      c.width = 0;
+      c.height = 0;
+    }
+    this.levelLayers.clear();
+  }
+
   start() {
+    this.clearCanvasLayers();
+    this.chunkedMap?.dispose();
+    this.chunkedMap = null;
     // Large maps stream their ground layer in chunks; small maps keep one pre-render
     const config = getMapConfig(this.space.mapTheme);
     if (config.renderChunk) {
@@ -693,8 +714,6 @@ export class WorldGame {
     } else {
       this.preRenderedMap = createPreRenderedWorldMap(this.space.mapTheme);
     }
-    this.roofLayers.clear();
-    this.levelLayers.clear();
     this.isRunning = true;
     this.lastTime = performance.now();
     this.loop(this.lastTime);
@@ -931,22 +950,24 @@ export class WorldGame {
         // Passive companion that follows this remote player
         if (state.companion) {
           let rc = this.remoteCompanions.get(id);
-          const model: CompanionModel = {
-            id: `remote-${id}`,
-            userId: state.userId || id,
-            name: state.companion.name,
-            persona: '',
-            companionType: state.companion.species,
-            species: state.companion.species,
-            avatarStyle: 'default',
-            learnedContext: {},
-            isActive: true,
-          };
-          if (!rc) {
-            rc = new CompanionEntity(avatar.x + 28, avatar.y + 6, model, { passive: true });
-            this.remoteCompanions.set(id, rc);
-          } else if (rc.companion.name !== model.name || rc.species !== model.species) {
-            rc.setModel(model);
+          if (!rc || rc.companion.name !== state.companion.name || rc.species !== state.companion.species) {
+            const model: CompanionModel = {
+              id: `remote-${id}`,
+              userId: state.userId || id,
+              name: state.companion.name,
+              persona: '',
+              companionType: state.companion.species,
+              species: state.companion.species,
+              avatarStyle: 'default',
+              learnedContext: {},
+              isActive: true,
+            };
+            if (!rc) {
+              rc = new CompanionEntity(avatar.x + 28, avatar.y + 6, model, { passive: true });
+              this.remoteCompanions.set(id, rc);
+            } else {
+              rc.setModel(model);
+            }
           }
           rc.update(dt, avatar.x, avatar.y);
         } else if (this.remoteCompanions.has(id)) {
@@ -1012,7 +1033,11 @@ export class WorldGame {
   /** Roof layer, rendered the first time the building is on screen (cities have too many to pre-render). */
   private getRoofLayer(b: BuildingDefinition): HTMLCanvasElement | null {
     const cached = this.roofLayers.get(b.id);
-    if (cached) return cached;
+    if (cached) {
+      this.roofLayers.delete(b.id);
+      this.roofLayers.set(b.id, cached);
+      return cached;
+    }
     const layer = document.createElement('canvas');
     layer.width = b.footprint.w;
     layer.height = b.footprint.h;
@@ -1022,13 +1047,26 @@ export class WorldGame {
     lctx.scale(2, 2);
     b.renderRoof(lctx, b.footprint.w / 2, b.footprint.h / 2);
     this.roofLayers.set(b.id, layer);
+    while (this.roofLayers.size > 48) {
+      const oldestKey = this.roofLayers.keys().next().value as string;
+      const oldest = this.roofLayers.get(oldestKey);
+      if (oldest) {
+        oldest.width = 0;
+        oldest.height = 0;
+      }
+      this.roofLayers.delete(oldestKey);
+    }
     return layer;
   }
 
   /** Upper-floor layer, rendered on first visit. */
   private getLevelLayer(level: UpperLevel): HTMLCanvasElement | null {
     const cached = this.levelLayers.get(level.id);
-    if (cached) return cached;
+    if (cached) {
+      this.levelLayers.delete(level.id);
+      this.levelLayers.set(level.id, cached);
+      return cached;
+    }
     const layer = document.createElement('canvas');
     layer.width = level.bounds.w;
     layer.height = level.bounds.h;
@@ -1038,6 +1076,15 @@ export class WorldGame {
     lctx.scale(2, 2);
     level.render(lctx, level.bounds.w / 2, level.bounds.h / 2);
     this.levelLayers.set(level.id, layer);
+    while (this.levelLayers.size > 12) {
+      const oldestKey = this.levelLayers.keys().next().value as string;
+      const oldest = this.levelLayers.get(oldestKey);
+      if (oldest) {
+        oldest.width = 0;
+        oldest.height = 0;
+      }
+      this.levelLayers.delete(oldestKey);
+    }
     return layer;
   }
 
@@ -1787,6 +1834,7 @@ export class WorldGame {
     this.zombieMode = null;
     this.chunkedMap?.dispose();
     this.chunkedMap = null;
+    this.clearCanvasLayers();
 
     if (this.onKeyDownBound) {
       window.removeEventListener('keydown', this.onKeyDownBound);

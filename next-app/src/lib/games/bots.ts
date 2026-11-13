@@ -358,8 +358,13 @@ export class BlockDropCpu {
       if (t && a.rot !== t.rot) moved = g.rotate(1);
       else if (t && a.x !== t.x) moved = g.move(t.x > a.x ? 1 : -1);
       if (!moved) {
-        const ev = this.level.hardDrop ? g.hardDrop() : g.softDrop();
-        if (ev) events.push(ev);
+        if (this.level.hardDrop) {
+          const ev = g.hardDrop();
+          if (ev) events.push(ev);
+        } else {
+          // Easier levels ride the piece down and let the lock delay place it.
+          g.softDrop();
+        }
       }
     }
 

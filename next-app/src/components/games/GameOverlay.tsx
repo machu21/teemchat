@@ -13,7 +13,12 @@ import { GameShell, useNow, type PlayerInfo, type ResultInfo, type StatusInfo } 
 import { TicTacToeBoard } from './TicTacToeBoard';
 import { ChessBoard, ChessCaptured, MoveList, chessStatus } from './ChessBoard';
 import { DamaBoard, DamaCaptured, damaLost, damaStatus } from './DamaBoard';
-import { BlockDropGame, type BlockDropEnd, type BlockDropEvents } from './BlockDropGame';
+import {
+  BlockDropGame,
+  BlockDropOpponentCard,
+  type BlockDropEnd,
+  type BlockDropEvents,
+} from './BlockDropGame';
 
 interface Props {
   gameId: string;
@@ -42,6 +47,8 @@ export function GameOverlay({ gameId, meId, nameOf, avatarOf, onClose, onRematch
   const [live, setLive] = useState<GameLive | null>(null);
   /** Local clock minus server clock, so countdowns match the server. */
   const [skew, setSkew] = useState(0);
+  const [oppDropStats, setOppDropStats] = useState({ score: 0, lines: 0 });
+  const oppDropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const eventsRef = useRef<BlockDropEvents>({});
   const onRowChangeRef = useRef(onRowChange);
   useEffect(() => {
@@ -255,7 +262,8 @@ export function GameOverlay({ gameId, meId, nameOf, avatarOf, onClose, onRematch
       case 'abandoned':
         return { text: 'Invite cancelled.', tone: 'alert' };
       case 'finished':
-        return null;
+        // Turn-based boards keep the pill, so the board under it does not jump on the last move.
+        return info.realtime ? null : { text: 'Game over' };
       case 'active': {
         if (info.realtime) return seat ? null : { text: 'Watching live' };
         if (flagged) return { text: 'Time is up', tone: 'alert' };
@@ -327,6 +335,8 @@ export function GameOverlay({ gameId, meId, nameOf, avatarOf, onClose, onRematch
               opponent={{ kind: 'remote', id: opponentId, name: opponentId ? nameOf(opponentId) : 'Opponent', live, subscribe }}
               watch={watch}
               coachMode="off"
+              oppCanvasRef={oppDropCanvasRef}
+              onOppStatsChange={setOppDropStats}
               onEnd={onBlockDropEnd}
             />
           </div>
@@ -351,7 +361,20 @@ export function GameOverlay({ gameId, meId, nameOf, avatarOf, onClose, onRematch
       bottom={showPlayers ? player(bottomSide) : undefined}
       status={status}
       notice={notice}
-      below={row.game === 'chess' && row.status !== 'invited' ? <MoveList state={row.state} /> : undefined}
+      below={
+        row.game === 'chess' && row.status !== 'invited' ? (
+          <MoveList state={row.state} />
+        ) : row.game === 'blockdrop' && isActive && seat !== null ? (
+          <BlockDropOpponentCard
+            name={opponentId ? nameOf(opponentId) : 'Opponent'}
+            bot={false}
+            canvasRef={oppDropCanvasRef}
+            score={oppDropStats.score}
+            lines={oppDropStats.lines}
+            finished={row.status === 'finished'}
+          />
+        ) : undefined
+      }
       result={result}
       onRematch={seat ? () => onRematch(row.game, { baseMs: row.timeBaseMs, incMs: row.timeIncMs }) : undefined}
       rematchLabel="Rematch"

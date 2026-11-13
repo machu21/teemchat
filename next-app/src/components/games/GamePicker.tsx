@@ -22,20 +22,29 @@ export interface GameStartOptions {
 
 interface Props {
   isOpen: boolean;
-  busy: boolean;
-  error: string | null;
+  busy?: boolean;
+  error?: string | null;
+  /** 'solo' from the Dashboard header (vs Computer); 'friend' from Chat (challenge only). */
+  mode?: GameMode;
   /** Who a challenge goes to: the friend's name or "the group". */
-  friendLabel: string;
-  /** False when challenges are not possible (blocked user). Solo still works. */
-  friendAvailable: boolean;
+  friendLabel?: string;
+  /** False when challenges are not possible (blocked user). */
+  friendAvailable?: boolean;
   onClose: () => void;
   onStart: (opts: GameStartOptions) => void;
 }
 
-const TAGS: Record<GameKind, string[]> = {
+const SOLO_TAGS: Record<GameKind, string[]> = {
   chess: ['Turn-based', 'Solo Coach'],
   dama: ['Filipino rules', 'Solo Coach'],
   tictactoe: ['Quick', 'Solo Coach'],
+  blockdrop: ['Live', 'Versus'],
+};
+
+const FRIEND_TAGS: Record<GameKind, string[]> = {
+  chess: ['Turn-based', 'Fair match'],
+  dama: ['Filipino rules', 'Fair match'],
+  tictactoe: ['Quick', 'Fair match'],
   blockdrop: ['Live', 'Versus'],
 };
 
@@ -86,9 +95,17 @@ function TileArt({ kind }: { kind: GameKind }) {
   );
 }
 
-export function GamePicker({ isOpen, busy, error, friendLabel, friendAvailable, onClose, onStart }: Props) {
+export function GamePicker({
+  isOpen,
+  busy = false,
+  error = null,
+  mode = 'friend',
+  friendLabel = 'your friend',
+  friendAvailable = true,
+  onClose,
+  onStart,
+}: Props) {
   const [kind, setKind] = useState<GameKind | null>(null);
-  const [mode, setMode] = useState<GameMode>('solo');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [timeControl, setTimeControl] = useState<TimeControl>(UNTIMED);
   const [coachMode, setCoachMode] = useState<CoachMode>('live');
@@ -99,14 +116,20 @@ export function GamePicker({ isOpen, busy, error, friendLabel, friendAvailable, 
     if (isOpen) setKind(null);
   }
 
-  const effectiveMode: GameMode = friendAvailable ? mode : 'solo';
+  const effectiveMode: GameMode = mode;
   const info = kind ? GAME_INFO[kind] : null;
+  const tagsByKind = effectiveMode === 'solo' ? SOLO_TAGS : FRIEND_TAGS;
+  const modalTitle = info ? info.title : effectiveMode === 'solo' ? 'Games vs Computer' : 'Challenge to a game';
 
   return (
-    <NeoModal isOpen={isOpen} onClose={onClose} title={info ? info.title : 'Play a game'} maxWidth="460px">
+    <NeoModal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="460px">
       {!kind && (
         <>
-          <p className={styles.pickerIntro}>Practice against the computer with AI coaching, or challenge {friendLabel} in a fair match.</p>
+          <p className={styles.pickerIntro}>
+            {effectiveMode === 'solo'
+              ? 'Practice against the computer with AI coaching.'
+              : `Challenge ${friendLabel} in a fair match (no AI).`}
+          </p>
           <div className={styles.tiles}>
             {GAME_KINDS.map((k) => {
               const g = GAME_INFO[k];
@@ -119,7 +142,7 @@ export function GamePicker({ isOpen, busy, error, friendLabel, friendAvailable, 
                     <span className={styles.tileName}>{g.title}</span>
                     <span className={styles.tileBlurb}>{g.blurb}</span>
                     <span className={styles.tileTags}>
-                      {TAGS[k].map((t) => (
+                      {tagsByKind[k].map((t) => (
                         <span key={t} className={styles.tag}>
                           {t}
                         </span>
@@ -137,32 +160,18 @@ export function GamePicker({ isOpen, busy, error, friendLabel, friendAvailable, 
         <div className={`${styles.root} ${styles.setup} ${ACCENT_CLASS[kind]}`}>
           <div>
             <span className={styles.setupLabel}>Opponent</span>
-            <div className={styles.modes} role="radiogroup" aria-label="Opponent">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={effectiveMode === 'solo'}
-                className={`${styles.mode} ${effectiveMode === 'solo' ? styles.modeOn : ''}`}
-                onClick={() => setMode('solo')}
-              >
-                <span className={styles.modeTitle}>
-                  <AppIcon name="bot" /> Computer
-                </span>
-                <span className={styles.modeSub}>Solo practice with AI Coach</span>
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={effectiveMode === 'friend'}
-                disabled={!friendAvailable}
-                className={`${styles.mode} ${effectiveMode === 'friend' ? styles.modeOn : ''}`}
-                onClick={() => setMode('friend')}
-              >
-                <span className={styles.modeTitle}>
-                  <AppIcon name="users" /> Challenge
-                </span>
-                <span className={styles.modeSub}>{friendAvailable ? `Fair match vs ${friendLabel} (no AI)` : 'Unavailable in this chat'}</span>
-              </button>
+            <div className={`${styles.mode} ${styles.modeOn}`}>
+              <span className={styles.modeTitle}>
+                <AppIcon name={effectiveMode === 'solo' ? 'bot' : 'users'} />{' '}
+                {effectiveMode === 'solo' ? 'Computer' : `Challenge ${friendLabel}`}
+              </span>
+              <span className={styles.modeSub}>
+                {effectiveMode === 'solo'
+                  ? 'Solo practice with AI Coach'
+                  : friendAvailable
+                  ? `Fair match vs ${friendLabel} (no AI)`
+                  : 'Unavailable in this chat'}
+              </span>
             </div>
           </div>
 
@@ -242,7 +251,7 @@ export function GamePicker({ isOpen, busy, error, friendLabel, friendAvailable, 
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary}`}
-              disabled={busy}
+              disabled={busy || (effectiveMode === 'friend' && !friendAvailable)}
               onClick={() =>
                 onStart({
                   kind,

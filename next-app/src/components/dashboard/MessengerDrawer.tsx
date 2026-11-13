@@ -29,7 +29,6 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { toIconName, type IconName } from '@/lib/icons';
 import { GamePicker, type GameStartOptions } from '@/components/games/GamePicker';
-import { SoloGame } from '@/components/games/SoloGame';
 import { GameOverlay } from '@/components/games/GameOverlay';
 import { GameInviteCard } from '@/components/games/GameInviteCard';
 import { ChatGameService } from '@/lib/services/chatGames';
@@ -108,9 +107,6 @@ export function MessengerDrawer() {
   const [gameRows, setGameRows] = useState<Record<string, ChatGameRow>>({});
   const [now] = useState(() => Date.now());
   const activeGameId = openGame && openGame.chatId === activeChat?.id ? openGame.gameId : null;
-  /** A local game against the computer; `round` remounts it for "play again". */
-  const [soloGame, setSoloGame] = useState<(GameStartOptions & { chatId: string; round: number }) | null>(null);
-  const activeSolo = soloGame && soloGame.chatId === activeChat?.id ? soloGame : null;
 
   const isInCallWithThisChat =
     callStatus === 'connected' &&
@@ -211,12 +207,6 @@ export function MessengerDrawer() {
   const handleStartGame = async (opts: GameStartOptions) => {
     if (!activeChat || !session || gameBusy) return;
     setGameError(null);
-    if (opts.mode === 'solo') {
-      setOpenGame(null);
-      setSoloGame((prev) => ({ ...opts, chatId: activeChat.id, round: (prev?.round ?? 0) + 1 }));
-      setGamePickerOpen(false);
-      return;
-    }
     setGameBusy(true);
     try {
       const row = await ChatGameService.create(activeChat.type, activeChat.id, opts.kind, initialGameState(opts.kind), {
@@ -226,7 +216,6 @@ export function MessengerDrawer() {
       rememberGameRow(row);
       await handleSendMessage(encodeInvite(row.id, opts.kind));
       setGamePickerOpen(false);
-      setSoloGame(null);
       setOpenGame({ chatId: activeChat.id, gameId: row.id });
     } catch (e) {
       setGameError(e instanceof Error ? e.message : 'Could not start the game.');
@@ -384,8 +373,8 @@ export function MessengerDrawer() {
                     setGameError(null);
                     setGamePickerOpen(true);
                   }}
-                  title="Play a game"
-                  aria-label="Play a game"
+                  title="Challenge to a game"
+                  aria-label="Challenge to a game"
                 >
                   <AppIcon name="gamepad" />
                 </button>
@@ -421,19 +410,7 @@ export function MessengerDrawer() {
             {/* Embedded Active Call Panel */}
             {isInCallWithThisChat && <InlineCallPanel />}
 
-            {activeSolo && session && (
-              <SoloGame
-                key={activeSolo.round}
-                kind={activeSolo.kind}
-                difficulty={activeSolo.difficulty}
-                timeControl={activeSolo.timeControl}
-                coachMode={activeSolo.coachMode}
-                me={{ name: session.displayName, avatar: session.avatarConfig }}
-                onBack={() => setSoloGame(null)}
-                onRematch={() => setSoloGame((prev) => (prev ? { ...prev, round: prev.round + 1 } : prev))}
-              />
-            )}
-            {!activeSolo && activeGameId && session && (
+            {activeGameId && session && (
               <GameOverlay
                 key={activeGameId}
                 gameId={activeGameId}
@@ -478,7 +455,6 @@ export function MessengerDrawer() {
                         meId={session.id}
                         now={now}
                         onOpen={() => {
-                          setSoloGame(null);
                           setOpenGame({ chatId: activeChat.id, gameId: invite.gameId });
                         }}
                       />
@@ -599,6 +575,7 @@ export function MessengerDrawer() {
 
             <GamePicker
               isOpen={gamePickerOpen}
+              mode="friend"
               busy={gameBusy}
               error={gameError}
               friendLabel={activeChat.type === 'dm' ? safeText(activeChat.title) : 'the group'}
