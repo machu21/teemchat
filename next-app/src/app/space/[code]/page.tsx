@@ -56,6 +56,7 @@ import { StatusPicker } from '@/components/world/StatusPicker';
 import { RoomHud } from '@/components/world/RoomHud';
 import { FocusTimer } from '@/components/world/FocusTimer';
 import { useMeetings } from '@/lib/hooks/useMeetings';
+import type { MeetingNote } from '@/lib/services/meetingNotes';
 import boardStyles from '@/components/world/Boards.module.css';
 import worldStyles from '@/components/world/WorldSocial.module.css';
 import type { PlayerOption } from '@/components/world/TaskBoardModal';
@@ -1235,7 +1236,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           canEdit={canEditObjects}
           safeText={safeText}
           onClose={() => setOpenObject(null)}
-          onSave={async (props) => {
+          onSave={async (props: StickyNoteProps) => {
             const ok = await SpaceService.updateWorldObject(openObject.id, { ...props });
             if (ok) worldGameRef.current?.updateObjectProperties(openObject.id, { ...props });
             return ok;
@@ -1255,7 +1256,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           canEdit
           safeText={safeText}
           onClose={() => setComposingNote(false)}
-          onSave={(props) => {
+          onSave={(props: StickyNoteProps) => {
             const game = worldGameRef.current;
             if (!game) return false;
             game.placementProperties = { ...props };
@@ -1354,7 +1355,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           canSchedule={canEditObjects}
           safeText={safeText}
           onJoin={meetings.join}
-          onOpenNote={(n) => {
+          onOpenNote={(n: MeetingNote) => {
             meetings.setPanelOpen(false);
             meetings.setOpenNote(n);
           }}
