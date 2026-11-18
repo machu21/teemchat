@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { NeoModal } from '@/components/neo/NeoModal';
 import { NeoButton } from '@/components/neo/NeoButton';
-import { REPORT_REASONS, ReportReason, SafetyService } from '@/lib/services/safety';
+import { REPORT_REASONS, ReportEvidenceItem, ReportReason, SafetyService } from '@/lib/services/safety';
 import styles from './Safety.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
 
@@ -18,6 +18,8 @@ interface ReportModalProps {
   reportedName: string;
   spaceId?: string | null;
   roomId?: string | null;
+  /** Recent decrypted message context attached to report when reporting from an E2EE chat. */
+  evidenceSnapshot?: ReportEvidenceItem[];
   /** Offer to also block after reporting. */
   onBlock?: () => Promise<void> | void;
 }
@@ -30,6 +32,7 @@ export function ReportModal({
   reportedName,
   spaceId,
   roomId,
+  evidenceSnapshot,
   onBlock,
 }: ReportModalProps) {
   const [reason, setReason] = useState<ReportReason | null>(null);
@@ -66,6 +69,7 @@ export function ReportModal({
       details,
       spaceId,
       roomId,
+      evidenceSnapshot,
     });
     setSending(false);
     if (!res.ok) {
@@ -129,6 +133,12 @@ export function ReportModal({
             onChange={(e) => setDetails(e.target.value)}
             placeholder="What did they say or do?"
           />
+          {evidenceSnapshot && evidenceSnapshot.length > 0 && (
+            <p className={styles.muted}>
+              <AppIcon name="lock" /> The last {Math.min(5, evidenceSnapshot.length)} messages from this conversation
+              will be attached securely so moderators can review this report.
+            </p>
+          )}
           {error && (
             <p className={styles.error} role="alert">
               {error}

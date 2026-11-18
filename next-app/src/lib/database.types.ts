@@ -651,6 +651,36 @@ export type Database = {
           },
         ]
       }
+      group_encryption_keys: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          encrypted_room_key: string
+          id: string
+          key_version: number
+          sender_id: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          encrypted_room_key: string
+          id?: string
+          key_version?: number
+          sender_id?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          encrypted_room_key?: string
+          id?: string
+          key_version?: number
+          sender_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_conversation_members: {
         Row: {
           conversation_id: string
@@ -1020,6 +1050,7 @@ export type Database = {
           has_ai_companion: boolean
           id: string
           is_paid: boolean
+          public_key: string | null
           status: string
           status_message: string | null
           system_role: string
@@ -1036,6 +1067,7 @@ export type Database = {
           has_ai_companion?: boolean
           id: string
           is_paid?: boolean
+          public_key?: string | null
           status?: string
           status_message?: string | null
           system_role?: string
@@ -1052,6 +1084,7 @@ export type Database = {
           has_ai_companion?: boolean
           id?: string
           is_paid?: boolean
+          public_key?: string | null
           status?: string
           status_message?: string | null
           system_role?: string
@@ -1258,6 +1291,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      space_encryption_keys: {
+        Row: {
+          created_at: string
+          encrypted_room_key: string
+          id: string
+          key_version: number
+          sender_id: string | null
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_room_key: string
+          id?: string
+          key_version?: number
+          sender_id?: string | null
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_room_key?: string
+          id?: string
+          key_version?: number
+          sender_id?: string | null
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       space_members: {
         Row: {
@@ -1780,10 +1843,41 @@ export type Database = {
           },
         ]
       }
+      user_crypto_backups: {
+        Row: {
+          created_at: string
+          encrypted_private_key: string
+          key_iv: string
+          key_salt: string
+          public_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_private_key: string
+          key_iv: string
+          key_salt: string
+          public_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_private_key?: string
+          key_iv?: string
+          key_salt?: string
+          public_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_reports: {
         Row: {
           created_at: string
           details: string | null
+          evidence_snapshot: Json | null
           id: string
           reason: string
           reported_user_id: string
@@ -1797,6 +1891,7 @@ export type Database = {
         Insert: {
           created_at?: string
           details?: string | null
+          evidence_snapshot?: Json | null
           id?: string
           reason: string
           reported_user_id: string
@@ -1810,6 +1905,7 @@ export type Database = {
         Update: {
           created_at?: string
           details?: string | null
+          evidence_snapshot?: Json | null
           id?: string
           reason?: string
           reported_user_id?: string
@@ -1996,6 +2092,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      survival_player_saves: {
+        Row: {
+          saved_at: string
+          space_id: string
+          state: Json
+          user_id: string
+          version: number
+        }
+        Insert: {
+          saved_at?: string
+          space_id: string
+          state: Json
+          user_id?: string
+          version: number
+        }
+        Update: {
+          saved_at?: string
+          space_id?: string
+          state?: Json
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      survival_rules: {
+        Row: {
+          rules: Json
+          space_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          rules?: Json
+          space_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          rules?: Json
+          space_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      survival_world_saves: {
+        Row: {
+          saved_at: string
+          saved_by: string | null
+          seq: number
+          slot: number
+          space_id: string
+          state: Json
+          version: number
+        }
+        Insert: {
+          saved_at?: string
+          saved_by?: string | null
+          seq: number
+          slot: number
+          space_id: string
+          state: Json
+          version: number
+        }
+        Update: {
+          saved_at?: string
+          saved_by?: string | null
+          seq?: number
+          slot?: number
+          space_id?: string
+          state?: Json
+          version?: number
+        }
+        Relationships: []
       }
       world_objects: {
         Row: {

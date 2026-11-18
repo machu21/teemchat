@@ -3775,3 +3775,228 @@ revoke execute on function public.check_and_increment_ai_usage(integer) from pub
 grant  execute on function public.check_and_increment_ai_usage(integer) to authenticated;
 revoke execute on function public.get_ai_usage_status(integer)          from public, anon;
 grant  execute on function public.get_ai_usage_status(integer)          to authenticated;
+
+
+-- ==============================================================================
+-- End-to-End Encryption (E2EE) Cryptographic Keys & Backups
+-- ==============================================================================
+alter table public.profiles add column if not exists public_key text;
+
+create table if not exists public.user_crypto_backups (
+  user_id uuid references public.profiles(id) on delete cascade primary key,
+  public_key text not null,
+  encrypted_private_key text not null,
+  key_salt text not null,
+  key_iv text not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter table public.user_crypto_backups enable row level security;
+
+drop policy if exists "Users can only read their own crypto backup" on public.user_crypto_backups;
+create policy "Users can only read their own crypto backup" on public.user_crypto_backups
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own crypto backup" on public.user_crypto_backups;
+create policy "Users can insert their own crypto backup" on public.user_crypto_backups
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own crypto backup" on public.user_crypto_backups;
+create policy "Users can update their own crypto backup" on public.user_crypto_backups
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own crypto backup" on public.user_crypto_backups;
+create policy "Users can delete their own crypto backup" on public.user_crypto_backups
+  for delete using (auth.uid() = user_id);
+
+
+-- ==============================================================================
+-- Phase 2 E2EE: Multi-Party Room Keys (Squads & Private Spaces) + Report Evidence
+-- ==============================================================================
+create table if not exists public.group_encryption_keys (
+  id uuid default gen_random_uuid() primary key,
+  conversation_id uuid references public.group_conversations(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  sender_id uuid references public.profiles(id) on delete set null,
+  encrypted_room_key text not null,
+  key_version int not null default 1,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(conversation_id, user_id, key_version)
+);
+
+alter table public.group_encryption_keys enable row level security;
+create index if not exists idx_group_keys_lookup on public.group_encryption_keys(conversation_id, user_id, key_version desc);
+
+drop policy if exists "Members can read own group encryption keys" on public.group_encryption_keys;
+create policy "Members can read own group encryption keys" on public.group_encryption_keys
+  for select using ((select auth.uid()) = user_id);
+
+drop policy if exists "Group members can share group encryption keys" on public.group_encryption_keys;
+create policy "Group members can share group encryption keys" on public.group_encryption_keys
+  for insert with check (
+    (select auth.uid()) = sender_id
+    and (
+      public.is_member_of_group(conversation_id)
+      or exists (
+        select 1 from public.group_conversations g
+        where g.id = conversation_id and g.created_by = (select auth.uid())
+      )
+    )
+  );
+
+drop policy if exists "Members can remove own stale group keys" on public.group_encryption_keys;
+create policy "Members can remove own stale group keys" on public.group_encryption_keys
+  for delete using ((select auth.uid()) = user_id);
+
+create table if not exists public.space_encryption_keys (
+  id uuid default gen_random_uuid() primary key,
+  space_id uuid references public.spaces(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  sender_id uuid references public.profiles(id) on delete set null,
+  encrypted_room_key text not null,
+  key_version int not null default 1,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  unique(space_id, user_id, key_version)
+);
+
+alter table public.space_encryption_keys enable row level security;
+create index if not exists idx_space_keys_lookup on public.space_encryption_keys(space_id, user_id, key_version desc);
+
+drop policy if exists "Members can read own space encryption keys" on public.space_encryption_keys;
+create policy "Members can read own space encryption keys" on public.space_encryption_keys
+  for select using ((select auth.uid()) = user_id);
+
+drop policy if exists "Space members can share space encryption keys" on public.space_encryption_keys;
+create policy "Space members can share space encryption keys" on public.space_encryption_keys
+  for insert with check (
+    (select auth.uid()) = sender_id
+    and (
+      public.is_member_of_space(space_id)
+      or exists (
+        select 1 from public.spaces s
+        where s.id = space_id and s.owner_id = (select auth.uid())
+      )
+    )
+  );
+
+drop policy if exists "Admins or owners can rotate space keys" on public.space_encryption_keys;
+create policy "Admins or owners can rotate space keys" on public.space_encryption_keys
+  for delete using (
+    public.is_admin_of_space(space_id)
+    or (select auth.uid()) = user_id
+  );
+
+alter table public.user_reports add column if not exists evidence_snapshot jsonb;
+
+-- ============================================================
+-- Zombie Survival persistence (sandbox Phase 9)
+--   survival_world_saves  : the shared world of a survival space, two
+--                           alternating slots so a bad or interrupted save
+--                           always leaves the previous one to fall back on
+--   survival_player_saves : one survivor per user per space (permadeath
+--                           deletes it)
+--   survival_rules        : the space's difficulty preset / custom rules
+-- Idempotent; RLS on every table; nothing here is in supabase_realtime
+-- (live play already syncs over broadcast channels).
+-- Guests are real auth.users rows, so every policy works for them too.
+-- ============================================================
+
+create table if not exists public.survival_world_saves (
+  space_id uuid not null references public.spaces(id) on delete cascade,
+  slot smallint not null check (slot in (0, 1)),
+  version integer not null check (version > 0),
+  -- Increases with every save; the newest valid slot wins on load
+  seq bigint not null check (seq >= 0),
+  state jsonb not null,
+  saved_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  saved_at timestamptz not null default timezone('utc'::text, now()),
+  primary key (space_id, slot),
+  -- A world save is a few hundred KB at most; refuse anything absurd
+  constraint survival_world_saves_size check (pg_column_size(state) < 4000000)
+);
+
+create table if not exists public.survival_player_saves (
+  space_id uuid not null references public.spaces(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
+  version integer not null check (version > 0),
+  state jsonb not null,
+  saved_at timestamptz not null default timezone('utc'::text, now()),
+  primary key (space_id, user_id),
+  constraint survival_player_saves_size check (pg_column_size(state) < 500000)
+);
+
+create table if not exists public.survival_rules (
+  space_id uuid primary key references public.spaces(id) on delete cascade,
+  rules jsonb not null default '{}'::jsonb,
+  updated_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  updated_at timestamptz not null default timezone('utc'::text, now()),
+  constraint survival_rules_size check (pg_column_size(rules) < 20000)
+);
+
+alter table public.survival_world_saves enable row level security;
+alter table public.survival_player_saves enable row level security;
+alter table public.survival_rules enable row level security;
+
+-- ------------------------------------------------------------ world saves
+-- Whoever can play in the space (members, or anyone in a public / unlisted
+-- space) can read and write its world: any of them may be the host. Banned
+-- users can't. Only admins can wipe it.
+drop policy if exists "Survival world saves are readable by players" on public.survival_world_saves;
+create policy "Survival world saves are readable by players" on public.survival_world_saves
+  for select using (
+    public.is_member_of_space(space_id)
+    or exists (select 1 from public.spaces s where s.id = space_id and s.visibility in ('public', 'unlisted'))
+  );
+
+drop policy if exists "Survival world saves are written by players" on public.survival_world_saves;
+create policy "Survival world saves are written by players" on public.survival_world_saves
+  for insert with check (
+    auth.uid() is not null
+    and (
+      public.is_member_of_space(space_id)
+      or exists (select 1 from public.spaces s where s.id = space_id and s.visibility in ('public', 'unlisted'))
+    )
+    and not private.has_space_restriction(space_id, auth.uid(), 'ban')
+  );
+
+drop policy if exists "Survival world saves are updated by players" on public.survival_world_saves;
+create policy "Survival world saves are updated by players" on public.survival_world_saves
+  for update using (
+    auth.uid() is not null
+    and (
+      public.is_member_of_space(space_id)
+      or exists (select 1 from public.spaces s where s.id = space_id and s.visibility in ('public', 'unlisted'))
+    )
+    and not private.has_space_restriction(space_id, auth.uid(), 'ban')
+  );
+
+drop policy if exists "Space admins can wipe survival world saves" on public.survival_world_saves;
+create policy "Space admins can wipe survival world saves" on public.survival_world_saves
+  for delete using (public.is_admin_of_space(space_id));
+
+-- ------------------------------------------------------------ player saves
+-- Your survivor is yours alone.
+drop policy if exists "Players manage their own survivor save" on public.survival_player_saves;
+create policy "Players manage their own survivor save" on public.survival_player_saves
+  for all using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ------------------------------------------------------------ rules
+drop policy if exists "Survival rules are readable by players" on public.survival_rules;
+create policy "Survival rules are readable by players" on public.survival_rules
+  for select using (
+    public.is_member_of_space(space_id)
+    or exists (select 1 from public.spaces s where s.id = space_id and s.visibility in ('public', 'unlisted'))
+  );
+
+drop policy if exists "Space admins set survival rules" on public.survival_rules;
+create policy "Space admins set survival rules" on public.survival_rules
+  for all using (
+    public.is_admin_of_space(space_id)
+    or exists (select 1 from public.spaces s where s.id = space_id and s.owner_id = auth.uid())
+  )
+  with check (
+    public.is_admin_of_space(space_id)
+    or exists (select 1 from public.spaces s where s.id = space_id and s.owner_id = auth.uid())
+  );

@@ -12,6 +12,18 @@ import type { CompanionEmote, CompanionMood } from '@/lib/companion/types';
 import { getMapConfig } from '@/game/map/mapRegistry';
 import { DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM, SURVIVAL_ZOOM_LIMITS } from '@/game/camera';
 import { ZombieHud } from '@/game/zombie/zombieMode';
+import { CharacterPanel, MoodleChips, SleepOverlay } from '@/components/world/survival/SurvivalCharacter';
+import { InventoryPanel, LootPanel, SurvivalPrompts } from '@/components/world/survival/SurvivalInventory';
+import { SurvivorCreator } from '@/components/world/survival/SurvivalCreator';
+import { CraftingPanel } from '@/components/world/survival/SurvivalCrafting';
+import { DrivingBar, VehiclePanel } from '@/components/world/survival/SurvivalVehicle';
+import { SurvivalMenu, type MenuTab } from '@/components/world/survival/SurvivalMenu';
+import { PerfOverlay } from '@/components/world/survival/SurvivalWorld';
+import type { PerfStats } from '@/game/WorldGame';
+import type { SaveStatus } from '@/lib/services/survivalSave';
+import { DEFAULT_SURVIVAL_SETTINGS, loadSurvivalSettings, saveSurvivalSettings, type SurvivalSettings } from '@/lib/settings/survivalSettings';
+import { DurabilityBar } from '@/components/world/survival/SurvivalHealth';
+import survivalStyles from '@/components/world/survival/survival.module.css';
 import type { SpecialZombieType, StatusEffectKind } from '@/game/zombie/survival/types';
 
 const EFFECT_LABELS: Record<StatusEffectKind, { icon: IconName; label: string }> = {
@@ -149,6 +161,48 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
   const doorPromptRef = useRef<HTMLDivElement | null>(null);
   const [floorInfo, setFloorInfo] = useState<FloorInfo | null>(null);
   const [zombieHud, setZombieHud] = useState<ZombieHud | null>(null);
+  const [characterOpen, setCharacterOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [craftOpen, setCraftOpen] = useState(false);
+  // Survival menu (M): map, notification log, sound / feedback settings, controls
+  const [menuTab, setMenuTab] = useState<MenuTab | null>(null);
+  useEffect(() => {
+    gameRef.current?.zombieSetMenuOpen(menuTab !== null);
+  }, [menuTab]);
+  // Survival settings are per device: read after mount (no hydration mismatch), applied to the game, saved on change
+  const [survivalSettings, setSurvivalSettings] = useState<SurvivalSettings>(DEFAULT_SURVIVAL_SETTINGS);
+  const survivalSettingsRef = useRef(survivalSettings);
+  useEffect(() => {
+    const s = loadSurvivalSettings();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device preference after mount
+    setSurvivalSettings(s);
+  }, []);
+  useEffect(() => {
+    survivalSettingsRef.current = survivalSettings;
+    gameRef.current?.zombieSetSurvivalSettings(survivalSettings);
+  }, [survivalSettings]);
+  // Save outcomes (menu) and the performance overlay feed
+  const [saveStatus, setSaveStatus] = useState<{ world: SaveStatus | null; player: SaveStatus | null }>({ world: null, player: null });
+  const [perfStats, setPerfStats] = useState<PerfStats | null>(null);
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game) return;
+    game.onPerf = survivalSettings.perf ? setPerfStats : undefined;
+  }, [survivalSettings.perf]);
+  const changeSurvivalSettings = (s: SurvivalSettings) => {
+    setSurvivalSettings(s);
+    saveSurvivalSettings(s);
+  };
+  // The game only builds the recipe list for the HUD while the crafting screen is showing
+  useEffect(() => {
+    gameRef.current?.zombieSetCraftOpen(craftOpen);
+  }, [craftOpen]);
+  /** A survivor has been started this visit (the creator says "a new survivor" after a death). */
+  const [survivorStarted, setSurvivorStarted] = useState(false);
+  // The game only builds the item list for the HUD while the inventory is showing
+  useEffect(() => {
+    gameRef.current?.zombieSetInventoryOpen(inventoryOpen);
+  }, [inventoryOpen]);
 
   // Controls settings (key bindings + touch layout), saved per device
   const bindings = useControlsStore((s) => s.bindings);
@@ -267,6 +321,13 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
     game.onDoorPromptChanged = (prompt) => setDoorPrompt(prompt);
     game.onFloorChanged = (info) => setFloorInfo(info);
     game.onZombieHud = (hud) => setZombieHud(hud);
+    game.onToggleCharacterPanel = () => setCharacterOpen((open) => !open);
+    game.onToggleInventory = () => setInventoryOpen((open) => !open);
+    game.onToggleCrafting = () => setCraftOpen((open) => !open);
+    game.onToggleMap = () => setMenuTab((t) => (t ? null : 'map'));
+    game.zombieSetSurvivalSettings(survivalSettingsRef.current);
+    game.onSaveStatus = setSaveStatus;
+    if (survivalSettingsRef.current.perf) game.onPerf = setPerfStats;
     game.onDoorPromptMove = (sx, sy) => {
       const el = doorPromptRef.current;
       if (el) el.style.transform = `translate(${Math.round(sx)}px, ${Math.round(sy)}px)`;
@@ -311,6 +372,12 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
       game.onDoorPromptMove = undefined;
       game.onFloorChanged = undefined;
       game.onZombieHud = undefined;
+      game.onToggleCharacterPanel = undefined;
+      game.onToggleInventory = undefined;
+      game.onToggleCrafting = undefined;
+      game.onToggleMap = undefined;
+      game.onSaveStatus = undefined;
+      game.onPerf = undefined;
       game.onRoomChanged = undefined;
       game.onSitChanged = undefined;
       game.onSocialAction = undefined;
@@ -744,6 +811,16 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
               <AppIcon name={PHASE_ICONS[zombieHud.phase]} />
             </span>
             <span className={styles.dayClockText}>{zombieHud.clock}</span>
+            <span
+              className={styles.weatherTag}
+              title={`${zombieHud.world.label} · ${zombieHud.world.season} · ${zombieHud.world.power ? 'power on' : 'power off'} · ${zombieHud.world.water ? 'water on' : 'water off'}`}
+              aria-label={`${zombieHud.world.label}, ${zombieHud.world.tempC} degrees`}
+            >
+              <AppIcon name={zombieHud.world.icon} />
+              {zombieHud.world.tempC}°
+              {!zombieHud.world.power && <AppIcon name="powerOff" className={styles.weatherOff} />}
+              {zombieHud.world.helicopter && <AppIcon name="helicopter" className={styles.weatherWarn} />}
+            </span>
             <button
               type="button"
               className={`${styles.flashlightBtn} ${zombieHud.flashlight ? styles.flashlightOn : ''}`}
@@ -754,7 +831,95 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
             >
               <AppIcon name="flashlight" />
             </button>
+            <button
+              type="button"
+              className={`${styles.flashlightBtn} ${inventoryOpen ? styles.flashlightOn : ''}`}
+              onClick={() => setInventoryOpen((open) => !open)}
+              aria-label="Inventory"
+              aria-pressed={inventoryOpen}
+              title={`Inventory (${primaryLabel(bindings, 'inventory')})`}
+            >
+              <AppIcon name="backpack" />
+            </button>
+            <button
+              type="button"
+              className={`${styles.flashlightBtn} ${craftOpen ? styles.flashlightOn : ''}`}
+              onClick={() => setCraftOpen((open) => !open)}
+              aria-label="Crafting"
+              aria-pressed={craftOpen}
+              title={`Crafting (${primaryLabel(bindings, 'craft')})`}
+            >
+              <AppIcon name="hammer" />
+            </button>
+            <button
+              type="button"
+              className={`${styles.flashlightBtn} ${characterOpen ? styles.flashlightOn : ''}`}
+              onClick={() => setCharacterOpen((open) => !open)}
+              aria-label="Character panel"
+              aria-pressed={characterOpen}
+              title={`Character (${primaryLabel(bindings, 'character')})`}
+            >
+              <AppIcon name="user" />
+            </button>
+            <button
+              type="button"
+              className={`${styles.flashlightBtn} ${menuTab ? styles.flashlightOn : ''}`}
+              onClick={() => setMenuTab((t) => (t ? null : 'map'))}
+              aria-label="Map and menu"
+              aria-pressed={menuTab !== null}
+              title={`Map, log and settings (${primaryLabel(bindings, 'map')})`}
+            >
+              <AppIcon name="map" />
+            </button>
           </div>
+          {menuTab && (
+            <SurvivalMenu
+              tab={menuTab}
+              hud={zombieHud}
+              zones={getMapConfig(space.mapTheme).zones}
+              mapImage={() => gameRef.current?.zombieMapImage() ?? null}
+              settings={survivalSettings}
+              bindings={bindings}
+              menuKey={primaryLabel(bindings, 'map')}
+              onTab={setMenuTab}
+              onSettings={changeSurvivalSettings}
+              onClose={() => setMenuTab(null)}
+              saves={saveStatus}
+              onSaveRules={(r) => gameRef.current?.zombieSaveRules(r) ?? Promise.resolve('Not ready')}
+              onSaveNow={() => gameRef.current?.zombieSaveNow()}
+            />
+          )}
+          {survivalSettings.perf && perfStats && <PerfOverlay stats={perfStats} />}
+          {zombieHud.loadingSurvivor && (
+            <div className={styles.zombieToastStack} role="status">
+              <div className={styles.zombieToast}>
+                <AppIcon name="loader" /> Looking for your survivor…
+              </div>
+            </div>
+          )}
+          <SleepOverlay hud={zombieHud} onWake={() => gameRef.current?.zombieSleep()} />
+          {zombieHud.creating && (
+            <SurvivorCreator
+              initialLook={session.avatarConfig}
+              defaultName={session.displayName}
+              again={survivorStarted}
+              onStart={(build, look) => {
+                const errors = gameRef.current?.zombieCreateSurvivor(build, look) ?? ['The game is not ready yet.'];
+                if (!errors.length) setSurvivorStarted(true);
+                return errors;
+              }}
+            />
+          )}
+          {characterOpen && (
+            <CharacterPanel
+              hud={zombieHud}
+              sleepKey={primaryLabel(bindings, 'sleep')}
+              panelKey={primaryLabel(bindings, 'character')}
+              onClose={() => setCharacterOpen(false)}
+              onSleep={() => gameRef.current?.zombieSleep()}
+              onUseSupply={(id) => gameRef.current?.zombieUseSupply(id)}
+            />
+          )}
           <div className={styles.zombieHud} role="status" aria-live="polite">
             <div className={styles.zombieHudTitle}><AppIcon name="biohazard" /> Survival</div>
             <div
@@ -809,11 +974,78 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
             <div className={styles.zombieHint}>
               <kbd>{primaryLabel(bindings, 'fire')}</kbd> fire · <kbd>{primaryLabel(bindings, 'reload')}</kbd> reload ·{' '}
               <kbd>{primaryLabel(bindings, 'nextWeapon')}</kbd>/<kbd>1-6</kbd> weapon · <kbd>{primaryLabel(bindings, 'sprint')}</kbd> sprint ·{' '}
-              <kbd>{primaryLabel(bindings, 'useSupply')}</kbd> eat/drink · <kbd>{primaryLabel(bindings, 'jump')}</kbd> jump
+              <kbd>{primaryLabel(bindings, 'useSupply')}</kbd> eat/drink · <kbd>{primaryLabel(bindings, 'jump')}</kbd> jump ·{' '}
+              <kbd>{primaryLabel(bindings, 'shove')}</kbd> shove · <kbd>{primaryLabel(bindings, 'sleep')}</kbd> sleep ·{' '}
+              <kbd>{primaryLabel(bindings, 'character')}</kbd> character · <kbd>{primaryLabel(bindings, 'inventory')}</kbd> inventory ·{' '}
+              <kbd>{primaryLabel(bindings, 'interact')}</kbd> search · <kbd>{primaryLabel(bindings, 'craft')}</kbd> craft ·{' '}
+              <kbd>{primaryLabel(bindings, 'useObject')}</kbd> use / drive · <kbd>{primaryLabel(bindings, 'map')}</kbd> map &amp; settings
             </div>
+            <MoodleChips moodles={zombieHud.moodles} />
             {zombieHud.dead && <div className={styles.zombieDead}>You were bitten…</div>}
           </div>
-          {zombieHud.entrance && (
+          {zombieHud.vehicle?.inside && (
+            <DrivingBar
+              vehicle={zombieHud.vehicle}
+              exitKey={primaryLabel(bindings, 'useObject')}
+              hornKey={primaryLabel(bindings, 'jump')}
+              onExit={() => gameRef.current?.zombieExitVehicle()}
+              onHorn={() => gameRef.current?.zombieHonk()}
+            />
+          )}
+          {zombieHud.vehicle && !zombieHud.vehicle.inside && !zombieHud.loot && (
+            <VehiclePanel
+              vehicle={zombieHud.vehicle}
+              onAction={(a) => gameRef.current?.zombieVehicleCommand(zombieHud.vehicle!.id, a)}
+              onClose={() => gameRef.current?.zombieVehicleCommand(zombieHud.vehicle!.id, 'inspect')}
+            />
+          )}
+          {!zombieHud.vehicle?.inside && (
+          <SurvivalPrompts
+            hud={zombieHud}
+            searchKey={primaryLabel(bindings, 'interact')}
+            sleepKey={primaryLabel(bindings, 'sleep')}
+            useKey={primaryLabel(bindings, 'useObject')}
+            onSearch={() => gameRef.current?.zombieToggleLoot()}
+            onSleep={() => gameRef.current?.zombieSleep()}
+            onBuildConfirm={() => gameRef.current?.zombieConfirmPlacement()}
+            onBuildCancel={() => gameRef.current?.zombieCancelCraft()}
+            onDismantle={() => gameRef.current?.zombieDismantle()}
+            onWorldAction={(id) => gameRef.current?.zombieWorldAction(id)}
+          />
+          )}
+          {craftOpen && zombieHud.recipes && !zombieHud.loot && (
+            <CraftingPanel
+              recipes={zombieHud.recipes}
+              build={zombieHud.build}
+              craftKey={primaryLabel(bindings, 'craft')}
+              onCraft={(id) => {
+                // Structures go straight into placement: get the panel out of the way
+                if (gameRef.current?.zombieCraft(id) && zombieHud.recipes?.find((r) => r.id === id)?.structure) setCraftOpen(false);
+              }}
+              onClaim={() => gameRef.current?.zombieClaimSafehouse()}
+              onRelease={() => gameRef.current?.zombieReleaseSafehouse()}
+              onClose={() => setCraftOpen(false)}
+            />
+          )}
+          {zombieHud.loot && zombieHud.inventory && (
+            <LootPanel
+              loot={zombieHud.loot}
+              inventory={zombieHud.inventory}
+              onTake={(i) => gameRef.current?.zombieLootTake(i)}
+              onTakeAll={() => gameRef.current?.zombieLootTakeAll()}
+              onAction={(key, a) => gameRef.current?.zombieInventoryAction(key, a)}
+              onClose={() => gameRef.current?.zombieCloseLoot()}
+            />
+          )}
+          {inventoryOpen && !craftOpen && !zombieHud.loot && zombieHud.inventory && (
+            <InventoryPanel
+              inventory={zombieHud.inventory}
+              invKey={primaryLabel(bindings, 'inventory')}
+              onAction={(key, a) => gameRef.current?.zombieInventoryAction(key, a)}
+              onClose={() => setInventoryOpen(false)}
+            />
+          )}
+          {zombieHud.entrance && !zombieHud.asleep && (
             <div
               className={styles.entranceChip}
               role="group"
@@ -879,6 +1111,16 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
                 </button>
               )}
             </div>
+            {zombieHud.weapon.durability !== null && <DurabilityBar value={zombieHud.weapon.durability} />}
+            <button
+              type="button"
+              className={survivalStyles.shoveBtn}
+              onClick={() => gameRef.current?.zombieShove()}
+              aria-label="Shove, or stomp a downed zombie"
+              title={`Shove / stomp (${primaryLabel(bindings, 'shove')})`}
+            >
+              <AppIcon name="hand" /> Shove <kbd>{primaryLabel(bindings, 'shove')}</kbd>
+            </button>
             {zombieHud.weapon.reloading > 0 && (
               <span className={styles.weaponReloadBar} aria-hidden="true">
                 <span style={{ width: `${zombieHud.weapon.reloading * 100}%` }} />
@@ -932,9 +1174,13 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
               ))}
             </div>
           )}
-          {zombieHud.toast && (
-            <div className={styles.zombieToast} role="status">
-              {zombieHud.toastIcon && <AppIcon name={zombieHud.toastIcon} />} {zombieHud.toast}
+          {zombieHud.toasts.length > 0 && (
+            <div className={styles.zombieToastStack} role="status" aria-live="polite">
+              {zombieHud.toasts.map((t, i) => (
+                <div key={t.id} className={`${styles.zombieToast} ${i < zombieHud.toasts.length - 1 ? styles.zombieToastOld : ''}`}>
+                  {t.icon && <AppIcon name={t.icon} />} {t.text}
+                </div>
+              ))}
             </div>
           )}
           <button

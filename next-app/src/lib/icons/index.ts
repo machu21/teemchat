@@ -22,7 +22,7 @@ import {
   ShieldAlert, Shirt, ShoppingBag, ShoppingCart, Siren, Skull, SkipBack, SkipForward, Smartphone, Smile, Snail, Sofa,
   Soup, Sparkles, Square, Star, StickyNote, Store, Sun, Sunrise, Sunset, Swords, Target, Tent, Ticket, Timer, Trash2,
   ThumbsUp, Cat, TreePalm, TreePine, TriangleAlert, Trophy, Tv, Undo2, User, Users, UtensilsCrossed, Venus, Video, Volume2, VolumeX,
-  WashingMachine, Wheat, Wind, Wine, X, Zap, type IconNode,
+  WashingMachine, Wheat, Wind, Wine, X, Zap, Brain, Frown, ThermometerSnowflake, ThermometerSun, Weight, Activity, Bone, Droplets, Thermometer, Wrench, Battery, Radio, Sprout, Carrot, LifeBuoy, Lasso, Boxes, CircleDashed, Archive, Refrigerator, Newspaper, CarFront, Container, Fence, BrickWall, Cloud, CloudRain, CloudSnow, CloudLightning, PlugZap, Unplug, GlassWater, Beef, CookingPot, FlameKindling, Toilet, ShowerHead, Cylinder, Heater, Fish, FishingHook, Cherry, Bean, Salad, Shovel, Rabbit, Squirrel, Bird, Rat, Worm, Grape, Truck, Bus, Ambulance, Gauge, KeyRound, Cog, type IconNode,
 } from 'lucide';
 
 /** Custom glyphs in lucide's style (viewBox 24, stroke 2, round caps). */
@@ -42,6 +42,58 @@ const MACHINE_GUN: IconNode = [
   ['path', { d: 'M1 10h19l3 1-3 1h-9v3H8v-3H6l-2 3H1l1-4z' }],
   ['rect', { x: '12', y: '12', width: '5', height: '5', rx: '1' }],
   ['path', { d: 'M8 10V8h3' }],
+];
+
+// Melee weapons (zombie survival)
+const BAT: IconNode = [
+  ['path', { d: 'M3.5 20.5l2-2' }],
+  ['path', { d: 'M5.5 18.5l2 .5 11-11a2.1 2.1 0 0 0-3-3l-11 11z' }],
+];
+const CROWBAR: IconNode = [
+  ['path', { d: 'M6 21L17.5 5.5' }],
+  ['path', { d: 'M17.5 5.5c.5-1.8 2.2-2.6 3.7-1.8' }],
+  ['path', { d: 'M6 21l-2.5-.8' }],
+];
+const PIPE: IconNode = [
+  ['path', { d: 'M4 16.5L16.5 4' }],
+  ['path', { d: 'M7.5 20L20 7.5' }],
+  ['path', { d: 'M4 16.5L7.5 20' }],
+  ['path', { d: 'M16.5 4L20 7.5' }],
+];
+const KNIFE: IconNode = [
+  ['path', { d: 'M3 21l5-5' }],
+  ['path', { d: 'M8 16L19.5 4.5c1 3 .2 6.6-3.3 8.6L11 18z' }],
+];
+const PLANK: IconNode = [
+  ['path', { d: 'M3 15.5L16.5 6.5l3 4.5L6 20z' }],
+  ['path', { d: 'M7.5 15.5l7.5-5' }],
+  ['circle', { cx: '16.8', cy: '9.6', r: '.6' }],
+];
+
+// Tools without a lucide glyph
+const SAW: IconNode = [
+  ['path', { d: 'M3 14h13l5-5H8z' }],
+  ['path', { d: 'M5 14v2M8 14v2M11 14v2M14 14v2' }],
+  ['path', { d: 'M17 9l3-3' }],
+];
+const HELICOPTER: IconNode = [
+  ['path', { d: 'M4 4h16' }],
+  ['path', { d: 'M13 4v3' }],
+  ['path', { d: 'M8 11a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-3a4 4 0 0 1-4-4z' }],
+  ['path', { d: 'M8 11H2v-2' }],
+  ['path', { d: 'M10 19h8M12 15v4M16 15v4' }],
+];
+const MUSHROOM: IconNode = [
+  ['path', { d: 'M4 12a8 7 0 0 1 16 0z' }],
+  ['path', { d: 'M10 12v6a2 2 0 0 0 4 0v-6' }],
+  ['circle', { cx: '9', cy: '8.5', r: '.8' }],
+  ['circle', { cx: '14.5', cy: '7.5', r: '.8' }],
+];
+const STONE: IconNode = [['path', { d: 'M5 17l-1.5-5L7 7l6-1.5 5 3 2.5 5-3 4.5H8z' }], ['path', { d: 'M9 10l3 2' }]];
+const BRANCH: IconNode = [['path', { d: 'M4 20L19 5' }], ['path', { d: 'M10 14l-4-3' }], ['path', { d: 'M14 10l1-5' }], ['path', { d: 'M15 9l4 1' }]];
+const SCREWDRIVER: IconNode = [
+  ['path', { d: 'M14.5 4.5l5 5-3 3-5-5z' }],
+  ['path', { d: 'M11.5 7.5l-8 8 1 3 3 1 8-8' }],
 ];
 
 // Chess pieces as closed silhouettes, so a fill colour covers the whole piece
@@ -285,6 +337,80 @@ export const ICONS = {
   fog: CloudFog,
   charge: ChevronsRight,
   down: ArrowDownToLine,
+  // Survival moodles
+  brain: Brain,
+  frown: Frown,
+  thermometerSnowflake: ThermometerSnowflake,
+  thermometerSun: ThermometerSun,
+  weight: Weight,
+  // Melee weapons
+  bat: BAT,
+  crowbar: CROWBAR,
+  pipe: PIPE,
+  knife: KNIFE,
+  plank: PLANK,
+  // Inventory gear and containers
+  wrench: Wrench,
+  saw: SAW,
+  screwdriver: SCREWDRIVER,
+  battery: Battery,
+  radio: Radio,
+  sprout: Sprout,
+  carrot: Carrot,
+  tire: LifeBuoy,
+  rope: Lasso,
+  boxes: Boxes,
+  tape: CircleDashed,
+  shelfBox: Archive,
+  fridge: Refrigerator,
+  newspaper: Newspaper,
+  car: CarFront,
+  locker: Container,
+  fence: Fence,
+  wall: BrickWall,
+  // Injuries
+  activity: Activity,
+  bone: Bone,
+  droplets: Droplets,
+  thermometer: Thermometer,
+  // World simulation (weather, power, water, cooking)
+  cloud: Cloud,
+  cloudRain: CloudRain,
+  cloudSnow: CloudSnow,
+  cloudLightning: CloudLightning,
+  power: PlugZap,
+  powerOff: Unplug,
+  glassWater: GlassWater,
+  meat: Beef,
+  cookingPot: CookingPot,
+  campfire: FlameKindling,
+  toilet: Toilet,
+  tap: ShowerHead,
+  barrel: Cylinder,
+  generator: Heater,
+  helicopter: HELICOPTER,
+  // Vehicles and food production
+  fish: Fish,
+  fishingHook: FishingHook,
+  tomato: Cherry,
+  potato: Bean,
+  cabbage: Salad,
+  shovel: Shovel,
+  rabbit: Rabbit,
+  squirrel: Squirrel,
+  bird: Bird,
+  rat: Rat,
+  worm: Worm,
+  berries: Grape,
+  mushroom: MUSHROOM,
+  stone: STONE,
+  branch: BRANCH,
+  truck: Truck,
+  van: Bus,
+  ambulance: Ambulance,
+  gauge: Gauge,
+  key: KeyRound,
+  engine: Cog,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

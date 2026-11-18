@@ -20,6 +20,7 @@ import { damaOutcome, initialDama, parseDama, playDamaMove } from '@/lib/games/d
 import { isTimed, remainingMs, type TimeControl } from '@/lib/games/clock';
 import { GameShell, useNow, type PlayerInfo, type ResultInfo } from './GameShell';
 import { GameCoachCard, type TurnCoachReport } from './GameCoachCard';
+import type { ColorChoice } from './GamePicker';
 import type { BoardMove, ChessCoachHint, DamaCoachHint, Seat, TttCoachHint } from './boardTypes';
 import { TicTacToeBoard } from './TicTacToeBoard';
 import { ChessBoard, ChessCaptured, MoveList } from './ChessBoard';
@@ -34,8 +35,6 @@ import {
 type TurnKind = Exclude<GameKind, 'blockdrop'>;
 type Side = Exclude<Seat, null>;
 
-/** The computer always plays seat two (black / O); you move first. */
-const BOT: Side = 'two';
 /** Minimum time the computer "thinks", so its moves are easy to follow. */
 const MIN_THINK_MS = 450;
 
@@ -75,6 +74,7 @@ interface Props {
   difficulty: Difficulty;
   timeControl: TimeControl;
   coachMode?: CoachMode;
+  colorChoice?: ColorChoice;
   me: { name: string; avatar?: AvatarConfig | null };
   onBack: () => void;
   /** Start a fresh game with the same settings. */
@@ -95,10 +95,20 @@ function SoloTurnGame({
   difficulty,
   timeControl,
   coachMode: initialCoachMode = 'live',
+  colorChoice = 'white',
   me,
   onBack,
   onRematch,
 }: Props & { kind: TurnKind }) {
+  const [humanSide] = useState<Side>(() => {
+    if (kind !== 'chess' && kind !== 'dama') return 'one';
+    if (colorChoice === 'black') return 'two';
+    if (colorChoice === 'random') return Math.random() < 0.5 ? 'one' : 'two';
+    return 'one';
+  });
+  const botSide: Side = humanSide === 'one' ? 'two' : 'one';
+  const humanColor = humanSide === 'one' ? 'w' : 'b';
+
   const [state, setState] = useState<unknown>(() => initialState(kind));
   const [undoStack, setUndoStack] = useState<unknown[]>([]);
   const [lastPlayerTurnPair, setLastPlayerTurnPair] = useState<{ before: unknown; after: unknown } | null>(null);
@@ -123,7 +133,7 @@ function SoloTurnGame({
 
   const play = useCallback(
     (next: unknown, by: Side) => {
-      if (by === 'one') {
+      if (by === humanSide) {
         setUndoStack((prev) => [...prev.slice(-30), state]);
         setLastPlayerTurnPair({ before: state, after: next });
         setClueLevel(0);
@@ -136,12 +146,12 @@ function SoloTurnGame({
         return { ...c, [by]: c[by] - (t - c.startedAt) + timeControl.incMs, startedAt: t };
       });
     },
-    [state, timed, timeControl.incMs]
+    [state, timed, timeControl.incMs, humanSide]
   );
 
   const onMove = (move: BoardMove) => {
-    if (finished || turn === BOT) return;
-    play(move.state, 'one');
+    if (finished || turn === botSide) return;
+    play(move.state, humanSide);
   };
 
   const handleUndoTurn = useCallback(() => {
@@ -172,13 +182,13 @@ function SoloTurnGame({
       if (kind === 'chess') {
         rep = await requestChessCoach(
           parseChess(state),
-          'w',
+          humanColor,
           prevForReview ? parseChess(prevForReview) : null
         );
       } else if (kind === 'dama') {
         rep = await requestDamaCoach(
           parseDama(state),
-          'w',
+          humanColor,
           prevForReview ? parseDama(prevForReview) : null
         );
       } else {
@@ -197,11 +207,11 @@ function SoloTurnGame({
     return () => {
       cancelled = true;
     };
-  }, [kind, state, lastPlayerTurnPair]);
+  }, [kind, state, lastPlayerTurnPair, humanColor]);
 
   // The computer's move.
   useEffect(() => {
-    if (finished || turn !== BOT) return;
+    if (finished || turn !== botSide) return;
     let cancelled = false;
     const started = Date.now();
     (async () => {
@@ -220,16 +230,16 @@ function SoloTurnGame({
         next = m ? playDamaMove(s, m) : null;
       }
       await sleep(Math.max(0, MIN_THINK_MS - (Date.now() - started)));
-      if (!cancelled && next) play(next, BOT);
+      if (!cancelled && next) play(next, botSide);
     })();
     return () => {
       cancelled = true;
     };
     // `play` only reads stable values; re-run when the position or result changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, turn, finished, kind, difficulty]);
+  }, [state, turn, finished, kind, difficulty, botSide]);
 
-  const coachActive = !finished && turn === 'one' && coachMode !== 'off';
+  const coachActive = !finished && turn === humanSide && coachMode !== 'off';
 
   // Socratic board hints:
   // Level 0: Only shows threatened pieces (so the player learns board vision), NO move spoilers!
@@ -278,9 +288,9 @@ function SoloTurnGame({
     ) : null;
 
   const player = (side: Side): PlayerInfo => ({
-    name: side === BOT ? botName(difficulty) : me.name,
-    avatar: side === BOT ? null : me.avatar,
-    bot: side === BOT,
+    name: side === botSide ? botName(difficulty) : me.name,
+    avatar: side === botSide ? null : me.avatar,
+    bot: side === botSide,
     side: kind === 'tictactoe' ? null : side === 'one' ? 'light' : 'dark',
     sideLabel: sideLabel(side),
     active: !finished && turn === side,
@@ -291,21 +301,21 @@ function SoloTurnGame({
 
   const result: ResultInfo | null = (() => {
     if (!finished) return null;
-    const winner: Side | null = resigned ? BOT : flagged ? (turn === 'one' ? 'two' : 'one') : outcome.winner;
+    const winner: Side | null = resigned ? botSide : flagged ? (turn === 'one' ? 'two' : 'one') : outcome.winner;
     const detail = resigned ? 'You resigned' : flagged ? 'Out of time' : outcome.reason;
     if (!winner) return { outcome: 'draw', title: 'Draw', detail };
-    return winner === 'one' ? { outcome: 'win', title: 'You win!', detail } : { outcome: 'lose', title: 'Computer wins', detail };
+    return winner === humanSide ? { outcome: 'win', title: 'You win!', detail } : { outcome: 'lose', title: 'Computer wins', detail };
   })();
 
   const check = kind === 'chess' && !finished ? chessOutcome(parseChess(state)) : null;
   // The pill stays when the game ends, so the board under it does not jump.
   const status = finished
     ? { text: 'Game over' }
-    : turn === BOT
+    : turn === botSide
       ? { text: 'Computer is thinking', thinking: true }
       : { text: check && !check.over && check.check ? 'Check! Your move' : 'Your move', tone: 'mine' as const };
 
-  const props = { state, seat: 'one' as const, canMove: !finished && turn === 'one', onMove };
+  const props = { state, seat: humanSide, canMove: !finished && turn === humanSide, onMove };
   const board =
     kind === 'tictactoe' ? (
       <TicTacToeBoard {...props} coachHint={tttHint} />
@@ -322,12 +332,12 @@ function SoloTurnGame({
   return (
     <GameShell
       kind={kind}
-      subtitle={`Solo practice · ${DIFFICULTIES.find((d) => d.id === difficulty)?.label}${timed ? ` · ${timeControl.label}` : ''}`}
+      subtitle={`Solo practice · ${DIFFICULTIES.find((d) => d.id === difficulty)?.label}${kind === 'chess' || kind === 'dama' ? ` · ${humanSide === 'one' ? 'White' : 'Black'}` : ''}${timed ? ` · ${timeControl.label}` : ''}`}
       onBack={leave}
       backLabel="Games"
       backIcon="gamepad"
-      top={player('two')}
-      bottom={player('one')}
+      top={player(botSide)}
+      bottom={player(humanSide)}
       status={status}
       coach={
         !finished ? (
@@ -336,10 +346,10 @@ function SoloTurnGame({
             onModeChange={setCoachMode}
             report={mergedReport}
             analyzing={!mergedReport}
-            isMyTurn={!finished && turn === 'one'}
+            isMyTurn={!finished && turn === humanSide}
             clueLevel={clueLevel}
             onAdvanceClue={advanceClue}
-            onUndoTurn={undoStack.length > 0 && !finished && turn === 'one' ? handleUndoTurn : undefined}
+            onUndoTurn={undoStack.length > 0 && !finished && turn === humanSide ? handleUndoTurn : undefined}
           />
         ) : undefined
       }
@@ -348,7 +358,7 @@ function SoloTurnGame({
       onRematch={onRematch}
       actions={
         <>
-          {!finished && undoStack.length > 0 && turn === 'one' && (
+          {!finished && undoStack.length > 0 && turn === humanSide && (
             <button type="button" className={styles.btn} onClick={handleUndoTurn} title="Take back last turn">
               <AppIcon name="undo" /> Take back
             </button>

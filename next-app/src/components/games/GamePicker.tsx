@@ -11,6 +11,7 @@ import { TIME_CONTROLS, UNTIMED, type TimeControl } from '@/lib/games/clock';
 import { ACCENT_CLASS } from './GameShell';
 
 export type GameMode = 'solo' | 'friend';
+export type ColorChoice = 'white' | 'black' | 'random';
 
 export interface GameStartOptions {
   kind: GameKind;
@@ -18,6 +19,7 @@ export interface GameStartOptions {
   difficulty: Difficulty;
   timeControl: TimeControl;
   coachMode?: CoachMode;
+  colorChoice?: ColorChoice;
 }
 
 interface Props {
@@ -109,6 +111,7 @@ export function GamePicker({
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [timeControl, setTimeControl] = useState<TimeControl>(UNTIMED);
   const [coachMode, setCoachMode] = useState<CoachMode>('live');
+  const [colorChoice, setColorChoice] = useState<ColorChoice>('white');
   // Start from the game list every time the picker opens.
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (wasOpen !== isOpen) {
@@ -218,6 +221,30 @@ export function GamePicker({
             </>
           )}
 
+          {effectiveMode === 'solo' && (kind === 'chess' || kind === 'dama') && (
+            <div>
+              <span className={styles.setupLabel}>Your Color</span>
+              <div className={styles.chips} role="radiogroup" aria-label="Your Color">
+                {([
+                  { id: 'white', label: 'White' },
+                  { id: 'black', label: 'Black' },
+                  { id: 'random', label: 'Random' },
+                ] as const).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={colorChoice === c.id}
+                    className={`${styles.chip} ${colorChoice === c.id ? styles.chipOn : ''}`}
+                    onClick={() => setColorChoice(c.id)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {kind === 'chess' && (
             <div>
               <span className={styles.setupLabel}>Clock</span>
@@ -259,6 +286,7 @@ export function GamePicker({
                   difficulty,
                   timeControl: kind === 'chess' ? timeControl : UNTIMED,
                   coachMode: effectiveMode === 'solo' ? coachMode : 'off',
+                  colorChoice: effectiveMode === 'solo' && (kind === 'chess' || kind === 'dama') ? colorChoice : 'white',
                 })
               }
             >

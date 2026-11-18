@@ -66,6 +66,27 @@ export function isPlayerStatus(value: unknown): value is PlayerStatus {
   return value === 'available' || value === 'away' || value === 'busy' || value === 'focus';
 }
 
+/**
+ * Status to restore from the saved profile on a new session. Busy / Focus are deliberate
+ * choices and carry over; Away is idle-driven (or stale from a closed tab), so it resets.
+ */
+export function restoredStatus(value: unknown): PlayerStatus {
+  return value === 'busy' || value === 'focus' ? value : 'available';
+}
+
+/** Human label for a friend's status as shown in chat lists and headers. */
+export function statusLabel(status: PlayerStatus | 'offline' | undefined): string {
+  if (!status || status === 'offline') return 'Offline';
+  if (status === 'available') return 'Online';
+  return STATUS_OPTIONS.find((s) => s.id === status)?.label ?? 'Online';
+}
+
+/** Dot color for a friend's status (null when offline, so no dot is drawn). */
+export function statusColor(status: PlayerStatus | 'offline' | undefined): string | null {
+  if (!isPlayerStatus(status)) return null;
+  return STATUS_OPTIONS.find((s) => s.id === status)?.color ?? null;
+}
+
 /** Badge shown on the avatar for non-default statuses (null when Available). */
 export function statusIcon(status: PlayerStatus | undefined): { icon: IconName; color: string } | null {
   if (!status || status === 'available') return null;

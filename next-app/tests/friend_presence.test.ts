@@ -95,4 +95,49 @@ describe('friend online status', () => {
     presenceListener?.(onlineUsers);
     expect(useSocialStore.getState().activeChat).toMatchObject({ isOnline: false, statusText: 'Offline' });
   });
+
+  it("shows a friend's live status (Do not disturb, Focus) and resets to offline when they leave", async () => {
+    await useSocialStore.getState().initSocial('me', 'Me', {} as FriendModel['avatarConfig']);
+    await useSocialStore.getState().openDirectChat({ ...matt }, 'me');
+
+    onlineUsers = [{ ...mattPresence, status: 'busy' }];
+    presenceListener?.(onlineUsers);
+    expect(useSocialStore.getState().friends[0].status).toBe('busy');
+    expect(useSocialStore.getState().activeChat).toMatchObject({ status: 'busy', statusText: 'Do not disturb' });
+
+    onlineUsers = [{ ...mattPresence, status: 'focus', currentSpace: { slug: 'hq', name: 'HQ' } }];
+    presenceListener?.(onlineUsers);
+    expect(useSocialStore.getState().activeChat).toMatchObject({ status: 'focus', statusText: 'Focus · In HQ' });
+
+    onlineUsers = [];
+    presenceListener?.(onlineUsers);
+    expect(useSocialStore.getState().friends[0].status).toBe('offline');
+    expect(useSocialStore.getState().activeChat).toMatchObject({ status: 'offline', statusText: 'Offline' });
+  });
+});
+
+describe('my status on presence', () => {
+  beforeEach(async () => {
+    useSocialStore.getState().cleanupSocial();
+    const { DashboardPresenceService } = await import('../src/lib/services/dashboardPresence');
+    vi.mocked(DashboardPresenceService.init).mockClear();
+    vi.mocked(DashboardPresenceService.updatePresence).mockClear();
+  });
+
+  it('announces a saved Do not disturb on join, but resets a stale Away', async () => {
+    const { DashboardPresenceService } = await import('../src/lib/services/dashboardPresence');
+    await useSocialStore.getState().initSocial('me', 'Me', {} as FriendModel['avatarConfig'], 'busy');
+    expect(DashboardPresenceService.init).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'busy' }));
+
+    useSocialStore.getState().cleanupSocial();
+    await useSocialStore.getState().initSocial('me', 'Me', {} as FriendModel['avatarConfig'], 'away');
+    expect(DashboardPresenceService.init).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'available' }));
+  });
+
+  it('re-tracks the current status when the session refreshes for the same user', async () => {
+    const { DashboardPresenceService } = await import('../src/lib/services/dashboardPresence');
+    await useSocialStore.getState().initSocial('me', 'Me', {} as FriendModel['avatarConfig'], 'available');
+    await useSocialStore.getState().initSocial('me', 'Me', {} as FriendModel['avatarConfig'], 'focus');
+    expect(DashboardPresenceService.updatePresence).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'focus' }));
+  });
 });

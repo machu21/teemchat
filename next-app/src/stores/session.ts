@@ -4,6 +4,8 @@ import { UserSession, createGuestSession } from '@/lib/models/user';
 import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
 import { SpaceService } from '@/lib/services/spaces';
 import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
+import { E2EEManager } from '@/lib/services/e2eeManager';
+import { PlayerStatus } from '@/lib/world/emotes';
 import {
   AvatarConfig,
   Gender,
@@ -41,6 +43,11 @@ interface SessionState {
     avatarConfig: AvatarConfig,
     gender?: Gender
   ) => Promise<void>;
+  /**
+   * Sets my chat status (Available / Do not disturb / Focus / Away): updates the local
+   * session, re-tracks dashboard presence so friends see it live, and saves it to the profile.
+   */
+  setStatus: (status: PlayerStatus) => void;
   signOut: () => Promise<void>;
 }
 
@@ -98,6 +105,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           } catch {}
         }
 
+        E2EEManager.initUser(userSession.id).catch(() => {});
         set({
           session: userSession,
           isGuest,
@@ -126,6 +134,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }
 
         if (guestSession && guestSession.isGuest) {
+          E2EEManager.initUser(guestSession.id).catch(() => {});
           set({ session: guestSession, isGuest: true, isLoading: false });
         } else {
           set({ session: null, isGuest: false, isLoading: false });
@@ -141,6 +150,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           // Purely local guests (non-UUID ids) never had an auth session, so they are kept.
           const isAuthBackedGuest = Boolean(cur?.isGuest && UUID_REGEX.test(cur.id));
           if (cur && (!cur.isGuest || (event === 'SIGNED_OUT' && isAuthBackedGuest))) {
+            E2EEManager.resetSession();
             set({ session: null, isGuest: false });
           }
           return;
@@ -163,6 +173,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
 
+        E2EEManager.initUser(newSession.user.id).catch(() => {});
         set({
           session: {
             id: newSession.user.id,
@@ -200,6 +211,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               ? (await supabase.auth.getSession()).data.session?.user.id
               : undefined;
             if (!isAuthBacked || liveUserId === parsed.id) {
+              E2EEManager.initUser(parsed.id).catch(() => {});
               set({ session: parsed, isGuest: true });
               return;
             }
@@ -285,6 +297,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               localStorage.setItem('teem_guest_session', JSON.stringify(guestSession));
             }
           } catch {}
+          E2EEManager.initUser(guestSession.id).catch(() => {});
           set({
             session: guestSession,
             isGuest: true,
@@ -308,6 +321,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         localStorage.setItem('teem_guest_session', JSON.stringify(localGuest));
       }
     } catch {}
+    E2EEManager.initUser(localGuest.id).catch(() => {});
     set({ session: localGuest, isGuest: true });
   },
 
@@ -347,6 +361,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
 
+        E2EEManager.syncPasswordBackup(user.id, password).catch(() => {});
         set({
           session: {
             id: user.id,
@@ -384,6 +399,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
 
+        E2EEManager.syncPasswordBackup(data.user.id, password).catch(() => {});
         set({
           session: {
             id: data.user.id,
@@ -490,6 +506,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           console.warn('Profile avatar update warning:', e);
         }
 
+        E2EEManager.syncPasswordBackup(result.user.id, password).catch(() => {});
         set({
           session: {
             id: result.user.id,
@@ -566,6 +583,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  setStatus: (status) => {
+    // Presence first: friends see the change even if the profile write fails or the
+    // session is a local-only guest.
+    DashboardPresenceService.updatePresence({ status });
+    const current = get().session;
+    if (!current || current.status === status) return;
+    set({ session: { ...current, status } });
+    if (UUID_REGEX.test(current.id)) {
+      supabase
+        .from('profiles')
+        .update({ status })
+        .eq('id', current.id)
+        .then(({ error }) => {
+          if (error) console.warn('Failed to save status:', error.message);
+        });
+    }
+    if (current.isGuest && typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('teem_guest_session');
+        if (raw) localStorage.setItem('teem_guest_session', JSON.stringify({ ...JSON.parse(raw), status }));
+      } catch {}
+    }
+  },
+
   signOut: async () => {
     const current = get().session;
     // Leave dashboard presence first, while the socket and JWT are still valid,
@@ -591,6 +632,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       await supabase.auth.signOut();
     } catch {}
+    E2EEManager.resetSession();
     set({ session: null, isGuest: false });
   },
 }));

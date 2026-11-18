@@ -1,6 +1,8 @@
 import type { AmmoType, WeaponId } from '../weapons';
 import type { Zombie } from '../zombieSim';
 import type { IconName } from '@/lib/icons';
+import type { SkillId } from './skills';
+import type { MagazineId } from './crafting';
 
 // ============================================================
 // ZOMBIE MODE — SURVIVAL DOMAIN MODELS (pure types, DOM-free)
@@ -59,7 +61,36 @@ export interface PlayerVitals {
 
 // ---------------------------------------------------------------- items
 
-export type ItemCategory = 'food' | 'drink' | 'stimulant' | 'medical' | 'weapon' | 'ammo';
+export type ItemCategory =
+  | 'food'
+  | 'drink'
+  | 'stimulant'
+  | 'medical'
+  | 'weapon'
+  | 'ammo'
+  | 'clothing'
+  | 'bag'
+  | 'tool'
+  | 'material'
+  | 'electronics'
+  | 'farming'
+  | 'vehicle'
+  | 'literature'
+  | 'misc';
+
+/** Where a worn item goes. */
+export type EquipSlot = 'back' | 'outer' | 'hands';
+
+/** Wearables: bags add carry capacity, clothes keep you warm and turn teeth. */
+export interface EquipSpec {
+  slot: EquipSlot;
+  /** Extra carry capacity (kg) while worn (bags). */
+  capacityKg?: number;
+  /** °C added to the ambient temperature your body feels (clothes). */
+  insulation?: number;
+  /** 0–1 chance a zombie hit on a covered part leaves no wound (scaled by condition). */
+  protection?: number;
+}
 
 /** What a consumable does when used. Deltas are applied instantly; `regen` over time. */
 export interface ConsumableEffect {
@@ -71,6 +102,23 @@ export interface ConsumableEffect {
   regen?: { hpPerSecond: number; seconds: number };
   /** Applied status effects (e.g. stimulant). */
   effects?: StatusEffect[];
+  /** Character condition deltas (survival/condition.ts): caffeine wakes you, treats cheer you up. */
+  fatigue?: number;
+  boredom?: number;
+  unhappiness?: number;
+  stress?: number;
+  /** Medical treatment applied to the body (survival/body.ts). */
+  treat?: 'bandage' | 'disinfect' | 'splint' | 'painkiller';
+  /** A skill book: reading it multiplies XP for that skill over a range of levels (kept after reading). */
+  skillBook?: { skill: SkillId; volume: 1 | 2 };
+  /** A recipe magazine: reading it teaches its recipes (kept after reading). */
+  teaches?: MagazineId;
+  /** A noise maker: dropped at your feet, it buzzes and pulls zombies in. */
+  lure?: true;
+  /** °C of body heat it gives back when you're cold (hot food). */
+  warmth?: number;
+  /** What's left in your hands afterwards (an empty bottle). */
+  leaves?: ItemDefId;
 }
 
 export type ConsumableId =
@@ -82,9 +130,84 @@ export type ConsumableId =
   | 'soda'
   | 'energy_drink'
   | 'coffee'
-  | 'bandage';
+  | 'bandage'
+  | 'disinfectant'
+  | 'painkillers'
+  | 'splint'
+  | 'book'
+  | 'magazine'
+  | 'noise_maker'
+  | 'tainted_water'
+  | 'raw_meat'
+  | 'cooked_meat'
+  | 'hot_soup'
+  // Phase 7: grown, foraged, fished and trapped food
+  | 'tomato'
+  | 'carrot'
+  | 'potato'
+  | 'cabbage'
+  | 'berries'
+  | 'mushrooms'
+  | 'herbs'
+  | 'fish_minnow'
+  | 'fish_perch'
+  | 'fish_carp'
+  | 'fish_catfish'
+  | 'cooked_fish'
+  | 'vegetable_stew'
+  | 'salad'
+  | `mag:${MagazineId}`;
 
-export type ItemDefId = ConsumableId | `weapon:${WeaponId}` | `ammo:${AmmoType}`;
+/** Non-consumable gear: clothing, bags, tools, materials, electronics, farming, vehicle parts, misc. */
+export type GearId =
+  | 'winter_jacket'
+  | 'leather_jacket'
+  | 'hoodie'
+  | 'work_gloves'
+  | 'school_bag'
+  | 'duffel_bag'
+  | 'hiking_bag'
+  | 'screwdriver'
+  | 'saw'
+  | 'wrench'
+  | 'nails'
+  | 'duct_tape'
+  | 'scrap_metal'
+  | 'battery'
+  | 'radio'
+  | 'tomato_seeds'
+  | 'carrot_seeds'
+  | 'gas_can'
+  | 'car_battery'
+  | 'spare_tire'
+  | 'lighter'
+  | 'rope'
+  | 'thread'
+  | 'planks'
+  | 'rags'
+  | 'metal_sheet'
+  | 'electronics_scrap'
+  | 'blowtorch'
+  | 'empty_bottle'
+  | 'gas_can_full'
+  | 'generator'
+  // Phase 7
+  | 'potato_seeds'
+  | 'cabbage_seeds'
+  | 'shovel'
+  | 'fishing_rod'
+  | 'worms'
+  | 'branch'
+  | 'stone'
+  | 'dead_rabbit'
+  | 'dead_squirrel'
+  | 'dead_bird'
+  | 'dead_rat';
+
+/** Skill books, two volumes per skill. */
+export type SkillBookId = `book:${SkillId}:${1 | 2}`;
+
+export type ItemDefId = ConsumableId | GearId | SkillBookId | `weapon:${WeaponId}` | `ammo:${AmmoType}`;
 
 export interface ItemDef {
   id: ItemDefId;
@@ -98,6 +221,10 @@ export interface ItemDef {
   consume?: ConsumableEffect;
   /** Seconds the player is busy using it (eating, bandaging). */
   useSeconds?: number;
+  /** One line for the inspect view. */
+  description: string;
+  /** Wearable (bags and clothes). */
+  equip?: EquipSpec;
 }
 
 export interface InventoryItem {
@@ -105,6 +232,12 @@ export interface InventoryItem {
   uid: string;
   def: ItemDefId;
   qty: number;
+  /** Condition 0–1 for things that wear out (melee weapons, clothes). Absent = new. */
+  cond?: number;
+  /** Rounds in the magazine (guns). */
+  mag?: number;
+  /** Perishable food: its "birth" on the aging clock of where it is (spoilage.ts). */
+  rot?: number;
 }
 
 export interface WeaponItem extends InventoryItem {
@@ -153,7 +286,21 @@ export interface PointOfInterest {
   safeZone?: boolean;
 }
 
-export type ContainerKind = 'shelf' | 'fridge' | 'register' | 'crate' | 'cabinet';
+/** Furniture you can search, plus piles: `ground` (dropped items) and `corpse` (a dead survivor's things). */
+export type ContainerKind =
+  | 'shelf'
+  | 'fridge'
+  | 'register'
+  | 'crate'
+  | 'cabinet'
+  | 'counter'
+  | 'desk'
+  | 'locker'
+  | 'checkout'
+  | 'ground'
+  | 'corpse'
+  /** A vehicle's trunk (moves with the vehicle). */
+  | 'trunk';
 
 export interface LootTableEntry {
   def: ItemDefId;
@@ -166,9 +313,13 @@ export interface LootContainer {
   /** Stable id (map-seeded), used on the wire. */
   id: number;
   kind: ContainerKind;
+  /** Owner (building id for furniture, 'pile' for dropped items and bodies). */
   poiId: string;
   x: number;
   y: number;
+  /** Footprint (world px); 0 for piles. */
+  w?: number;
+  h?: number;
   /** Table key into LOOT_TABLES. */
   table: string;
   /** Rolls per refill (before difficulty scaling). */

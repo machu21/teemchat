@@ -2,7 +2,9 @@
 // ZOMBIE CITY — LOOT PLACEMENT
 // Deterministic (fixed city seed) guns and ammo inside buildings, themed
 // by building kind: the police station is an armory, houses sometimes
-// hide a pistol or shotgun, offices/apartments the odd rifle.
+// hide a pistol or shotgun, offices/apartments the odd rifle. A third
+// pass adds melee weapons and medicine (knives in kitchens, crowbars and
+// pipes in hardware shops, splints and disinfectant at the hospital).
 // Items sit on open floor tiles (not walls, stairs or furniture).
 // ============================================================
 
@@ -12,11 +14,12 @@ import type { ConsumableId } from '../../zombie/survival/types';
 import type { BuildingKind } from './templates';
 import { FT, type CityBuilding, type CityFloor, type CityPlan } from './types';
 
-type Gun = Exclude<WeaponId, 'axe'>;
+type Gun = Exclude<WeaponId, 'axe' | 'fists'>;
 type Weighted<T> = [T, number][];
 
 const gun = (weapon: Gun): LootItem => ({ kind: 'weapon', weapon });
 const ammo = (a: AmmoType): LootItem => ({ kind: 'ammo', ammo: a });
+const med = (supply: ConsumableId): LootItem => ({ kind: 'supply', supply });
 
 /** [chance a building of this kind has loot, max items, weighted item table]. */
 const TABLES: Record<BuildingKind, { chance: number; max: number; items: Weighted<LootItem> }> = {
@@ -51,6 +54,23 @@ const SUPPLIES: Record<BuildingKind, { chance: number; max: number; restock: boo
   apartment: { chance: 0.7, max: 3, restock: false, items: [['canned_beans', 3], ['water_bottle', 3], ['chips', 2], ['soda', 1]] },
   office: { chance: 0.5, max: 2, restock: false, items: [['coffee', 4], ['water_bottle', 3], ['chips', 2]] },
   police: { chance: 1, max: 2, restock: false, items: [['bandage', 3], ['coffee', 2]] },
+};
+
+/**
+ * Melee weapons and medicine: [chance, max items, restocks?, table]. Its own RNG
+ * stream, appended after supplies, so existing loot ids and items never change.
+ */
+const GEAR: Record<BuildingKind, { chance: number; max: number; restock: boolean; items: Weighted<LootItem> }> = {
+  house: { chance: 0.55, max: 2, restock: false, items: [[gun('knife'), 4], [gun('bat'), 2], [gun('hammer'), 2], [gun('plank'), 3], [gun('pipe'), 1], [med('painkillers'), 2], [med('disinfectant'), 1]] },
+  apartment: { chance: 0.5, max: 2, restock: false, items: [[gun('knife'), 4], [gun('bat'), 1], [gun('hammer'), 1], [gun('plank'), 2], [med('painkillers'), 2], [med('disinfectant'), 1]] },
+  office: { chance: 0.3, max: 1, restock: false, items: [[gun('crowbar'), 1], [gun('plank'), 1], [med('painkillers'), 2]] },
+  shop: { chance: 0.6, max: 2, restock: false, items: [[gun('hammer'), 3], [gun('crowbar'), 2], [gun('pipe'), 3], [gun('plank'), 2]] },
+  grocery: { chance: 0.3, max: 1, restock: false, items: [[gun('knife'), 3], [med('painkillers'), 1]] },
+  convenience: { chance: 0.2, max: 1, restock: false, items: [[med('painkillers'), 2], [gun('knife'), 1]] },
+  pharmacy: { chance: 1, max: 4, restock: true, items: [[med('painkillers'), 4], [med('disinfectant'), 3], [med('splint'), 1]] },
+  hospital: { chance: 1, max: 5, restock: false, items: [[med('disinfectant'), 4], [med('splint'), 3], [med('painkillers'), 3]] },
+  gasStation: { chance: 0.6, max: 1, restock: false, items: [[gun('crowbar'), 2], [gun('pipe'), 2]] },
+  police: { chance: 1, max: 2, restock: false, items: [[gun('bat'), 2], [gun('crowbar'), 1], [med('splint'), 1]] },
 };
 
 /** The police station always stocks the full arsenal. */
@@ -141,6 +161,13 @@ export function generateCityLoot(plan: CityPlan): LootSpawn[] {
     for (let i = 0; i < n; i++) {
       place(b, rng, { kind: 'supply', supply: pick(rng, t.items) }, t.restock ? SUPPLY_RESTOCK_SECONDS : undefined);
     }
+  }
+  for (const b of plan.buildings) {
+    const t = GEAR[b.kind];
+    const rng = mulberry32(plan.seed ^ hash32(`${b.id}:gear`));
+    if (rng() >= t.chance) continue;
+    const n = 1 + Math.floor(rng() * t.max);
+    for (let i = 0; i < n; i++) place(b, rng, pick(rng, t.items), t.restock ? SUPPLY_RESTOCK_SECONDS : undefined);
   }
   return out;
 }

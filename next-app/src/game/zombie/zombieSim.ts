@@ -1,6 +1,7 @@
 import { TILE_ENTRANCE, TILE_SOLID, TileGrid, inBounds, isOpaque, isSolid, setEntrance, tileIndex, worldToTile } from './grid';
 import { Entrance, applyEntranceAction, entranceBlocksMovement } from './entrances';
 import { mulberry32 } from '../art/character/appearance';
+import { rollTraits, traitMul, type TraitOdds, type ZombieTraits } from './survival/zombieTraits';
 
 // ============================================================
 // ZOMBIE MODE — SIMULATION (pure, DOM-free)
@@ -8,12 +9,51 @@ import { mulberry32 } from '../art/character/appearance';
 // - Detection: sight (LOS line + wide cone) and hearing (noise events,
 //   halved per wall between source and zombie)
 // - Fixed-step friendly: tick(dt) is deterministic for a given seed
+// - State machine: idle / wander -> investigate (noise) -> chase -> attack,
+//   attack_entrance at doors; lost targets are searched for, then the
+//   zombie returns home; corpses draw feeders; shoves knock zombies down
 // Runs on the client today; the same module can run on a host/server.
 // ============================================================
 
-export type ZombieState = 'idle' | 'wander' | 'investigate' | 'chase' | 'attack' | 'attack_entrance';
+export type ZombieState =
+  | 'idle'
+  | 'wander'
+  | 'investigate'
+  | 'chase'
+  | 'attack'
+  | 'attack_entrance'
+  /** Lost its target: casting about where it was last seen. */
+  | 'search'
+  /** Gave up searching: shambling back to where it came from. */
+  | 'return'
+  /** Eating a corpse: distracted (half sight and hearing). */
+  | 'feed'
+  /** Knocked over by a shove or a heavy hit: helpless until it gets up. */
+  | 'down';
 /** Wire order for ZombieState (index is sent over the network). Append only. */
-export const ZOMBIE_STATES: readonly ZombieState[] = ['idle', 'wander', 'investigate', 'chase', 'attack', 'attack_entrance'];
+export const ZOMBIE_STATES: readonly ZombieState[] = [
+  'idle',
+  'wander',
+  'investigate',
+  'chase',
+  'attack',
+  'attack_entrance',
+  'search',
+  'return',
+  'feed',
+  'down',
+];
+
+/** A body on the ground. Zombies feed on it; an infected one gets back up. */
+export interface Corpse {
+  id: number;
+  x: number;
+  y: number;
+  /** Seconds until it's gone (eaten / decayed). */
+  ttl: number;
+  /** Seconds until it rises as a zombie (infected dead only). */
+  turnIn?: number;
+}
 
 export interface Zombie {
   id: number;
@@ -45,8 +85,24 @@ export interface Zombie {
   leader?: number;
   /** An ability (survival/specials.ts) owns this zombie's movement: the sim skips its AI and movement. */
   locked?: boolean;
-  /** Per-zombie speed multiplier (special type × difficulty). */
+  /** Per-zombie speed multiplier (special type × traits × difficulty). */
   speedMul?: number;
+  /** Rolled at spawn (survival/zombieTraits.ts); absent = all normal. */
+  traits?: ZombieTraits;
+  /** Full health (traits make some tougher); ZOMBIE.maxHp when absent. */
+  maxHp?: number;
+  /** Where it spawned: lost-target searches end with a walk back here. */
+  homeX?: number;
+  homeY?: number;
+  /** Where the search is centred (last place the target was seen). */
+  searchX?: number;
+  searchY?: number;
+  /** Currently investigating a lost target (search when it gets there). */
+  lostTarget?: boolean;
+  /** Corpse being eaten. */
+  corpseId?: number;
+  /** Seconds before it'll feed again. */
+  sated?: number;
 }
 
 export interface SimTarget {
@@ -100,6 +156,21 @@ export const ZOMBIE = {
   blockedEntranceCost: 8,
   climbSeconds: 0.6,
   entranceDamage: 15,
+  /** Lost-target search: how long, and how far from the last sighting (tiles). */
+  searchSeconds: 8,
+  searchRadiusTiles: 3,
+  /** Longest walk home before giving up and idling. */
+  returnSeconds: 30,
+  /** Corpses: sensed within this many tiles (line of sight) or feedCloseTiles regardless. */
+  feedSenseTiles: 8,
+  feedCloseTiles: 3,
+  feedSeconds: 25,
+  satedSeconds: 60,
+  /** Feeding zombies are distracted. */
+  feedSenseMul: 0.45,
+  corpseSeconds: 300,
+  /** Knocked down by a shove or heavy hit. */
+  downSeconds: 2.5,
 } as const;
 
 const NEIGHBOURS = [
@@ -145,6 +216,13 @@ function wrap(a: number): number {
   return a - Math.PI;
 }
 
+/** Inside a melee arc: within `range` px and `arc` radians of `facing` (point-blank always counts). */
+export function inArc(z: { x: number; y: number }, x: number, y: number, facing: number, range: number, arc: number): boolean {
+  const d = Math.hypot(z.x - x, z.y - y);
+  if (d > range) return false;
+  return d <= 6 || Math.abs(wrap(Math.atan2(z.y - y, z.x - x) - facing)) <= arc / 2;
+}
+
 export class ZombieSim {
   zombies: Zombie[] = [];
   private nextId = 1;
@@ -159,6 +237,18 @@ export class ZombieSim {
   readonly changedEntrances: Set<number> = new Set();
   /** Sight / hearing radius multiplier (difficulty). */
   aggroMul = 1;
+  /** Weather (world.ts): rain drowns out quiet sounds, fog cuts how far they see. */
+  hearingMul = 1;
+  sightMul = 1;
+  /** Trait odds for new zombies; null = every zombie is average (tests, social maps). */
+  traitOdds: TraitOdds | null = null;
+  corpses: Corpse[] = [];
+  private nextCorpseId = 1;
+  /** No spawning where this says so (claimed safehouses). */
+  spawnBlocked: ((x: number, y: number) => boolean) | null = null;
+  /** Zombies risen from infected corpses since the last drain. */
+  readonly risen: Zombie[] = [];
+  private traitRng: () => number;
 
   /**
    * @param spawnBounds world-px rect zombies may spawn/wander in (keeps them off the upper-floor band)
@@ -169,6 +259,8 @@ export class ZombieSim {
     seed: number = 1337
   ) {
     this.rng = mulberry32(seed);
+    // Separate stream so traits never reshuffle spawn positions
+    this.traitRng = mulberry32(seed ^ 0x5bd1e995);
     this.flow = new Int16Array(grid.cols * grid.rows).fill(-1);
   }
 
@@ -191,7 +283,7 @@ export class ZombieSim {
       const b = this.spawnBounds;
       const x = b.x + this.rng() * b.w;
       const y = b.y + this.rng() * b.h;
-      if (!this.walkable(x, y)) continue;
+      if (!this.walkable(x, y) || this.spawnBlocked?.(x, y)) continue;
       if (avoid.some((t) => Math.hypot(t.x - x, t.y - y) < minD)) continue;
       this.zombies.push(this.makeZombie(x, y));
       made++;
@@ -207,7 +299,7 @@ export class ZombieSim {
   }
 
   private makeZombie(x: number, y: number): Zombie {
-    return {
+    const z: Zombie = {
       id: this.nextId++,
       x,
       y,
@@ -223,7 +315,61 @@ export class ZombieSim {
       sinceHit: 99,
       moving: false,
       variant: Math.floor(this.rng() * 4),
+      homeX: x,
+      homeY: y,
     };
+    if (this.traitOdds) {
+      const t = rollTraits(this.traitRng, this.traitOdds);
+      z.traits = t;
+      z.speedMul = traitMul(t, 'speed');
+      z.maxHp = Math.round(ZOMBIE.maxHp * traitMul(t, 'toughness'));
+      z.hp = z.maxHp;
+    }
+    return z;
+  }
+
+  // ------------------------------------------------------------ corpses
+
+  /** Leaves a body at (x, y). `turnIn` seconds: it rises as a zombie (infected dead). */
+  addCorpse(x: number, y: number, turnIn?: number): Corpse {
+    const c: Corpse = { id: this.nextCorpseId++, x, y, ttl: ZOMBIE.corpseSeconds, turnIn };
+    this.corpses.push(c);
+    return c;
+  }
+
+  private tickCorpses(dt: number) {
+    if (!this.corpses.length) return;
+    const keep: Corpse[] = [];
+    for (const c of this.corpses) {
+      c.ttl -= dt;
+      if (c.turnIn !== undefined) {
+        c.turnIn -= dt;
+        if (c.turnIn <= 0) {
+          const z = this.add(c.x, c.y);
+          z.timer = 1;
+          this.risen.push(z);
+          continue;
+        }
+      }
+      if (c.ttl > 0) keep.push(c);
+    }
+    this.corpses = keep;
+  }
+
+  /** A nearby corpse this zombie notices (line of sight, or very close). */
+  private corpseFor(z: Zombie): Corpse | null {
+    const ts = this.grid.tileSize;
+    const sense = ZOMBIE.feedSenseTiles * ts * traitMul(z.traits, 'sight');
+    let best: Corpse | null = null;
+    let bestD = Infinity;
+    for (const c of this.corpses) {
+      const d = Math.hypot(c.x - z.x, c.y - z.y);
+      if (d > sense || d >= bestD) continue;
+      if (d > ZOMBIE.feedCloseTiles * ts && wallsBetween(this.grid, z.x, z.y, c.x, c.y, 1) > 0) continue;
+      best = c;
+      bestD = d;
+    }
+    return best;
   }
 
   /**
@@ -236,7 +382,10 @@ export class ZombieSim {
     const ts = this.grid.tileSize;
     const minAvoid = avoidTiles * ts;
     const clear = (x: number, y: number) =>
-      this.walkable(x, y) && this.inSpawnBounds(x, y) && !avoid.some((t) => Math.hypot(t.x - x, t.y - y) < minAvoid);
+      this.walkable(x, y) &&
+      this.inSpawnBounds(x, y) &&
+      !this.spawnBlocked?.(x, y) &&
+      !avoid.some((t) => Math.hypot(t.x - x, t.y - y) < minAvoid);
     for (let attempt = 0; attempt < 30; attempt++) {
       const a = this.rng() * Math.PI * 2;
       const r = (minTiles + this.rng() * (maxTiles - minTiles)) * ts;
@@ -404,10 +553,12 @@ export class ZombieSim {
   }
 
   private canSee(z: Zombie, t: SimTarget): boolean {
+    if (z.state === 'down') return false;
     const ts = this.grid.tileSize;
     const d = Math.hypot(t.x - z.x, t.y - z.y) / ts;
     if (d <= ZOMBIE.closeSenseTiles) return true;
-    if (d > ZOMBIE.sightTiles * this.aggroMul) return false;
+    const distracted = z.state === 'feed' ? ZOMBIE.feedSenseMul : 1;
+    if (d > ZOMBIE.sightTiles * this.aggroMul * this.sightMul * traitMul(z.traits, 'sight') * distracted) return false;
     if (Math.abs(wrap(Math.atan2(t.y - z.y, t.x - z.x) - z.facing)) > ZOMBIE.sightCone / 2) return false;
     return wallsBetween(this.grid, z.x, z.y, t.x, t.y, 1) === 0;
   }
@@ -415,7 +566,9 @@ export class ZombieSim {
   /** Effective hearing: radius halves for each wall between noise and zombie. */
   private hears(z: Zombie, n: NoiseEvent): boolean {
     const d = Math.hypot(n.x - z.x, n.y - z.y) / this.grid.tileSize;
-    const radius = n.radius * this.aggroMul;
+    // Loud noises (gunshots, alarms) carry through any weather
+    const weather = n.radius >= LOUD_NOISE_RADIUS ? 1 : this.hearingMul;
+    const radius = n.radius * this.aggroMul * weather * traitMul(z.traits, 'hearing') * (z.state === 'feed' ? ZOMBIE.feedSenseMul : 1);
     if (d > radius) return false;
     const walls = wallsBetween(this.grid, n.x, n.y, z.x, z.y, 3);
     // Quiet sounds die behind a wall; gunshots carry through buildings
@@ -430,6 +583,7 @@ export class ZombieSim {
   tick(dt: number, targets: SimTarget[], noises: NoiseEvent[] = []): BiteEvent[] {
     const bites: BiteEvent[] = [];
     this.rebuildFlow(targets, dt);
+    this.tickCorpses(dt);
 
     for (const z of this.zombies) {
       z.sinceHit += dt;
@@ -453,6 +607,17 @@ export class ZombieSim {
         z.moving = false;
         continue;
       }
+      if (z.sated !== undefined) z.sated = z.sated > dt ? z.sated - dt : undefined;
+      if (z.state === 'down') {
+        z.moving = false;
+        z.timer -= dt;
+        if (z.timer <= 0) {
+          // Back on its feet: straight back to whoever it was after
+          z.state = z.targetId ? 'chase' : 'idle';
+          z.timer = z.targetId ? ZOMBIE.loseTargetSeconds : 1 + this.rng() * 2;
+        }
+        continue;
+      }
 
       // --- Senses (staggered, ~4 Hz per zombie) ---
       if (z.senseCooldown <= 0) {
@@ -472,7 +637,24 @@ export class ZombieSim {
           z.goalX = seen.x;
           z.goalY = seen.y;
           z.timer = ZOMBIE.loseTargetSeconds;
+          z.lostTarget = false;
+          z.corpseId = undefined;
           if (z.state !== 'attack' && z.state !== 'attack_entrance') z.state = 'chase';
+        } else if (
+          this.corpses.length &&
+          z.sated === undefined &&
+          (z.state === 'idle' || z.state === 'wander' || z.state === 'search' || z.state === 'return')
+        ) {
+          const c = this.corpseFor(z);
+          if (c) {
+            // Crowd round the body instead of stacking on it
+            const a = (z.id * 2.399) % (Math.PI * 2);
+            z.state = 'feed';
+            z.corpseId = c.id;
+            z.goalX = c.x + Math.cos(a) * 9;
+            z.goalY = c.y + Math.sin(a) * 6;
+            z.timer = ZOMBIE.feedSeconds * (0.8 + this.rng() * 0.4);
+          }
         }
       }
 
@@ -484,6 +666,8 @@ export class ZombieSim {
           z.goalX = n.x;
           z.goalY = n.y;
           z.timer = 8;
+          z.lostTarget = false;
+          z.corpseId = undefined;
           break;
         }
       }
@@ -493,6 +677,7 @@ export class ZombieSim {
         z.state = 'investigate';
         z.targetId = null;
         z.timer = 4;
+        z.lostTarget = true;
       }
 
       let speed = 0;
@@ -512,10 +697,59 @@ export class ZombieSim {
           speed = ZOMBIE.wanderSpeed * 1.6;
           z.timer -= dt;
           if (z.timer <= 0 || Math.hypot(z.goalX - z.x, z.goalY - z.y) < 6) {
-            z.state = 'idle';
-            z.timer = 2 + this.rng() * 3;
+            if (z.lostTarget) {
+              // Got to where the target vanished: cast about for a while
+              z.lostTarget = false;
+              z.state = 'search';
+              z.searchX = z.goalX;
+              z.searchY = z.goalY;
+              z.timer = ZOMBIE.searchSeconds * (0.75 + this.rng() * 0.5);
+              this.pickSearchGoal(z);
+            } else {
+              z.state = 'idle';
+              z.timer = 2 + this.rng() * 3;
+            }
           }
           break;
+        case 'search':
+          speed = ZOMBIE.wanderSpeed * 1.2;
+          z.timer -= dt;
+          if (z.timer <= 0) {
+            this.startReturn(z);
+          } else if (Math.hypot(z.goalX - z.x, z.goalY - z.y) < 4) {
+            this.pickSearchGoal(z);
+          }
+          break;
+        case 'return':
+          speed = ZOMBIE.wanderSpeed;
+          z.timer -= dt;
+          if (z.timer <= 0 || Math.hypot(z.goalX - z.x, z.goalY - z.y) < 8) {
+            z.state = 'idle';
+            z.timer = 2 + this.rng() * 4;
+          }
+          break;
+        case 'feed': {
+          const c = this.corpses.find((o) => o.id === z.corpseId);
+          if (!c) {
+            z.state = 'idle';
+            z.corpseId = undefined;
+            z.timer = 1 + this.rng() * 2;
+            break;
+          }
+          if (Math.hypot(z.goalX - z.x, z.goalY - z.y) > 3) {
+            speed = ZOMBIE.wanderSpeed * 1.3;
+          } else {
+            z.facing = Math.atan2(c.y - z.y, c.x - z.x);
+            z.timer -= dt;
+            if (z.timer <= 0) {
+              z.state = 'idle';
+              z.corpseId = undefined;
+              z.sated = ZOMBIE.satedSeconds;
+              z.timer = 2 + this.rng() * 3;
+            }
+          }
+          break;
+        }
         case 'chase': {
           if (!target) break;
           z.timer -= dt;
@@ -565,7 +799,7 @@ export class ZombieSim {
           }
           if (z.attackCooldown <= 0) {
             z.attackCooldown = ZOMBIE.attackCooldown;
-            this.setEntranceState(tile, applyEntranceAction(e, { type: 'damage', amount: ZOMBIE.entranceDamage }));
+            this.setEntranceState(tile, applyEntranceAction(e, { type: 'damage', amount: ZOMBIE.entranceDamage * traitMul(z.traits, 'strength') }));
           }
           break;
         }
@@ -579,7 +813,7 @@ export class ZombieSim {
           }
           if (z.attackCooldown <= 0) {
             z.attackCooldown = ZOMBIE.attackCooldown;
-            bites.push({ targetId: target.id, damage: ZOMBIE.attackDamage, zombieId: z.id });
+            bites.push({ targetId: target.id, damage: ZOMBIE.attackDamage * traitMul(z.traits, 'strength'), zombieId: z.id });
           }
           break;
         }
@@ -590,6 +824,41 @@ export class ZombieSim {
 
     this.separate();
     return bites;
+  }
+
+  /** Next spot to check during a search: near the last sighting, in line of sight of it. */
+  private pickSearchGoal(z: Zombie) {
+    const ts = this.grid.tileSize;
+    const cx = z.searchX ?? z.x;
+    const cy = z.searchY ?? z.y;
+    for (let i = 0; i < 8; i++) {
+      const a = this.rng() * Math.PI * 2;
+      const r = (0.5 + this.rng() * (ZOMBIE.searchRadiusTiles - 0.5)) * ts;
+      const gx = cx + Math.cos(a) * r;
+      const gy = cy + Math.sin(a) * r;
+      if (this.walkable(gx, gy) && wallsBetween(this.grid, cx, cy, gx, gy, 1) === 0) {
+        z.goalX = gx;
+        z.goalY = gy;
+        return;
+      }
+    }
+    z.goalX = cx;
+    z.goalY = cy;
+  }
+
+  /** Search over: walk back home if it's far, else settle down here. */
+  private startReturn(z: Zombie) {
+    const hx = z.homeX ?? z.x;
+    const hy = z.homeY ?? z.y;
+    if (Math.hypot(hx - z.x, hy - z.y) < 4 * this.grid.tileSize) {
+      z.state = 'idle';
+      z.timer = 2 + this.rng() * 3;
+      return;
+    }
+    z.state = 'return';
+    z.goalX = hx;
+    z.goalY = hy;
+    z.timer = ZOMBIE.returnSeconds;
   }
 
   private pickWander(z: Zombie) {
@@ -682,30 +951,107 @@ export class ZombieSim {
     range: number,
     arc: number,
     damage: number,
-    scale?: (z: Zombie) => number
+    scale?: (z: Zombie) => number,
+    opts: { knockback?: number; downChance?: number } = {}
   ): { hits: number; kills: number } {
+    const knockback = opts.knockback ?? 8;
     let hits = 0;
     for (const z of this.zombies) {
+      if (!inArc(z, x, y, facing, range, arc)) continue;
       const d = Math.hypot(z.x - x, z.y - y);
-      if (d > range) continue;
-      if (d > 6 && Math.abs(wrap(Math.atan2(z.y - y, z.x - x) - facing)) > arc / 2) continue;
       z.hp -= scale ? damage * scale(z) : damage;
       z.sinceHit = 0;
-      // Knockback
-      if (d > 0) {
-        const kx = z.x + ((z.x - x) / d) * 8;
-        const ky = z.y + ((z.y - y) / d) * 8;
-        if (this.walkable(kx, ky)) {
-          z.x = kx;
-          z.y = ky;
-        }
-      }
+      this.knock(z, x, y, d, knockback);
       z.attackCooldown = Math.max(z.attackCooldown, 0.5);
+      if (z.hp > 0 && opts.downChance && !z.locked && this.rng() < opts.downChance) this.knockDown(z);
       hits++;
     }
     const before = this.zombies.length;
     this.zombies = this.zombies.filter((z) => z.hp > 0);
     return { hits, kills: before - this.zombies.length };
+  }
+
+  /**
+   * A vehicle ploughing through: every zombie inside the (convex) outline
+   * takes `damage`, is shoved aside and, above `downSpeed`, knocked flat.
+   */
+  ram(outline: { x: number; y: number }[], cx: number, cy: number, damage: number, knockDown: boolean, scale?: (z: Zombie) => number): { hits: number; kills: number } {
+    let hits = 0;
+    for (const z of this.zombies) {
+      if (!insideConvex(outline, z.x, z.y)) continue;
+      z.hp -= scale ? damage * scale(z) : damage;
+      z.sinceHit = 0;
+      this.knock(z, cx, cy, Math.hypot(z.x - cx, z.y - cy), 14);
+      if (z.hp > 0 && knockDown && !z.locked) this.knockDown(z);
+      hits++;
+    }
+    const before = this.zombies.length;
+    if (hits) this.zombies = this.zombies.filter((z) => z.hp > 0);
+    return { hits, kills: before - this.zombies.length };
+  }
+
+  /** Pushes a zombie away from (x, y) by `px`, if the spot is walkable. */
+  private knock(z: Zombie, x: number, y: number, d: number, px: number) {
+    if (d <= 0 || px <= 0) return;
+    const kx = z.x + ((z.x - x) / d) * px;
+    const ky = z.y + ((z.y - y) / d) * px;
+    if (this.walkable(kx, ky)) {
+      z.x = kx;
+      z.y = ky;
+    }
+  }
+
+  private knockDown(z: Zombie) {
+    if (z.state === 'attack_entrance') z.entranceTile = undefined;
+    z.state = 'down';
+    z.timer = ZOMBIE.downSeconds * (0.8 + this.rng() * 0.4);
+    z.moving = false;
+  }
+
+  /**
+   * Shove: no damage, but pushes every zombie in the arc back and may knock
+   * them down (strength-scaled `downChance`). Specials mid-ability don't budge.
+   */
+  shove(x: number, y: number, facing: number, range: number, arc: number, push: number, downChance: number): { hits: number; downed: number } {
+    let hits = 0;
+    let downed = 0;
+    for (const z of this.zombies) {
+      if (z.locked || z.state === 'down' || !inArc(z, x, y, facing, range, arc)) continue;
+      this.knock(z, x, y, Math.hypot(z.x - x, z.y - y), push);
+      z.attackCooldown = Math.max(z.attackCooldown, 0.8);
+      hits++;
+      if (this.rng() < downChance) {
+        this.knockDown(z);
+        downed++;
+      }
+    }
+    return { hits, downed };
+  }
+
+  /** Stomp: heavy damage to the nearest downed zombie at your feet. Returns whether it died. */
+  stomp(x: number, y: number, facing: number, range: number, damage: number, scale?: (z: Zombie) => number): { hit: boolean; kill: boolean } {
+    const z = this.downedNear(x, y, facing, range);
+    if (!z) return { hit: false, kill: false };
+    z.hp -= scale ? damage * scale(z) : damage;
+    z.sinceHit = 0;
+    if (z.hp > 0) return { hit: true, kill: false };
+    this.zombies = this.zombies.filter((o) => o !== z);
+    return { hit: true, kill: true };
+  }
+
+  /** The closest downed zombie in front of (x, y) within `range` px. */
+  downedNear(x: number, y: number, facing: number, range: number): Zombie | null {
+    let best: Zombie | null = null;
+    let bestD = range;
+    for (const z of this.zombies) {
+      if (z.state !== 'down' || !inArc(z, x, y, facing, range, Math.PI)) continue;
+      const d = Math.hypot(z.x - x, z.y - y);
+      if (d <= bestD) {
+        best = z;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   /**
@@ -773,4 +1119,19 @@ export class ZombieSim {
     this.zombies = [];
     this.flowKey = '';
   }
+}
+
+/** Point inside a convex polygon (either winding). */
+function insideConvex(poly: { x: number; y: number }[], x: number, y: number): boolean {
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const cross = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+    if (cross === 0) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) return false;
+  }
+  return true;
 }

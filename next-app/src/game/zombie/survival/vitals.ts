@@ -40,6 +40,13 @@ export interface VitalsContext {
   resting: boolean;
   /** From difficultyAt(). */
   decayMul: number;
+  /** Character condition multipliers (survival/condition.ts conditionMods). */
+  mods?: {
+    hungerMul?: number;
+    hydrationMul?: number;
+    staminaRegenMul?: number;
+    sprintCostMul?: number;
+  };
 }
 
 export interface VitalsResult {
@@ -88,14 +95,15 @@ export function tickVitals(v: PlayerVitals, ctx: VitalsContext): VitalsResult {
   const safeRest = ctx.inSafeZone && ctx.resting;
   const decay = ctx.decayMul * (ctx.inSafeZone ? VITALS.safeDecayMul : 1);
 
-  const hunger = clamp(v.hunger - VITALS.hungerDecay * decay * dt);
-  const hydration = clamp(v.hydration - VITALS.hydrationDecay * VITALS.hydrationIntentMul[ctx.intent] * decay * dt);
+  const m = ctx.mods;
+  const hunger = clamp(v.hunger - VITALS.hungerDecay * decay * (m?.hungerMul ?? 1) * dt);
+  const hydration = clamp(v.hydration - VITALS.hydrationDecay * VITALS.hydrationIntentMul[ctx.intent] * decay * (m?.hydrationMul ?? 1) * dt);
 
   // --- stamina
   const sprinting = ctx.intent === 'sprint' && !knocked && (stimulated || !v.exhausted);
   let stamina = v.stamina;
-  if (sprinting) stamina -= VITALS.sprintCost * (stimulated ? VITALS.stimulantSprintCostMul : 1) * dt;
-  else stamina += (safeRest ? VITALS.restRegen : VITALS.staminaRegen[ctx.intent]) * dt;
+  if (sprinting) stamina -= VITALS.sprintCost * (stimulated ? VITALS.stimulantSprintCostMul : 1) * (m?.sprintCostMul ?? 1) * dt;
+  else stamina += (safeRest ? VITALS.restRegen : VITALS.staminaRegen[ctx.intent]) * (m?.staminaRegenMul ?? 1) * dt;
   stamina = clamp(stamina);
   let exhausted = v.exhausted;
   if (stamina <= 0 && !stimulated) exhausted = true;

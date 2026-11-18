@@ -671,8 +671,13 @@ export const LogsTab: React.FC<LogsTabProps> = ({ capabilities, onNotify }) => {
                             )}
                           </span>
                         </td>
-                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {String(log.reason || '-')}
+                        <td style={{ maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span>{String(log.reason || '-')}</span>
+                          {Array.isArray(log.evidence_snapshot) && log.evidence_snapshot.length > 0 && (
+                            <span className={styles.evidenceCountTag} title="Attached decrypted chat evidence">
+                              <LockIcon size={11} /> {log.evidence_snapshot.length}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <NeoBadge
@@ -782,6 +787,52 @@ export const LogsTab: React.FC<LogsTabProps> = ({ capabilities, onNotify }) => {
                 </div>
               </div>
             ) : null}
+
+            {/* If report includes decrypted chat context, render readable transcript */}
+            {activeCategory === 'reports' &&
+              Array.isArray(inspectedLog.evidence_snapshot) &&
+              inspectedLog.evidence_snapshot.length > 0 && (
+                <div>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block', marginBottom: '8px' }}>
+                    Reported Chat Context ({inspectedLog.evidence_snapshot.length} decrypted messages)
+                  </span>
+                  <div className={styles.evidenceTranscript}>
+                    {(
+                      inspectedLog.evidence_snapshot as Array<{
+                        senderId?: string;
+                        senderName?: string;
+                        content?: string;
+                        createdAt?: string;
+                      }>
+                    ).map((msg, idx) => {
+                      const isReportedSender =
+                        Boolean(msg.senderId) && msg.senderId === inspectedLog.reported_user_id;
+                      return (
+                        <div
+                          key={`${msg.createdAt || 'msg'}-${idx}`}
+                          className={`${styles.evidenceRow} ${isReportedSender ? styles.evidenceRowReported : ''}`}
+                        >
+                          <div className={styles.evidenceMeta}>
+                            <span
+                              style={{
+                                fontWeight: 800,
+                                color: isReportedSender ? '#DC2626' : 'var(--text-main)',
+                              }}
+                            >
+                              {msg.senderName || 'Player'}
+                              {isReportedSender ? ' (Reported)' : ''}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ''}
+                            </span>
+                          </div>
+                          <div className={styles.evidenceBody}>{msg.content || ''}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
             {/* Complete Raw JSON Event Record */}
             <div>

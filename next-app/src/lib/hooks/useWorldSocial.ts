@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WorldGame } from '@/game/WorldGame';
 import type { WorldSyncService } from '@/lib/services/worldSync';
-import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
-import { supabase } from '@/lib/supabase';
+import { useSessionStore } from '@/stores/session';
 import {
   AUTO_AWAY_MS,
   EmoteId,
   PlayerStatus,
   isDoNotDisturb,
+  restoredStatus,
 } from '@/lib/world/emotes';
 import {
   FocusTimerState,
@@ -30,7 +30,6 @@ import {
 } from '@/lib/world/rooms';
 import type { IconName } from '@/lib/icons';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOCK_TTL_MS = 20_000;
 /** How close (px) you must be to a locked room to see the Knock prompt. */
 const KNOCK_REACH = 48;
@@ -46,7 +45,6 @@ type Toast = (icon: IconName, message: string, color: string) => void;
 
 interface Options {
   syncService: WorldSyncService | null;
-  userId: string | null | undefined;
   mapTheme: string | null | undefined;
   onToast: Toast;
 }
@@ -56,7 +54,7 @@ interface Options {
  * locks, knocking) for the space page. Exposes refs so non-React callbacks
  * (LiveKit isAudible, chat handlers) read the latest values without re-subscribing.
  */
-export function useWorldSocial({ syncService, userId, mapTheme, onToast }: Options) {
+export function useWorldSocial({ syncService, mapTheme, onToast }: Options) {
   const gameRef = useRef<WorldGame | null>(null);
   const [handRaised, setHandRaisedState] = useState(false);
   const [sitting, setSittingState] = useState(false);
@@ -152,17 +150,27 @@ export function useWorldSocial({ syncService, userId, mapTheme, onToast }: Optio
       setStatusState(next);
       gameRef.current?.setStatus(next);
       if (!gameRef.current) syncService?.updatePresenceState({ status: next });
-      DashboardPresenceService.updatePresence({ status: next });
-      if (userId && UUID_REGEX.test(userId)) {
-        supabase
-          .from('profiles')
-          .update({ status: next })
-          .eq('id', userId)
-          .then(() => undefined);
-      }
+      // Dashboard presence (what friends see in chat) + saved profile status.
+      useSessionStore.getState().setStatus(next);
     },
-    [syncService, userId]
+    [syncService]
   );
+
+  // Carry the status chosen elsewhere (dashboard, last session) into this space once
+  // the session is known, so the world and the chat lists agree.
+  const savedStatus = useSessionStore((s) => s.session?.status);
+  const initialStatusAppliedRef = useRef(false);
+  useEffect(() => {
+    if (initialStatusAppliedRef.current || savedStatus === undefined) return;
+    initialStatusAppliedRef.current = true;
+    const initial = restoredStatus(savedStatus);
+    if (initial !== statusRef.current || initial !== savedStatus) setStatus(initial);
+  }, [savedStatus, setStatus]);
+
+  // A new sync service starts from default extras; seed it with the current status.
+  useEffect(() => {
+    syncService?.updatePresenceState({ status: statusRef.current });
+  }, [syncService]);
 
   const setStatusRef = useRef(setStatus);
   useEffect(() => {

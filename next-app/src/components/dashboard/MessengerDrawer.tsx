@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/session';
 import { DirectMessageNotAllowedError, DirectMessageService } from '@/lib/services/directMessages';
 import { useSafeText, useSafetyStore } from '@/stores/safety';
 import { ReportModal } from '@/components/safety/ReportModal';
+import { EncryptionDetailsModal } from '@/components/dashboard/EncryptionDetailsModal';
 import { GroupChatService } from '@/lib/services/groupChat';
 import { SocialMessageModel } from '@/lib/models/social';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
@@ -17,6 +18,7 @@ import {
   ArrowLeftIcon,
   ChatBubbleIcon,
   CloseIcon,
+  LockIcon,
   PhoneIcon,
   PlusIcon,
   UserCheckIcon,
@@ -27,6 +29,8 @@ import {
 import { removeRealtimeChannel } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { AppIcon } from '@/components/icons/AppIcon';
+import { StatusDot } from './StatusDot';
+import { statusLabel } from '@/lib/world/emotes';
 import { toIconName, type IconName } from '@/lib/icons';
 import { GamePicker, type GameStartOptions } from '@/components/games/GamePicker';
 import { GameOverlay } from '@/components/games/GameOverlay';
@@ -68,6 +72,7 @@ export function MessengerDrawer() {
   const blockUser = useSafetyStore((s) => s.block);
   const unblockUser = useSafetyStore((s) => s.unblock);
   const [reportOpen, setReportOpen] = useState(false);
+  const [encryptionOpen, setEncryptionOpen] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const {
     friends,
@@ -156,12 +161,16 @@ export function MessengerDrawer() {
     let sub: RealtimeChannel | null = null;
 
     if (activeChat.type === 'dm') {
-      DirectMessageService.fetchMessages(activeChat.id).then((list) => {
+      DirectMessageService.fetchMessages(activeChat.id, activeChat.otherUserId).then((list) => {
         if (isMounted) setMessages(list);
       });
-      sub = DirectMessageService.subscribeToConversation(activeChat.id, (newMsg) => {
-        if (isMounted) setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
-      });
+      sub = DirectMessageService.subscribeToConversation(
+        activeChat.id,
+        (newMsg) => {
+          if (isMounted) setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+        },
+        activeChat.otherUserId
+      );
     } else {
       GroupChatService.fetchMessages(activeChat.id).then((list) => {
         if (isMounted) setMessages(list);
@@ -262,6 +271,7 @@ export function MessengerDrawer() {
           senderId: session.id,
           senderName: session.displayName,
           content: text,
+          recipientId: activeChat.otherUserId,
         });
         setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       } else {
@@ -432,6 +442,15 @@ export function MessengerDrawer() {
 
             {/* Message History */}
             <div className={styles.messagesScrollArea} ref={scrollRef}>
+              <button
+                type="button"
+                className={styles.e2eeBanner}
+                onClick={() => setEncryptionOpen(true)}
+                title="View encryption details and key fingerprint"
+              >
+                <LockIcon size={12} strokeWidth={2.5} />
+                <span>End-to-End Encrypted</span>
+              </button>
               {messages.length === 0 ? (
                 <div className={styles.emptyState}>
                   <span className={styles.emptyIcon}><AppIcon name="message" /></span>
@@ -591,9 +610,26 @@ export function MessengerDrawer() {
                 reporterId={session.id}
                 reportedUserId={otherUserId}
                 reportedName={safeText(activeChat.title)}
+                evidenceSnapshot={messages.slice(-5).map((m) => ({
+                  senderId: m.senderId,
+                  senderName: m.senderName,
+                  content: m.content,
+                  createdAt: m.createdAt,
+                }))}
                 onBlock={async () => {
                   await blockUser(otherUserId);
                 }}
+              />
+            )}
+
+            {session && (
+              <EncryptionDetailsModal
+                isOpen={encryptionOpen}
+                onClose={() => setEncryptionOpen(false)}
+                channelKind={activeChat.type}
+                userId={session.id}
+                peerUserId={otherUserId}
+                peerName={safeText(activeChat.title)}
               />
             )}
           </div>
@@ -667,7 +703,7 @@ export function MessengerDrawer() {
                         >
                           <div className={styles.avatarWrapper}>
                             <PixelAvatar config={c.otherUser.avatarConfig} size={36} />
-                            {c.otherUser.isOnline && <span className={styles.onlineDot} />}
+                            <StatusDot status={c.otherUser.status} className={styles.onlineDot} />
                           </div>
                           <div className={styles.convDetails}>
                             <div className={styles.convTitleRow}>
@@ -798,13 +834,13 @@ export function MessengerDrawer() {
                       >
                         <div className={styles.avatarWrapper}>
                           <PixelAvatar config={friend.avatarConfig} size={36} />
-                          {friend.isOnline && <span className={styles.onlineDot} />}
+                          <StatusDot status={friend.status} className={styles.onlineDot} />
                         </div>
                         <div className={styles.convDetails}>
                           <div className={styles.convTitleRow}>
                             <span className={styles.convTitle}>{friend.displayName}</span>
                             <span className={styles.convTime}>
-                              {friend.isOnline ? 'Online' : 'Offline'}
+                              {statusLabel(friend.isOnline ? friend.status : 'offline')}
                             </span>
                           </div>
                           <span className={styles.convPreview}>

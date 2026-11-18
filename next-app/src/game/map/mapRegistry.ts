@@ -9,6 +9,13 @@ import { renderCafeMap } from './maps/cafeMap';
 import { BuildingDefinition, VILLAGE_BUILDINGS } from './buildings';
 import type { Entrance } from '../zombie/entrances';
 import type { LootSpawn } from '../zombie/weapons';
+import type { RestSpot } from '../zombie/survival/sleep';
+import type { ContainerSpawn } from '../zombie/survival/containers';
+import type { WorldFixture } from '../zombie/survival/utilities';
+import type { VehicleSpawn } from '../zombie/survival/vehicles';
+
+/** Ground under a point (Zombie Survival): farmable / forageable or not. */
+export type GroundType = 'grass' | 'park' | 'dirt' | 'paved' | 'floor';
 import { buildZombieCityConfig } from './city/cityMap';
 import type { IconName } from '@/lib/icons';
 
@@ -66,6 +73,16 @@ export interface MapThemeConfig {
   lowWalls?: Rect[];
   /** Weapon / ammo pickups (Zombie Survival). Ids must be stable: they're synced by id. */
   loot?: LootSpawn[];
+  /** Beds and sofas you can sleep on (Zombie Survival), world px, on every floor. */
+  restSpots?: RestSpot[];
+  /** Searchable furniture (Zombie Survival): fridges, shelves, cabinets… with seeded loot. */
+  containers?: ContainerSpawn[];
+  /** Taps, toilets, stoves, fuel pumps and fountains (Zombie Survival world simulation). */
+  fixtures?: WorldFixture[];
+  /** Drivable vehicles where the map's cars are parked (Zombie Survival). */
+  vehicles?: VehicleSpawn[];
+  /** Ground under a world point (Zombie Survival farming, traps, foraging). */
+  groundAt?: (x: number, y: number) => GroundType | null;
 }
 
 /** World-edge walls for a map of the given size. */

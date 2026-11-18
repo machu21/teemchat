@@ -39,11 +39,36 @@ import { SpaceModel } from '@/lib/models/space';
 import { SpaceService } from '@/lib/services/spaces';
 import { ZombieHud, ZombieMode } from './zombie/zombieMode';
 import { DoorActionType, ZombieSyncService } from '@/lib/services/zombieSync';
-import { WEAPONS, WEAPON_ORDER, type WeaponId } from './zombie/weapons';
+import type { WeaponId } from './zombie/weapons';
+import type { InvAction } from './zombie/zombieMode';
+import type { SurvivorBuild } from './zombie/survival/survivor';
+import type { RecipeId } from './zombie/survival/crafting';
+import type { AvatarConfig } from '@/lib/models/avatar';
+import { hash32 } from './art/character/appearance';
 import type { Entrance } from './zombie/entrances';
 import type { ConsumableId } from './zombie/survival/types';
 import { ControlAction, DEFAULT_BINDINGS, KeyBindings, actionForCode } from '@/lib/settings/controls';
 import type { IconName } from '@/lib/icons';
+import { SurvivalAudio } from './zombie/audio/survivalAudio';
+import { readPad, type PadSnapshot } from '@/lib/input/gamepad';
+import { DEFAULT_SURVIVAL_SETTINGS, type SurvivalSettings } from '@/lib/settings/survivalSettings';
+import { renderMapImage } from './map/mapImage';
+import { SurvivalSaveService, type SaveStatus } from '@/lib/services/survivalSave';
+import { PLAYER_AUTOSAVE_SECONDS, WORLD_AUTOSAVE_SECONDS } from './zombie/persistence';
+import type { WorldRules } from './zombie/survival/balance';
+
+/** Numbers for the survival performance overlay (twice a second while it's on). */
+export interface PerfStats {
+  fps: number;
+  updateMs: number;
+  renderMs: number;
+  role: string;
+  zombies: number;
+  bytesPerSecond: number;
+  droppedRequests: number;
+  vehicles: number;
+  structures: number;
+}
 
 export interface DoorPrompt {
   buildingId: string;
@@ -203,6 +228,31 @@ export class WorldGame {
   private objectPrompt: ObjectRef | null = null;
   /** Emote menu / raise hand / sit shortcuts (the page owns that UI). */
   onSocialAction?: (action: 'emotes' | 'raiseHand' | 'sit') => void;
+  /** Survival: the character key (P) toggles the character panel. */
+  onToggleCharacterPanel?: () => void;
+  /** Survival: the inventory key (I) toggles the inventory. */
+  onToggleInventory?: () => void;
+  /** M / gamepad Back: the survival menu (map, log, settings). */
+  onToggleMap?: () => void;
+  /** Survival sound (synthesized) and the feedback preferences it shares a panel with. */
+  private survivalAudio = new SurvivalAudio();
+  private survivalSettings: SurvivalSettings = DEFAULT_SURVIVAL_SETTINGS;
+  /** Gamepad: last frame's buttons and the left stick. */
+  private padPrev: boolean[] = [];
+  private padMove: { x: number; y: number } = { x: 0, y: 0 };
+  private mapImage: HTMLCanvasElement | null = null;
+  /** Survival saves for this space (world, survivor, rules) and their timers. */
+  private saves: SurvivalSaveService | null = null;
+  private worldSaveTimer = WORLD_AUTOSAVE_SECONDS;
+  private playerSaveTimer = PLAYER_AUTOSAVE_SECONDS;
+  private onVisibilityBound: (() => void) | null = null;
+  /** Save outcomes for the menu. */
+  onSaveStatus?: (s: { world: SaveStatus | null; player: SaveStatus | null }) => void;
+  /** Performance overlay feed (set only while the overlay is on). */
+  onPerf?: (s: PerfStats) => void;
+  private perfAcc = { frames: 0, update: 0, render: 0, at: 0 };
+  /** Survival: the crafting key (K) toggles the crafting screen. */
+  onToggleCrafting?: () => void;
   /** Local player stood up by moving (UI keeps its sit toggle in step). */
   onSitChanged?: (sitting: boolean) => void;
   /** Rooms locked by their occupants; entering needs a pass (granted by a knock reply). */
@@ -284,15 +334,33 @@ export class WorldGame {
         getMapConfig(this.space.mapTheme).loot ?? []
       );
       this.zombieMode.onHudChanged = (hud) => this.onZombieHud?.(hud);
+      this.zombieMode.setFeedback({ shake: this.survivalSettings.shake, numbers: this.survivalSettings.numbers });
       // Street lamps glow (and light their pool for vision) after dusk
       this.zombieMode.setLamps(getDefaultPropsForMap(this.space.mapTheme).filter((p) => p.type === 'streetLantern'));
+      // Survival spaces start with character creation (and ask again after each death)
+      this.zombieMode.setRequireCharacterCreation(true);
+      // Beds and sofas from the map: sleep there (or on the floor anywhere)
+      this.zombieMode.setRestSpots(getMapConfig(this.space.mapTheme).restSpots ?? []);
+      // Searchable furniture: same seed on every client, so contents agree without traffic
+      this.zombieMode.setContainers(getMapConfig(this.space.mapTheme).containers ?? [], hash32(`${this.space.mapTheme}:containers`));
+      // World simulation: weather, power / water shut-offs and events follow this space's seed;
+      // taps, stoves, toilets and fuel pumps come from the map
+      this.zombieMode.setWorld(hash32(`${this.space.id}:world`), getMapConfig(this.space.mapTheme).fixtures ?? []);
+      // The map's parked cars, seeded per space (condition, fuel, keys), and the ground for farming / foraging
+      this.zombieMode.setVehicles(getMapConfig(this.space.mapTheme).vehicles ?? [], hash32(`${this.space.id}:vehicles`));
+      const groundAt = getMapConfig(this.space.mapTheme).groundAt;
+      if (groundAt) this.zombieMode.setGround(groundAt);
       this.connectZombieNet();
+      this.startSaves();
       this.applyZoomLimits(SURVIVAL_ZOOM_LIMITS.min, SURVIVAL_ZOOM_LIMITS.max);
       this.survivalZoom.outside = this.camera.zoom;
     } else {
+      this.flushSaves();
+      this.saves = null;
       this.disconnectZombieNet();
       this.zombieMode?.dispose();
       this.zombieMode = null;
+      this.survivalAudio.stop();
       this.onZombieHud?.(null);
       this.applyZoomLimits();
     }
@@ -441,6 +509,9 @@ export class WorldGame {
   /** Survival hop over fences, cars and bins (Space / jump button). */
   jump(): boolean {
     if (!this.zombieMode || this.jumpT >= 0 || this.zombieMode.isDead() || this.iris) return false;
+    // Behind the wheel the jump button is the horn
+    if (this.zombieMode.inVehicle()) return this.zombieMode.honk();
+    if (!this.zombieMode.tryJump()) return false;
     this.jumpT = 0;
     return true;
   }
@@ -535,6 +606,265 @@ export class WorldGame {
   /** Flashlight toggle (G / HUD button). Returns the new state. */
   zombieToggleFlashlight(): boolean {
     return !!this.zombieMode?.toggleFlashlight();
+  }
+
+  /**
+   * Character creation: starts the survivor and, when given, puts on their look
+   * (seen by others in this space; the profile avatar isn't changed). Returns problems (empty = started).
+   */
+  zombieCreateSurvivor(build: SurvivorBuild, look?: AvatarConfig): string[] {
+    if (!this.zombieMode) return ['Survival mode is off.'];
+    const errors = this.zombieMode.createSurvivor(build);
+    if (!errors.length && look) this.setSurvivorAppearance(look);
+    return errors;
+  }
+
+  private setSurvivorAppearance(cfg: AvatarConfig) {
+    this.player.avatarConfig = { ...cfg };
+    this.syncService?.setAvatarConfig({ ...cfg });
+  }
+
+  /** Crafting screen open / closed (the HUD carries the recipe list only while it is). */
+  zombieSetCraftOpen(open: boolean) {
+    this.zombieMode?.setCraftOpen(open);
+  }
+
+  /** Makes an item, or starts placing a structure. */
+  zombieCraft(id: RecipeId): boolean {
+    return !!this.zombieMode?.craft(id);
+  }
+
+  zombieCancelCraft() {
+    this.zombieMode?.cancelCraft();
+  }
+
+  /** Puts the structure being placed on the tile you face (same as E). */
+  zombieConfirmPlacement(): boolean {
+    return !!this.zombieMode?.confirmPlacement();
+  }
+
+  zombieDismantle(): boolean {
+    return !!this.zombieMode?.dismantleNear();
+  }
+
+  zombieClaimSafehouse(): boolean {
+    return !!this.zombieMode?.claimSafehouse();
+  }
+
+  zombieReleaseSafehouse(): boolean {
+    return !!this.zombieMode?.releaseSafehouse();
+  }
+
+  /** Inventory screen open / closed (the HUD carries the item list only while it is). */
+  zombieSetInventoryOpen(open: boolean) {
+    this.zombieMode?.setInventoryOpen(open);
+  }
+
+  /** Use / equip / drop / split / destroy / put one inventory entry. */
+  zombieInventoryAction(key: string, action: InvAction): boolean {
+    return !!this.zombieMode?.inventoryAction(key, action);
+  }
+
+  // ------------------------------------------------------------ survival saves (persistence)
+
+  /**
+   * Loads this space's rules, saved world and your saved survivor. The
+   * creator waits for the survivor (so a new one never overwrites it);
+   * the world goes to ZombieMode, which only loads it into a fresh host.
+   */
+  private startSaves() {
+    const zm = this.zombieMode;
+    if (!zm) return;
+    const saves = new SurvivalSaveService(this.space.id);
+    this.saves = saves;
+    this.worldSaveTimer = WORLD_AUTOSAVE_SECONDS;
+    this.playerSaveTimer = PLAYER_AUTOSAVE_SECONDS;
+    const current = () => this.saves === saves && this.zombieMode === zm;
+    zm.onRulesChanged = () => {
+      void saves.loadRules().then((r) => current() && zm.setRules(r));
+    };
+    void saves.loadRules().then((r) => current() && zm.setRules(r));
+    void saves.loadWorld().then((w) => {
+      if (w && current()) zm.offerWorldSave(w);
+      this.emitSaveStatus();
+    });
+    zm.setLoadingSurvivor(true);
+    // Never keep the creator waiting on a stuck request
+    const giveUp = setTimeout(() => current() && zm.setLoadingSurvivor(false), 8000);
+    void saves.loadPlayer().then((p) => {
+      clearTimeout(giveUp);
+      if (!current()) return;
+      zm.setLoadingSurvivor(false);
+      if (p && zm.importPlayer(p)) this.teleportTo(p.pos.x - 16, p.pos.y - 28);
+    });
+  }
+
+  /** Autosaves: your survivor every 30 s, the world every minute (host only); death wipes the survivor. */
+  private tickSaves(dt: number) {
+    const saves = this.saves;
+    const zm = this.zombieMode;
+    if (!saves || !zm) return;
+    if (zm.takeDeath()) void saves.deletePlayer();
+    this.playerSaveTimer -= dt;
+    if (this.playerSaveTimer <= 0) {
+      this.playerSaveTimer = PLAYER_AUTOSAVE_SECONDS;
+      const p = zm.exportPlayer();
+      if (p) void saves.savePlayer(p).then(() => this.emitSaveStatus());
+    }
+    this.worldSaveTimer -= dt;
+    if (this.worldSaveTimer <= 0) {
+      this.worldSaveTimer = WORLD_AUTOSAVE_SECONDS;
+      if (zm.isHost() && saves.worldReady) void saves.saveWorld(zm.exportWorld()).then(() => this.emitSaveStatus());
+    }
+  }
+
+  /** Save now (leaving, tab hidden). Best effort: the request may outlive the page. */
+  private flushSaves() {
+    const saves = this.saves;
+    const zm = this.zombieMode;
+    if (!saves || !zm) return;
+    const p = zm.exportPlayer();
+    if (p) void saves.savePlayer(p);
+    if (zm.isHost() && saves.worldReady) void saves.saveWorld(zm.exportWorld());
+  }
+
+  private emitSaveStatus() {
+    if (this.saves) this.onSaveStatus?.({ world: this.saves.lastWorld, player: this.saves.lastPlayer });
+  }
+
+  /** Admins: store new world rules (the database refuses anyone else), then everyone picks them up. */
+  async zombieSaveRules(rules: WorldRules): Promise<string | null> {
+    if (!this.saves) return 'Not in a survival space';
+    const err = await this.saves.saveRules(rules);
+    if (!err) this.zombieMode?.announceRulesChanged();
+    return err;
+  }
+
+  /** Save the world and your survivor now (menu button). */
+  zombieSaveNow() {
+    this.flushSaves();
+    setTimeout(() => this.emitSaveStatus(), 1500);
+  }
+
+  private trackPerf(updateMs: number, renderMs: number, now: number) {
+    const a = this.perfAcc;
+    a.frames++;
+    a.update += updateMs;
+    a.render += renderMs;
+    if (!a.at) a.at = now;
+    if (now - a.at < 500 || !this.onPerf) return;
+    const secs = (now - a.at) / 1000;
+    const net = this.zombieMode?.netStats();
+    this.onPerf({
+      fps: Math.round(a.frames / secs),
+      updateMs: Math.round((a.update / a.frames) * 10) / 10,
+      renderMs: Math.round((a.render / a.frames) * 10) / 10,
+      role: net?.role ?? '-',
+      zombies: net?.zombies ?? 0,
+      bytesPerSecond: net?.bytesPerSecond ?? 0,
+      droppedRequests: net?.droppedRequests ?? 0,
+      vehicles: net?.vehicles ?? 0,
+      structures: net?.structures ?? 0,
+    });
+    this.perfAcc = { frames: 0, update: 0, render: 0, at: now };
+  }
+
+  // ------------------------------------------------------------ survival menu, sound, gamepad
+
+  /** Survival menu open (the HUD then carries the map and the notification log). */
+  zombieSetMenuOpen(open: boolean) {
+    this.zombieMode?.setMenuOpen(open);
+  }
+
+  /** Sound levels and feedback preferences (survival settings panel). */
+  zombieSetSurvivalSettings(s: SurvivalSettings) {
+    this.survivalSettings = s;
+    this.survivalAudio.setSettings({ volume: s.volume, sfx: s.sfx, ambience: s.ambience });
+    this.zombieMode?.setFeedback({ shake: s.shake, numbers: s.numbers });
+  }
+
+  /** The city drawn small for the map panel (built once). */
+  zombieMapImage(): HTMLCanvasElement | null {
+    if (!this.mapImage) this.mapImage = renderMapImage(getMapConfig(this.space.mapTheme), this.buildings, this.mapSize);
+    return this.mapImage;
+  }
+
+  /**
+   * Standard-mapping gamepad: the left stick moves, the right stick aims,
+   * buttons are sent through the keyboard handler as their bound keys (so
+   * every context rule applies). Only in survival.
+   */
+  private pollGamepad() {
+    this.padMove = { x: 0, y: 0 };
+    if (!this.zombieMode || typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    let pad: Gamepad | null = null;
+    for (const p of navigator.getGamepads()) if (p && p.connected) pad = pad ?? p;
+    if (!pad) {
+      this.padPrev = [];
+      return;
+    }
+    const frame = readPad(pad as PadSnapshot, this.padPrev);
+    this.padPrev = frame.buttons;
+    this.padMove = frame.move;
+    if (frame.aim !== null) {
+      this.zombieMode.setAim(frame.aim);
+      this.lastAimAt = performance.now();
+    }
+    const send = (type: 'keydown' | 'keyup', action: ControlAction, button: number) => {
+      const code = this.bindings[action]?.[0];
+      if (!code) return;
+      // LB cycles backwards, like Shift with the key
+      window.dispatchEvent(new KeyboardEvent(type, { code, key: code, shiftKey: button === 4, bubbles: true, cancelable: true }));
+    };
+    if (frame.pressed.length) this.survivalAudio.unlock();
+    for (const p of frame.pressed) send('keydown', p.action, p.button);
+    for (const r of frame.released) send('keyup', r.action, r.button);
+  }
+
+  /** Get out of the vehicle you're in. */
+  zombieExitVehicle(): boolean {
+    return !!this.zombieMode?.exitVehicle();
+  }
+
+  zombieHonk(): boolean {
+    return !!this.zombieMode?.honk();
+  }
+
+  /** Vehicle panel buttons (Inspect / services / close) for vehicle `id`. */
+  zombieVehicleCommand(id: number, action: string): boolean {
+    return !!this.zombieMode?.vehicleCommand(id, action);
+  }
+
+  /** Generator / rain collector / campfire / tap / toilet / pump action (`id` from the HUD, or the first possible). */
+  zombieWorldAction(id?: string): boolean {
+    return !!this.zombieMode?.worldAction(id);
+  }
+
+  /** Search the container in reach (or close the loot window). */
+  zombieToggleLoot(): boolean {
+    return !!this.zombieMode?.toggleLoot();
+  }
+
+  zombieCloseLoot() {
+    this.zombieMode?.closeLoot();
+  }
+
+  zombieLootTake(index: number): boolean {
+    return !!this.zombieMode?.lootTake(index);
+  }
+
+  zombieLootTakeAll(): number {
+    return this.zombieMode?.lootTakeAll() ?? 0;
+  }
+
+  /** Shove, or stomp a downed zombie (V or the HUD button). */
+  zombieShove(): boolean {
+    return !!this.zombieMode?.shove();
+  }
+
+  /** Sleep / get up (Z or the HUD button). Returns true when the state changed. */
+  zombieSleep(): boolean {
+    return !!this.zombieMode?.sleepAction();
   }
 
   /** Sprint toggle for touch (desktop holds Shift). Returns the new state. */
@@ -680,6 +1010,7 @@ export class WorldGame {
 
   setJoystickInput(x: number, y: number) {
     this.joystickInput = { x, y };
+    if (this.zombieMode) this.survivalAudio.unlock();
     if (x !== 0 || y !== 0) {
       this.player.clearTargetDestination();
     }
@@ -726,8 +1057,11 @@ export class WorldGame {
     this.frameRealDt = Math.min(Math.max(0, (currentTime - this.lastTime) / 1000), 5);
     this.lastTime = currentTime;
 
+    const t0 = this.onPerf ? performance.now() : 0;
     this.update(dt);
+    const t1 = this.onPerf ? performance.now() : 0;
     this.render();
+    if (this.onPerf) this.trackPerf(t1 - t0, performance.now() - t1, currentTime);
 
     this.animFrameId = requestAnimationFrame(this.loop);
   };
@@ -758,11 +1092,27 @@ export class WorldGame {
       this.player.clearTargetDestination();
     }
 
+    // Gamepad: left stick moves (or drives), buttons act like their keys
+    this.pollGamepad();
+    if (dx === 0 && dy === 0 && (this.padMove.x !== 0 || this.padMove.y !== 0)) {
+      dx = this.padMove.x;
+      dy = this.padMove.y;
+      this.player.clearTargetDestination();
+    }
+
     // Touch Virtual Joystick
     if (this.joystickInput.x !== 0 || this.joystickInput.y !== 0) {
       dx = this.joystickInput.x;
       dy = this.joystickInput.y;
       this.player.clearTargetDestination();
+    }
+
+    // Asleep (survival): a move key or the joystick gets you up; nothing else moves you
+    if (this.zombieMode?.isAsleep()) {
+      if (dx !== 0 || dy !== 0) this.zombieMode.wakeUp('manual');
+      this.player.clearTargetDestination();
+      dx = 0;
+      dy = 0;
     }
 
     // Tap-to-move / Click-to-move navigation (PC mouse click or mobile touch)
@@ -784,7 +1134,10 @@ export class WorldGame {
       dy = 0;
     }
 
-    const isMoving = dx !== 0 || dy !== 0;
+    // In a vehicle the controls go to the car (ZombieMode drives it); the avatar sits still
+    const inVehicle = !!this.zombieMode?.inVehicle();
+    if (inVehicle) this.player.clearTargetDestination();
+    const isMoving = !inVehicle && (dx !== 0 || dy !== 0);
     this.lastMoveInput.x = dx;
     this.lastMoveInput.y = dy;
     if (isMoving) {
@@ -853,7 +1206,8 @@ export class WorldGame {
     }
 
     const prevMoving = this.player.isMoving;
-    this.player.isMoving = isMoving;
+    // A moving car keeps your movement broadcasts going (others see the car where you are)
+    this.player.isMoving = inVehicle ? !!this.zombieMode?.vehicleMoving() : isMoving;
     this.player.update(dt);
 
     // Check map zone
@@ -1012,7 +1366,7 @@ export class WorldGame {
         if (this.zombieNet && !this.zombieNet.isMember(clientId)) continue;
         others.push({ id: clientId, x: r.x + 16, y: r.y + 28, moving: !!state?.isMoving });
       }
-      const outcome = this.zombieMode.update(dt, {
+      const outcome: 'respawn' | null = this.zombieMode.update(dt, {
         feetX: this.player.x + 16,
         feetY: this.player.y + 28,
         moveX: this.lastMoveInput.x,
@@ -1021,6 +1375,21 @@ export class WorldGame {
         realDt: this.frameRealDt || dt,
         others,
       });
+      this.tickSaves(this.frameRealDt || dt);
+      // Sounds of this frame, placed around you; the ambience follows the world
+      this.survivalAudio.play(this.zombieMode.drainSounds(), { x: this.player.x + 16, y: this.player.y + 28 });
+      this.survivalAudio.setAmbience(this.zombieMode.ambience());
+      // Seated in a vehicle: you are where the car is; getting out puts you beside it
+      const seat = this.zombieMode.seat();
+      if (seat) {
+        this.player.x = seat.x - 16;
+        this.player.y = seat.y - 28;
+      }
+      const out = this.zombieMode.takeExitPoint();
+      if (out) {
+        this.player.x = out.x - 16;
+        this.player.y = out.y - 28;
+      }
       if (outcome === 'respawn') {
         const spawn = getMapConfig(this.space.mapTheme).defaultSpawn;
         this.teleportTo(spawn.x, spawn.y);
@@ -1298,7 +1667,9 @@ export class WorldGame {
 
     this.ctx.save();
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    // Survival screen shake (hits, crashes, explosions); off in the survival settings
+    const shake = this.zombieMode?.shakeOffset() ?? { x: 0, y: 0 };
+    this.ctx.translate(-this.camera.x + shake.x, -this.camera.y + shake.y);
 
     // 1. Draw the upper floor (clipped so neighbouring floors never show) or the outdoor map
     if (onLevel) {
@@ -1353,8 +1724,10 @@ export class WorldGame {
       }
     }
 
-    // Remote Players with Viewport Culling
-    for (const r of this.remoteAvatars.values()) {
+    // Remote Players with Viewport Culling (survivors inside a vehicle are hidden by its roof)
+    const peerStates = this.zombieMode ? this.syncService?.getRemotePlayers() : undefined;
+    for (const [id, r] of this.remoteAvatars) {
+      if (this.zombieMode && this.zombieMode.isInVehicle(peerStates?.get(id)?.clientId ?? id)) continue;
       if (
         r.x + 36 >= viewLeft &&
         r.x <= viewRight &&
@@ -1377,8 +1750,8 @@ export class WorldGame {
       renderList.push({ y: this.companion.y + 20, draw: () => this.companion?.render(this.ctx) });
     }
 
-    // Local Player
-    renderList.push({ y: this.player.y + 30, draw: () => this.player.render(this.ctx) });
+    // Local Player (not while sitting in a vehicle)
+    if (!this.zombieMode?.inVehicle()) renderList.push({ y: this.player.y + 30, draw: () => this.player.render(this.ctx) });
 
     // Building roofs: depth-sorted by footprint bottom so avatars in front of a
     // building draw over its façade and avatars inside are hidden under the roof
@@ -1396,6 +1769,11 @@ export class WorldGame {
           this.ctx.globalAlpha = 1 - lift;
           const offsetY = this.reducedMotion ? 0 : -ROOF_LIFT_OFFSET * lift;
           this.ctx.drawImage(layer, f.x, f.y + offsetY);
+          // Doors and windows are under the roof: mark them on its edge so you can find the way in
+          if (this.zombieMode) {
+            this.ctx.translate(0, offsetY);
+            this.zombieMode.renderRoofEntrances(this.ctx, f);
+          }
           this.ctx.restore();
         },
       });
@@ -1590,6 +1968,8 @@ export class WorldGame {
 
   private setupInputs() {
     this.onKeyDownBound = (e: KeyboardEvent) => {
+      // Browsers only start audio after a gesture
+      if (this.zombieMode && e.isTrusted) this.survivalAudio.unlock();
       const target = e.target as HTMLElement | null;
       const isInputFocused =
         target &&
@@ -1614,6 +1994,28 @@ export class WorldGame {
           return;
         }
         const bound = actionForCode(this.bindings, e.code);
+        // In a vehicle: E / U get out, Space honks; fighting and building wait until you're out
+        if (this.zombieMode?.inVehicle() && !e.repeat) {
+          if (bound === 'interact' || bound === 'useObject') {
+            e.preventDefault();
+            this.zombieMode.exitVehicle();
+            return;
+          }
+          if (bound === 'jump') {
+            e.preventDefault();
+            this.zombieMode.honk();
+            return;
+          }
+          if (bound === 'fire' || bound === 'shove' || bound === 'sleep' || bound === 'barricade' || bound === 'lock' || bound === 'reload') {
+            e.preventDefault();
+            return;
+          }
+        }
+        // Zombie mode: placing a structure, E builds it on the tile you face
+        if (this.zombieMode && !e.repeat && bound === 'interact' && this.zombieMode.confirmPlacement()) {
+          e.preventDefault();
+          return;
+        }
         // Zombie mode: doors/windows in reach take interact/lock/board before the building Enter/Exit prompt
         if (this.zombieMode && !e.repeat) {
           const action =
@@ -1627,6 +2029,16 @@ export class WorldGame {
                     : 'addPlank'
                   : null;
           if (action && this.zombieDoorAction(action)) {
+            e.preventDefault();
+            return;
+          }
+          // No door in reach: E searches the fridge / shelf / body you're standing at
+          if (bound === 'interact' && this.zombieMode.toggleLoot()) {
+            e.preventDefault();
+            return;
+          }
+          // …or uses the generator, rain collector, campfire, tap, toilet or pump in reach
+          if (bound === 'interact' && this.zombieMode.worldAction()) {
             e.preventDefault();
             return;
           }
@@ -1667,18 +2079,51 @@ export class WorldGame {
             this.zombieMode.useSupply();
             return;
           }
+          if (bound === 'useObject' && !e.repeat) {
+            e.preventDefault();
+            this.zombieMode.worldAction();
+            return;
+          }
           if (bound === 'flashlight' && !e.repeat) {
             e.preventDefault();
             this.zombieMode.toggleFlashlight();
             return;
           }
+          if (bound === 'sleep' && !e.repeat) {
+            e.preventDefault();
+            this.zombieMode.sleepAction();
+            return;
+          }
+          if (bound === 'character' && !e.repeat) {
+            e.preventDefault();
+            this.onToggleCharacterPanel?.();
+            return;
+          }
+          if (bound === 'inventory' && !e.repeat) {
+            e.preventDefault();
+            this.onToggleInventory?.();
+            return;
+          }
+          if (bound === 'map' && !e.repeat) {
+            e.preventDefault();
+            this.onToggleMap?.();
+            return;
+          }
+          if (bound === 'craft' && !e.repeat) {
+            e.preventDefault();
+            this.onToggleCrafting?.();
+            return;
+          }
+          if (bound === 'shove' && !e.repeat) {
+            e.preventDefault();
+            this.zombieMode.shove();
+            return;
+          }
           const slot = /^Digit([1-6])$/.exec(e.code);
-          if (slot && !e.repeat) {
-            const id = WEAPON_ORDER.find((w) => WEAPONS[w].slot === Number(slot[1]));
-            if (id && this.zombieMode.selectWeapon(id)) {
-              e.preventDefault();
-              return;
-            }
+          if (slot && !e.repeat && this.zombieMode.selectSlot(Number(slot[1]))) {
+            // 1 again cycles the melee weapons you carry
+            e.preventDefault();
+            return;
           }
         }
         if (bound === 'jump' && !e.repeat && this.zombieMode) {
@@ -1754,6 +2199,7 @@ export class WorldGame {
     };
 
     this.onCanvasClickBound = (e: MouseEvent | PointerEvent) => {
+      if (this.zombieMode) this.survivalAudio.unlock();
       if (this.initialPinchDistance !== null) return;
       const rect = this.canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -1813,6 +2259,11 @@ export class WorldGame {
       this.player.setTargetDestination(worldX, worldY);
     };
 
+    // Leaving the tab (or closing it) saves the survivor and, for the host, the world
+    this.onVisibilityBound = () => {
+      if (document.visibilityState === 'hidden') this.flushSaves();
+    };
+    document.addEventListener('visibilitychange', this.onVisibilityBound);
     window.addEventListener('keydown', this.onKeyDownBound);
     window.addEventListener('keyup', this.onKeyUpBound);
     this.canvas.addEventListener('pointerdown', this.onCanvasClickBound);
@@ -1824,6 +2275,10 @@ export class WorldGame {
   }
 
   dispose() {
+    this.flushSaves();
+    if (this.onVisibilityBound) document.removeEventListener('visibilitychange', this.onVisibilityBound);
+    this.onVisibilityBound = null;
+    this.survivalAudio.stop();
     this.isRunning = false;
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);

@@ -9,6 +9,7 @@ import { isPersistedId } from '@/lib/services/safety';
 import { useSafetyStore } from '@/stores/safety';
 import { useSessionStore } from '@/stores/session';
 import { AccessibilitySettings } from './AccessibilitySettings';
+import { KeyBackupModal } from './KeyBackupModal';
 import styles from './ControlsSettingsModal.module.css';
 
 interface SafetySettingsModalProps {
@@ -84,6 +85,7 @@ export function SafetySettingsModal({ isOpen, onClose }: SafetySettingsModalProp
   const [tab, setTab] = useState<Tab>('safety');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keyBackupOpen, setKeyBackupOpen] = useState(false);
 
   const ageBand = useSafetyStore((s) => s.ageBand);
   const prefs = useSafetyStore((s) => s.prefs);
@@ -188,6 +190,18 @@ export function SafetySettingsModal({ isOpen, onClose }: SafetySettingsModalProp
               {error}
             </p>
           )}
+
+          {sessionUserId && (
+            <div className={styles.row}>
+              <div className={styles.rowLabel}>
+                Chat encryption backup
+                <small>Set or restore a 6+ char Security PIN for cross-device E2EE sync.</small>
+              </div>
+              <NeoButton type="button" size="sm" variant="secondary" onClick={() => setKeyBackupOpen(true)}>
+                Key Sync
+              </NeoButton>
+            </div>
+          )}
         </div>
       )}
 
@@ -212,6 +226,13 @@ export function SafetySettingsModal({ isOpen, onClose }: SafetySettingsModalProp
             ))
           )}
         </div>
+      )}
+      {sessionUserId && (
+        <KeyBackupModal
+          isOpen={keyBackupOpen}
+          onClose={() => setKeyBackupOpen(false)}
+          userId={sessionUserId}
+        />
       )}
     </NeoModal>
   );

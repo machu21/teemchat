@@ -1,6 +1,7 @@
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
 import { AvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { PresenceTrackBudget } from './presenceBudget';
 
 export interface PresenceUser {
   userId: string;
@@ -15,6 +16,27 @@ export interface PresenceUser {
   onlineAt: string;
 }
 
+// Presence rate limit: see presenceBudget.ts. A server-closed channel is rebuilt below.
+export { TRACK_BUDGET, TRACK_WINDOW_MS } from './presenceBudget';
+/** Rapid changes (clicking through statuses) collapse into one send of the latest state. */
+export const TRACK_DEBOUNCE_MS = 400;
+/** Backoff for rebuilding a channel the server closed (e.g. rate limit). */
+const REJOIN_DELAYS_MS = [2_000, 5_000, 10_000, 30_000];
+
+type UserInit = {
+  userId: string;
+  displayName: string;
+  avatarConfig: AvatarConfig;
+  status?: PresenceUser['status'];
+  statusMessage?: string;
+  currentSpace?: { slug: string; name: string };
+};
+
+/** What friends actually see; onlineAt is excluded so a re-init doesn't count as a change. */
+function payloadKey(p: PresenceUser): string {
+  return JSON.stringify([p.userId, p.displayName, p.avatarConfig, p.status, p.statusMessage ?? null, p.currentSpace ?? null]);
+}
+
 export class DashboardPresenceService {
   private static channel: RealtimeChannel | null = null;
   private static activeUserId: string | null = null;
@@ -22,14 +44,15 @@ export class DashboardPresenceService {
   private static onlineUsers: Map<string, PresenceUser> = new Map();
   private static listeners: Set<(users: PresenceUser[]) => void> = new Set();
 
-  static init(user: {
-    userId: string;
-    displayName: string;
-    avatarConfig: AvatarConfig;
-    status?: 'available' | 'away' | 'busy' | 'focus' | 'offline';
-    statusMessage?: string;
-    currentSpace?: { slug: string; name: string };
-  }): void {
+  // Track budget for the current channel join.
+  private static joined = false;
+  private static budget = new PresenceTrackBudget();
+  private static lastSentKey: string | null = null;
+  private static trackTimer: ReturnType<typeof setTimeout> | null = null;
+  private static rejoinTimer: ReturnType<typeof setTimeout> | null = null;
+  private static rejoinAttempts = 0;
+
+  static init(user: UserInit): void {
     const presenceData: PresenceUser = {
       userId: user.userId,
       displayName: user.displayName,
@@ -42,23 +65,35 @@ export class DashboardPresenceService {
 
     // If channel is already actively tracking for this user, just update presence
     if (this.channel && this.activeUserId === user.userId) {
-      this.trackedData = this.trackedData ?? presenceData;
       this.updatePresence(presenceData);
       return;
     }
 
+    this.trackedData = presenceData;
+    this.activeUserId = user.userId;
+    this.openChannel();
+    this.attachWindowListeners();
+  }
+
+  /** (Re)creates the channel; each join starts with a fresh server-side track budget. */
+  private static openChannel(): void {
+    this.clearRejoinTimer();
+    this.clearTrackTimer();
     if (this.channel) {
       const old = this.channel;
       this.channel = null;
       old.untrack().catch(() => {});
       removeRealtimeChannel(old);
     }
-
     cleanupExistingChannel('dashboard:presence');
-    this.trackedData = presenceData;
+    this.joined = false;
+    this.budget.reset();
+    this.lastSentKey = null;
 
+    const userId = this.activeUserId;
+    if (!userId) return;
     const chan = supabase.channel('dashboard:presence', {
-      config: { presence: { key: user.userId } },
+      config: { presence: { key: userId } },
     });
 
     chan
@@ -66,33 +101,87 @@ export class DashboardPresenceService {
         if (this.channel !== chan) return;
         this.syncFromChannel(chan);
       })
-      .subscribe(async (status) => {
+      .subscribe((status) => {
         // A replaced channel's late CLOSED callback must not touch the live one.
         if (this.channel !== chan) return;
         if (status === 'SUBSCRIBED') {
-          await chan.track(this.trackedData ?? presenceData);
-        } else {
-          // CHANNEL_ERROR / TIMED_OUT / CLOSED: our view of who is online is now unknown.
-          // Show everyone offline rather than freezing the last list; phoenix rejoins on
-          // its own and the server re-sends full state on SUBSCRIBED.
-          this.setOnlineUsers(new Map());
+          // A (re)join starts with no presence of ours on the server and a fresh budget.
+          this.joined = true;
+          this.rejoinAttempts = 0;
+          this.budget.reset();
+          this.lastSentKey = null;
+          this.flushTrack();
+          return;
         }
+        this.joined = false;
+        this.clearTrackTimer();
+        // Our view of who is online is now unknown. Show everyone offline rather than
+        // freezing the last list; the server re-sends full state on SUBSCRIBED.
+        this.setOnlineUsers(new Map());
+        // CHANNEL_ERROR / TIMED_OUT are retried by supabase-js itself. A server-side
+        // close (presence rate limit, kicked) is not, so build a fresh channel.
+        if (status === 'CLOSED') this.scheduleRejoin();
       });
 
     this.channel = chan;
-    this.activeUserId = user.userId;
-    this.attachWindowListeners();
+  }
+
+  private static scheduleRejoin(delayMs?: number): void {
+    if (this.rejoinTimer || !this.activeUserId) return;
+    const delay = delayMs ?? REJOIN_DELAYS_MS[Math.min(this.rejoinAttempts, REJOIN_DELAYS_MS.length - 1)];
+    this.rejoinAttempts++;
+    this.rejoinTimer = setTimeout(() => {
+      this.rejoinTimer = null;
+      if (this.activeUserId) this.openChannel();
+    }, delay);
+  }
+
+  private static clearRejoinTimer(): void {
+    if (this.rejoinTimer) clearTimeout(this.rejoinTimer);
+    this.rejoinTimer = null;
+  }
+
+  private static clearTrackTimer(): void {
+    if (this.trackTimer) clearTimeout(this.trackTimer);
+    this.trackTimer = null;
+  }
+
+  private static scheduleTrack(delayMs: number): void {
+    if (this.trackTimer) return;
+    this.trackTimer = setTimeout(() => {
+      this.trackTimer = null;
+      this.flushTrack();
+    }, delayMs);
+  }
+
+  /** Sends the latest payload if it changed and the budget allows; otherwise defers it. */
+  private static flushTrack(): void {
+    const chan = this.channel;
+    const data = this.trackedData;
+    if (!chan || !data || !this.joined) return;
+    const key = payloadKey(data);
+    if (key === this.lastSentKey) return;
+
+    const wait = this.budget.waitMs();
+    if (wait > 0) {
+      this.scheduleTrack(wait);
+      return;
+    }
+    this.budget.record();
+    this.lastSentKey = key;
+    chan.track(data).catch(() => {});
   }
 
   /** Dev-only: what this tab believes about presence (run `__teemPresence()` in the console). */
   static debugSnapshot() {
     return {
-      buildMarker: 'presence-v3',
+      buildMarker: 'presence-v4',
       activeUserId: this.activeUserId,
       channelState: this.channel?.state ?? null,
       socketConnected: supabase.realtime.isConnected(),
       listenerCount: this.listeners.size,
-      onlineUsers: Array.from(this.onlineUsers.values()).map((u) => ({ userId: u.userId, name: u.displayName })),
+      tracksInWindow: this.budget.used(),
+      onlineUsers: Array.from(this.onlineUsers.values()).map((u) => ({ userId: u.userId, name: u.displayName, status: u.status })),
       serverState: this.channel
         ? Object.fromEntries(
             Object.entries(this.channel.presenceState()).map(([k, v]) => [
@@ -136,6 +225,11 @@ export class DashboardPresenceService {
     }
     DashboardPresenceService.setOnlineUsers(new Map());
     if (!supabase.realtime.isConnected()) supabase.realtime.connect();
+    // A channel the server closed never comes back by itself; rebuild it now.
+    if (chan.state === 'closed') {
+      DashboardPresenceService.clearRejoinTimer();
+      DashboardPresenceService.scheduleRejoin(0);
+    }
   };
 
   private static onPageHide = (): void => {
@@ -185,9 +279,10 @@ export class DashboardPresenceService {
     // (a partial payload would drop userId and break everyone's online map).
     if (!this.trackedData) return;
     this.trackedData = { ...this.trackedData, ...data, userId: this.trackedData.userId };
-    if (this.channel) {
-      this.channel.track(this.trackedData).catch(() => {});
-    }
+    if (this.lastSentKey !== null && payloadKey(this.trackedData) === this.lastSentKey) return;
+    // Debounced: session refreshes and quick status clicks must not spend the
+    // server's small per-channel presence budget (see TRACK_BUDGET).
+    this.scheduleTrack(TRACK_DEBOUNCE_MS);
   }
 
   static subscribe(fn: (users: PresenceUser[]) => void): () => void {
@@ -209,6 +304,8 @@ export class DashboardPresenceService {
 
   static cleanup(): void {
     this.detachWindowListeners();
+    this.clearRejoinTimer();
+    this.clearTrackTimer();
     const chan = this.channel;
     this.channel = null;
     if (chan) {
@@ -218,6 +315,10 @@ export class DashboardPresenceService {
     }
     this.activeUserId = null;
     this.trackedData = null;
+    this.joined = false;
+    this.budget.reset();
+    this.lastSentKey = null;
+    this.rejoinAttempts = 0;
     this.onlineUsers = new Map();
     this.listeners.clear();
   }

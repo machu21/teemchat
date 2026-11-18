@@ -46,9 +46,7 @@ import { StatusPicker } from '@/components/world/StatusPicker';
 import { MeetingService, MeetingWithSpace } from '@/lib/services/meetings';
 import { startsIn } from '@/lib/calendar/ics';
 import boardStyles from '@/components/world/Boards.module.css';
-import { PlayerStatus } from '@/lib/world/emotes';
-import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
-import { supabase } from '@/lib/supabase';
+import { isPlayerStatus } from '@/lib/world/emotes';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { GamePicker, type GameStartOptions } from '@/components/games/GamePicker';
 import { SoloGame } from '@/components/games/SoloGame';
@@ -58,7 +56,7 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { session, isLoading: isSessionLoading, initSession, signOut, updateProfile } = useSessionStore();
+  const { session, isLoading: isSessionLoading, initSession, signOut, updateProfile, setStatus: changeStatus } = useSessionStore();
   const { initSocial, cleanupSocial, openDrawer, isDrawerOpen, unreadCount, friends } = useSocialStore();
 
   const [spaces, setSpaces] = useState<SpaceModel[]>([]);
@@ -89,7 +87,7 @@ export default function DashboardPage() {
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [gamesPickerOpen, setGamesPickerOpen] = useState(false);
   const [soloGame, setSoloGame] = useState<(GameStartOptions & { round: number }) | null>(null);
-  const [myStatus, setMyStatus] = useState<PlayerStatus>('available');
+  const myStatus = isPlayerStatus(session?.status) ? session?.status : 'available';
   const [myMeetings, setMyMeetings] = useState<MeetingWithSpace[]>([]);
   const meetingsUserId = session?.id;
   useEffect(() => {
@@ -108,13 +106,6 @@ export default function DashboardPage() {
       clearInterval(id);
     };
   }, [meetingsUserId]);
-  const changeStatus = (next: PlayerStatus) => {
-    setMyStatus(next);
-    DashboardPresenceService.updatePresence({ status: next });
-    if (session?.id && /^[0-9a-f-]{36}$/i.test(session.id)) {
-      supabase.from('profiles').update({ status: next }).eq('id', session.id).then(() => undefined);
-    }
-  };
 
   // Form states
   const [newSpaceName, setNewSpaceName] = useState('');
@@ -246,7 +237,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (session) {
       loadSpaces();
-      initSocial(session.id, session.displayName, session.avatarConfig);
+      initSocial(session.id, session.displayName, session.avatarConfig, session.status);
     }
   }, [session, loadSpaces, initSocial]);
 
@@ -1367,6 +1358,7 @@ export default function DashboardPage() {
           difficulty={soloGame.difficulty}
           timeControl={soloGame.timeControl}
           coachMode={soloGame.coachMode}
+          colorChoice={soloGame.colorChoice}
           me={{ name: session.displayName, avatar: session.avatarConfig }}
           onBack={() => {
             setSoloGame(null);

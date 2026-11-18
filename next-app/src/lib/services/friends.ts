@@ -3,6 +3,7 @@ import { FriendModel, FriendRequestModel } from '../models/social';
 import { AvatarConfig, defaultAvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { DashboardPresenceService } from './dashboardPresence';
+import { E2EEManager } from './e2eeManager';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -232,12 +233,20 @@ export class FriendService {
 
       const { data: profiles, error: pError } = await supabase
         .from('profiles')
-        .select('id, username, display_name, status, status_message, avatar_config, updated_at')
+        .select('id, username, display_name, status, status_message, avatar_config, updated_at, public_key')
         .in('id', friendUserIds);
 
       if (pError || !profiles) {
         return tempFriends;
       }
+
+      // Pre-warm E2EE peer public key cache in a single batched query
+      profiles.forEach((p) => {
+        const rec = p as Record<string, unknown>;
+        if (typeof rec.public_key === 'string' && rec.public_key) {
+          E2EEManager.registerPeerPublicKey(p.id, rec.public_key);
+        }
+      });
 
       const friendMap = new Map(profiles.map((p) => [p.id, p]));
 

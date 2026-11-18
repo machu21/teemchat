@@ -16,7 +16,9 @@ describe('key bindings', () => {
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyW')).toBe('moveUp');
     expect(actionForCode(DEFAULT_BINDINGS, 'ArrowUp')).toBe('moveUp');
     expect(actionForCode(DEFAULT_BINDINGS, 'KeyF')).toBe('fire');
-    expect(actionForCode(DEFAULT_BINDINGS, 'KeyZ')).toBeNull();
+    expect(actionForCode(DEFAULT_BINDINGS, 'KeyZ')).toBe('sleep');
+    expect(actionForCode(DEFAULT_BINDINGS, 'KeyP')).toBe('character');
+    expect(actionForCode(DEFAULT_BINDINGS, 'KeyY')).toBeNull();
   });
 
   it('rebinds and swaps a key that another action owned', () => {

@@ -667,3 +667,39 @@
   font-weight: 800;
   box-shadow: 3px 3.5px 0 var(--card-border);
 }
+
+
+/* End-to-End Encryption Security Banner */
+.e2eeBanner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  gap: 6px;
+  margin: 8px auto 16px;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border: 1.5px solid #000;
+  border-radius: 4px;
+  box-shadow: 1px 1px 0 #000;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  cursor: pointer;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.e2eeBanner:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 #000;
+}
+
+:global([data-theme='dark']) .e2eeBanner {
+  background: #1e293b;
+  border-color: #475569;
+  box-shadow: 1px 1px 0 #475569;
+  color: #cbd5e1;
+}

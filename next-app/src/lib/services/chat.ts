@@ -2,6 +2,8 @@ import { supabase, cleanupExistingChannel } from '../supabase';
 import { ChatMessageModel } from '../models/chat';
 import { UserSession } from '../models/user';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { CryptoService } from './cryptoService';
+import { E2EEManager } from './e2eeManager';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -28,19 +30,31 @@ export class ChatService {
 
       if (error || !data) return [];
 
-      return data.map((item) => {
-        const profile = item.profiles as { display_name?: string } | null;
-        return {
-          id: item.id,
-          roomId: item.room_id,
-          spaceId: item.space_id,
-          senderId: item.sender_id,
-          senderName: profile?.display_name || item.sender_name || 'Explorer',
-          content: item.content,
-          createdAt: item.created_at,
-          isDirectMessage: Boolean(item.conversation_id),
-        };
-      });
+      return Promise.all(
+        data.map(async (item) => {
+          const profile = item.profiles as { display_name?: string } | null;
+          const senderName = profile?.display_name || item.sender_name || 'Explorer';
+          if (item.sender_id && profile?.display_name) {
+            this.profileNameCache.set(item.sender_id, profile.display_name);
+          }
+
+          let content = item.content;
+          if (CryptoService.isEncrypted(content)) {
+            content = await E2EEManager.decryptSpaceText(spaceId, content);
+          }
+
+          return {
+            id: item.id,
+            roomId: item.room_id,
+            spaceId: item.space_id,
+            senderId: item.sender_id,
+            senderName,
+            content,
+            createdAt: item.created_at,
+            isDirectMessage: Boolean(item.conversation_id),
+          };
+        })
+      );
     } catch (e) {
       console.warn('Error fetching room messages:', e);
       return [];
@@ -75,13 +89,20 @@ export class ChatService {
     }
 
     try {
+      let wireContent = trimmed;
+      try {
+        wireContent = await E2EEManager.encryptSpaceMessage(spaceId, trimmed);
+      } catch (err) {
+        console.warn('[ChatService] Space encryption failed, falling back to plaintext:', err);
+      }
+
       const { data, error } = await supabase
         .from('messages')
         .insert({
           room_id: roomId,
           space_id: spaceId,
           sender_id: session.id,
-          content: trimmed,
+          content: wireContent,
         })
         .select('*, profiles:sender_id(display_name)')
         .single();
@@ -95,7 +116,8 @@ export class ChatService {
         spaceId: data.space_id,
         senderId: data.sender_id,
         senderName: profile?.display_name || session.displayName,
-        content: data.content,
+        // Return plaintext locally so UI, meeting notes, and WorldSync don't double-encrypt
+        content: trimmed,
         createdAt: data.created_at,
       };
     } catch (e) {
@@ -154,13 +176,18 @@ export class ChatService {
             }
           }
 
+          let content = rec.content;
+          if (CryptoService.isEncrypted(content)) {
+            content = await E2EEManager.decryptSpaceText(spaceId, content);
+          }
+
           onMessage({
             id: rec.id,
             roomId: rec.room_id,
             spaceId: rec.space_id,
             senderId: rec.sender_id,
             senderName,
-            content: rec.content,
+            content,
             createdAt: rec.created_at,
             isDirectMessage: Boolean(rec.conversation_id),
           });

@@ -15,7 +15,14 @@ export type ControlAction =
   | 'reload'
   | 'nextWeapon'
   | 'useSupply'
+  | 'useObject'
   | 'flashlight'
+  | 'sleep'
+  | 'character'
+  | 'inventory'
+  | 'craft'
+  | 'map'
+  | 'shove'
   | 'jump'
   | 'interact'
   | 'lock'
@@ -44,9 +51,16 @@ export const CONTROL_ACTIONS: readonly ActionInfo[] = [
   { id: 'jump', label: 'Jump', group: 'Movement' },
   { id: 'fire', label: 'Fire / attack', group: 'Survival', hint: 'Hold for automatic weapons' },
   { id: 'reload', label: 'Reload', group: 'Survival' },
+  { id: 'shove', label: 'Shove / stomp', group: 'Survival', hint: 'Knocks zombies down; stomps one that is already down' },
   { id: 'nextWeapon', label: 'Next weapon', group: 'Survival', hint: 'With Shift: previous · 1–6 pick a slot' },
   { id: 'useSupply', label: 'Eat / drink', group: 'Survival', hint: 'Uses what you need most' },
+  { id: 'useObject', label: 'Use tap / generator / fire', group: 'Survival', hint: 'Taps, toilets, fuel pumps, generators, rain collectors and campfires' },
   { id: 'flashlight', label: 'Flashlight', group: 'Survival', hint: 'Long narrow beam at night — zombies may notice' },
+  { id: 'sleep', label: 'Sleep / get up', group: 'Survival', hint: 'Best in a bed; a sofa or the floor also works' },
+  { id: 'character', label: 'Character panel', group: 'Survival', hint: 'Fatigue, mood, temperature, fitness, strength' },
+  { id: 'inventory', label: 'Inventory', group: 'Survival', hint: 'Everything you carry; E searches containers' },
+  { id: 'craft', label: 'Crafting', group: 'Survival', hint: 'Recipes and building; E places a structure' },
+  { id: 'map', label: 'Map & menu', group: 'Survival', hint: 'City map, notification log, sound and controls' },
   { id: 'interact', label: 'Open / close / enter', group: 'Doors & windows' },
   { id: 'lock', label: 'Lock / unlock', group: 'Doors & windows' },
   { id: 'barricade', label: 'Board up', group: 'Doors & windows', hint: 'With Shift: pull a plank' },
@@ -66,7 +80,14 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   reload: ['KeyR', null],
   nextWeapon: ['KeyQ', null],
   useSupply: ['KeyC', null],
+  useObject: ['KeyU', null],
   flashlight: ['KeyG', null],
+  sleep: ['KeyZ', null],
+  shove: ['KeyV', null],
+  character: ['KeyP', null],
+  inventory: ['KeyI', null],
+  craft: ['KeyK', null],
+  map: ['KeyM', null],
   interact: ['KeyE', null],
   lock: ['KeyL', null],
   barricade: ['KeyB', null],

@@ -8,6 +8,8 @@ import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { useRouter } from 'next/navigation';
 import { AppIcon } from '@/components/icons/AppIcon';
+import { StatusDot } from './StatusDot';
+import { statusLabel } from '@/lib/world/emotes';
 
 export function FriendsHubPanel() {
   const router = useRouter();
@@ -57,7 +59,7 @@ export function FriendsHubPanel() {
               <div className={styles.friendInfo}>
                 <div className={styles.avatarWrap}>
                   <PixelAvatar config={friend.avatarConfig} size={36} />
-                  {friend.isOnline && <span className={styles.onlineIndicator} />}
+                  <StatusDot status={friend.status} className={styles.onlineIndicator} />
                 </div>
                 <div className={styles.textGroup}>
                   <span className={styles.friendName}>{friend.displayName}</span>
@@ -67,7 +69,7 @@ export function FriendsHubPanel() {
                         <AppIcon name="dotFilled" /> In {friend.currentSpace.name}
                       </span>
                     ) : (
-                      friend.statusMessage || (friend.isOnline ? 'Online' : 'Offline')
+                      friend.statusMessage || statusLabel(friend.isOnline ? friend.status : 'offline')
                     )}
                   </span>
                 </div>

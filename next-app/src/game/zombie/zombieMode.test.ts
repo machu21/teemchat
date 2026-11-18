@@ -62,6 +62,14 @@ function makeMode(bus: FakeBus, id: string, seed: number, entrances: Entrance[] 
 }
 
 const SPAWN = { x: 436, y: 328 };
+
+/** Boarding up needs a hammer, planks and nails (Phase 5). */
+function carpenterKit(m: ZombieMode) {
+  const p = m as unknown as { owned: Set<string>; bag: { items: unknown[] } };
+  p.owned.add('hammer');
+  p.bag = { ...p.bag, items: [...p.bag.items, { uid: 'kit-planks', def: 'planks', qty: 5 }, { uid: 'kit-nails', def: 'nails', qty: 20 }] };
+}
+
 const frame = (over: Partial<ZombieFrameInput> = {}): ZombieFrameInput => ({
   feetX: SPAWN.x,
   feetY: SPAWN.y,
@@ -201,6 +209,7 @@ describe('ZombieMode doors and barricades', () => {
 
   it('boarding up takes BARRICADE_SECONDS, syncs, and reaches late joiners', () => {
     const { bus, host, client, hostFrame, clientFrame } = setup();
+    carpenterKit(client);
     expect(client.doorAction('addPlank')).toBe(true);
     step([[host, hostFrame], [client, clientFrame]], 0.8);
     expect(host.sim.grid.entrances.values().next().value?.state).toBe('closed');
@@ -234,6 +243,7 @@ describe('ZombieMode double doors', () => {
     expect(states()).toEqual(['open', 'open']);
     expect(mode.isBlocked({ x: 166, y: 178, w: 20, h: 12 })).toBe(false);
     mode.doorAction('toggle');
+    carpenterKit(mode);
     mode.doorAction('addPlank');
     for (let t = 0; t < 2; t += 1 / 30) mode.update(1 / 30, f);
     expect(states()).toEqual(['barricaded', 'barricaded']);

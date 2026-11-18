@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Chess } from 'chess.js';
 import { BlockDropCpu, chessBotMove, damaBotMove, rankPlacements, tttBotMove } from '../src/lib/games/bots';
+import { getOpeningBookMoves, getOpeningBookSize, pickOpeningMove } from '../src/lib/games/chessOpenings';
 import { applyTttMove, initialTtt, type TttState } from '../src/lib/games/tictactoe';
 import { applyChessMove, chessCaptured, initialChess, parseChess } from '../src/lib/games/chess';
 import { damaLegalMoves, idx, initialDama, type DamaCell, type DamaState } from '../src/lib/games/dama';
@@ -67,6 +68,33 @@ describe('chess bot', () => {
       expect(m).not.toBeNull();
       expect(() => g.move(m!)).not.toThrow();
     }
+  });
+
+  it('randomizes across a wide chess opening book on hard', () => {
+    expect(getOpeningBookSize()).toBeGreaterThan(250);
+    const startFen = new Chess().fen();
+    const startMoves = getOpeningBookMoves(startFen).map((m) => `${m.from}${m.to}`);
+    expect(startMoves).toEqual(expect.arrayContaining(['e2e4', 'd2d4', 'c2c4', 'g1f3']));
+
+    const picked = new Set<string>();
+    for (let r = 0.05; r < 0.99; r += 0.1) {
+      const m = pickOpeningMove(startFen, () => r);
+      if (m) picked.add(`${m.from}${m.to}`);
+    }
+    expect(picked.size).toBeGreaterThanOrEqual(3);
+
+    // After 1. e4, Black has multiple randomized defenses (e5, c5, e6, c6, etc.)
+    const afterE4 = new Chess();
+    afterE4.move('e4');
+    const blackReplies = getOpeningBookMoves(afterE4.fen()).map((m) => `${m.from}${m.to}`);
+    expect(blackReplies).toEqual(expect.arrayContaining(['e7e5', 'c7c5', 'e7e6', 'c7c6']));
+  });
+
+  it('finds mate in two on hard', () => {
+    // Forced mate in 2: 1. Re8+ Qxe8 2. Qxe8# (or 1. Qe8+ Qxe8 2. Rxe8#).
+    const fen = '3q2k1/5ppp/2Q5/8/8/8/5PPP/4R1K1 w - - 0 1';
+    const m = chessBotMove(fen, 'hard', noMistakes)!;
+    expect(['e1e8', 'c6e8']).toContain(`${m.from}${m.to}`);
   });
 });
 

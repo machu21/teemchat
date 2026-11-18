@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 type StatusCb = (status: string) => void;
 interface FakeChannel {
@@ -53,7 +53,13 @@ vi.mock('../src/lib/supabase', () => ({
   cleanupExistingChannel: vi.fn(),
 }));
 
-import { DashboardPresenceService, PresenceUser } from '../src/lib/services/dashboardPresence';
+import {
+  DashboardPresenceService,
+  PresenceUser,
+  TRACK_BUDGET,
+  TRACK_DEBOUNCE_MS,
+  TRACK_WINDOW_MS,
+} from '../src/lib/services/dashboardPresence';
 
 // Minimal browser globals (no jsdom in this project): just enough for the window listeners.
 const fakeDocument = Object.assign(new EventTarget(), { visibilityState: 'visible' });
@@ -117,5 +123,82 @@ describe('DashboardPresenceService', () => {
     await DashboardPresenceService.leave();
     expect(ch.untrack).toHaveBeenCalled();
     expect(onlineIds()).toEqual([]);
+  });
+});
+
+describe('DashboardPresenceService presence rate limit', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    DashboardPresenceService.cleanup();
+    channels.length = 0;
+    connected = true;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const trackedStatuses = (ch: FakeChannel) => ch.track.mock.calls.map((c) => (c[0] as PresenceUser).status);
+
+  it('does not re-send an unchanged payload (session refreshes re-run init)', () => {
+    const ch = startWithMattOnline();
+    expect(ch.track).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 10; i++) {
+      DashboardPresenceService.init(me);
+      DashboardPresenceService.updatePresence({ displayName: 'Me' });
+      vi.advanceTimersByTime(TRACK_DEBOUNCE_MS + 10);
+    }
+    expect(ch.track).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses quick status clicks into one send of the latest status', () => {
+    const ch = startWithMattOnline();
+    DashboardPresenceService.updatePresence({ status: 'busy' });
+    DashboardPresenceService.updatePresence({ status: 'focus' });
+    DashboardPresenceService.updatePresence({ status: 'away' });
+    vi.advanceTimersByTime(TRACK_DEBOUNCE_MS + 10);
+    expect(trackedStatuses(ch)).toEqual(['available', 'away']);
+  });
+
+  it('never exceeds the per-window budget, and still delivers the final status', () => {
+    const ch = startWithMattOnline();
+    const statuses = ['busy', 'focus', 'away', 'available', 'busy', 'focus', 'away', 'busy'] as const;
+    for (const status of statuses) {
+      DashboardPresenceService.updatePresence({ status });
+      vi.advanceTimersByTime(TRACK_DEBOUNCE_MS + 100);
+    }
+    expect(ch.track.mock.calls.length).toBeLessThanOrEqual(TRACK_BUDGET);
+
+    vi.advanceTimersByTime(TRACK_WINDOW_MS);
+    expect(trackedStatuses(ch).at(-1)).toBe('busy');
+  });
+
+  it('rebuilds the channel when the server closes it, and re-announces the current status', () => {
+    const ch = startWithMattOnline();
+    DashboardPresenceService.updatePresence({ status: 'busy' });
+    ch.statusCb?.('CLOSED'); // e.g. "Client presence rate limit exceeded"
+    expect(onlineIds()).toEqual([]);
+
+    vi.advanceTimersByTime(2_000);
+    expect(channels).toHaveLength(2);
+    const fresh = channels[1];
+    fresh.statusCb?.('SUBSCRIBED');
+    expect(trackedStatuses(fresh)).toEqual(['busy']);
+  });
+
+  it('rebuilds a server-closed channel right away when the tab is refocused', () => {
+    const ch = startWithMattOnline();
+    ch.statusCb?.('CLOSED');
+    ch.state = 'closed';
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.advanceTimersByTime(0);
+    expect(channels).toHaveLength(2);
+  });
+
+  it('does not rejoin after cleanup', () => {
+    const ch = startWithMattOnline();
+    DashboardPresenceService.cleanup();
+    ch.statusCb?.('CLOSED');
+    vi.advanceTimersByTime(60_000);
+    expect(channels).toHaveLength(1);
   });
 });

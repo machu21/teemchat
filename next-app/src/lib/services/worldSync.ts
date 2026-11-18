@@ -1,5 +1,6 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, removeRealtimeChannel, cleanupExistingChannel } from '../supabase';
+import { PresenceTrackBudget, TRACK_BUDGET } from './presenceBudget';
 import { AvatarConfig, normalizeAvatarConfig } from '../models/avatar';
 import { ChatMessageModel } from '../models/chat';
 import { normalizeSpecies, oneLine } from '../companion/normalize';
@@ -14,6 +15,8 @@ import {
 } from '../world/emotes';
 import { ROOM_EVENT_NAMES, RoomEvent, RoomEventName, parseRoomEvent } from '../world/rooms';
 import type { FocusTimerState } from '../world/focusTimer';
+import { CryptoService } from './cryptoService';
+import { E2EEManager } from './e2eeManager';
 
 /** Long-lived per-player state carried on presence (re-tracked only on change). */
 export interface PresenceExtras {
@@ -23,6 +26,24 @@ export interface PresenceExtras {
 }
 
 const DEFAULT_EXTRAS: PresenceExtras = { handRaised: false, sitting: false, status: 'available' };
+
+/**
+ * Presence re-tracks share the server's small per-join budget (see presenceBudget.ts).
+ * A resting-position update may only use POSITION_TRACK_LIMIT of those slots, so a status /
+ * hand / sit / companion change always has one left and goes out promptly.
+ */
+const POSITION_TRACK_LIMIT = 2;
+const POSITION_TRACK_DELAY_MS = 1000;
+const SOCIAL_TRACK_DELAY_MS = 250;
+
+/** Presence payload minus position: what changes when hand / sit / status / companion do. */
+function socialKey(payload: Record<string, unknown>): string {
+  const rest = { ...payload };
+  delete rest.x;
+  delete rest.y;
+  delete rest.direction;
+  return JSON.stringify(rest);
+}
 
 export interface RemotePlayerState {
   userId: string;
@@ -64,7 +85,9 @@ export class WorldSyncService {
   private broadcastPositioned: Set<string> = new Set();
 
   private lastBroadcastTime: number = 0;
-  private lastPresenceTrackTime: number = 0;
+  private presenceBudget = new PresenceTrackBudget();
+  private lastTrackedKey: string | null = null;
+  private lastTrackedSocialKey: string | null = null;
   private lastKnownX: number = 420;
   private lastKnownY: number = 300;
   private lastBroadcastX: number = 420;
@@ -76,7 +99,8 @@ export class WorldSyncService {
   readonly spaceId: string;
   readonly currentUserId: string;
   readonly displayName: string;
-  readonly avatarConfig: AvatarConfig;
+  /** Our look as others see it (survival spaces can change it for this visit; the profile is untouched). */
+  avatarConfig: AvatarConfig;
   private companionBadge: { name: string; species: CompanionSpecies } | null = null;
   private extras: PresenceExtras = { ...DEFAULT_EXTRAS };
   private emoteThrottle = createEmoteThrottle();
@@ -86,6 +110,10 @@ export class WorldSyncService {
   onRoomEvent?: (event: RoomEvent) => void;
   /** Someone new appeared in presence (used to send them current room lock state). */
   onPeerJoined?: (userId: string) => void;
+  /** Someone new joined presence or requested a key (used for private-space late-join E2EE sharing). */
+  onEncryptionPeerJoined?: (userId: string) => void;
+  /** Space encryption key rotated or shared for this user. */
+  onSpaceKeySync?: (event: { kind: 'rotated' | 'shared'; keyVersion?: number }) => void;
 
   onRemotePlayersChanged?: (players: Map<string, RemotePlayerState>) => void;
   onChatMessage?: (message: ChatMessageModel) => void;
@@ -222,11 +250,20 @@ export class WorldSyncService {
           const text = (data.text as string) || (raw.text as string);
           if (!effectiveId || !text) return;
 
-          const player = this.remotePlayers.get(effectiveId);
-          if (player) {
-            player.speechBubble = text;
-            player.speechExpiresAt = Date.now() + 5000;
-            this.notifyPlayersChanged();
+          const applySpeech = (resolvedText: string) => {
+            if (this.isDisposed) return;
+            const player = this.remotePlayers.get(effectiveId);
+            if (player) {
+              player.speechBubble = resolvedText;
+              player.speechExpiresAt = Date.now() + 5000;
+              this.notifyPlayersChanged();
+            }
+          };
+
+          if (CryptoService.isEncrypted(text)) {
+            void E2EEManager.decryptSpaceText(this.spaceId, text).then(applySpeech);
+          } else {
+            applySpeech(text);
           }
         } catch (e) {
           console.warn('[WorldSync] Speech broadcast error:', e);
@@ -243,19 +280,28 @@ export class WorldSyncService {
           const content = (data.content as string) || (raw.content as string);
           if (!senderId || !content) return;
 
-          const msg: ChatMessageModel = {
-            id: (data.id as string) || (raw.id as string) || `msg-${Date.now()}`,
-            roomId: (data.room_id as string) || (raw.room_id as string) || '',
-            spaceId: (data.space_id as string) || (raw.space_id as string) || this.spaceId,
-            senderId,
-            senderName: (data.sender_name as string) || (raw.sender_name as string) || 'Explorer',
-            content,
-            createdAt: (data.created_at as string) || new Date().toISOString(),
-            isDirectMessage: Boolean(data.is_direct),
+          const emitMsg = (resolvedContent: string) => {
+            if (this.isDisposed) return;
+            const msg: ChatMessageModel = {
+              id: (data.id as string) || (raw.id as string) || `msg-${Date.now()}`,
+              roomId: (data.room_id as string) || (raw.room_id as string) || '',
+              spaceId: (data.space_id as string) || (raw.space_id as string) || this.spaceId,
+              senderId,
+              senderName: (data.sender_name as string) || (raw.sender_name as string) || 'Explorer',
+              content: resolvedContent,
+              createdAt: (data.created_at as string) || new Date().toISOString(),
+              isDirectMessage: Boolean(data.is_direct),
+            };
+
+            if (this.onChatMessage) {
+              this.onChatMessage(msg);
+            }
           };
 
-          if (this.onChatMessage) {
-            this.onChatMessage(msg);
+          if (CryptoService.isEncrypted(content)) {
+            void E2EEManager.decryptSpaceText(this.spaceId, content).then(emitMsg);
+          } else {
+            emitMsg(content);
           }
         } catch (e) {
           console.warn('[WorldSync] Chat broadcast error:', e);
@@ -364,6 +410,37 @@ export class WorldSyncService {
         }
       });
 
+      // 6. Private Space E2EE Key Rotation & Late-Join Sharing Signals
+      this.channel.on('broadcast', { event: 'space_key_rotated' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const ver = typeof data.key_version === 'number' ? data.key_version : undefined;
+          this.onSpaceKeySync?.({ kind: 'rotated', keyVersion: ver });
+        } catch {}
+      });
+
+      this.channel.on('broadcast', { event: 'space_key_shared' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          if (data.target_user_id && data.target_user_id !== this.currentUserId) return;
+          const ver = typeof data.key_version === 'number' ? data.key_version : undefined;
+          this.onSpaceKeySync?.({ kind: 'shared', keyVersion: ver });
+        } catch {}
+      });
+
+      this.channel.on('broadcast', { event: 'space_key_request' }, (envelope) => {
+        try {
+          const raw = envelope.payload || envelope;
+          const data = (raw.payload && typeof raw.payload === 'object' ? raw.payload : raw) as Record<string, unknown>;
+          const requesterId = typeof data.user_id === 'string' ? data.user_id : '';
+          if (requesterId && requesterId !== this.currentUserId) {
+            this.onEncryptionPeerJoined?.(requesterId);
+          }
+        } catch {}
+      });
+
       // 6. Presence Sync / Join / Leave
       this.channel.on('presence', { event: 'sync' }, () => this.handlePresenceUpdate());
       this.channel.on('presence', { event: 'join' }, () => {
@@ -383,7 +460,17 @@ export class WorldSyncService {
           }
 
           try {
-            await this.channel?.track(this.presencePayload());
+            // A (re)join has a fresh server-side presence budget; this track is its first use.
+            this.presenceBudget.reset();
+            if (this.presenceTrackTimer) {
+              clearTimeout(this.presenceTrackTimer);
+              this.presenceTrackTimer = null;
+            }
+            const payload = this.presencePayload();
+            this.presenceBudget.record();
+            this.lastTrackedKey = JSON.stringify(payload);
+            this.lastTrackedSocialKey = socialKey(payload);
+            await this.channel?.track(payload);
 
             this.handlePresenceUpdate();
 
@@ -473,6 +560,7 @@ export class WorldSyncService {
               lastSeen: Date.now(),
             });
             this.onPeerJoined?.(actualUserId);
+            this.onEncryptionPeerJoined?.(actualUserId);
           } else {
             existing.userId = actualUserId;
             existing.clientId = clientId;
@@ -586,19 +674,42 @@ export class WorldSyncService {
       (badge !== null && this.companionBadge !== null && badge.name === this.companionBadge.name && badge.species === this.companionBadge.species);
     if (same) return;
     this.companionBadge = badge ? { name: badge.name.slice(0, 24), species: badge.species } : null;
-    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack();
+    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack({ social: true });
   }
 
-  /** Throttled presence re-track (max 1/sec, trailing call guaranteed). */
-  private schedulePresenceTrack(): void {
-    if (this.presenceTrackTimer) return;
-    const wait = Math.max(0, 1000 - (Date.now() - this.lastPresenceTrackTime));
+  /**
+   * Trailing presence re-track of the latest state. Social changes (status, hand, sit,
+   * companion) pass `social` so they replace a long budget wait queued for a position.
+   */
+  private schedulePresenceTrack(opts: { social?: boolean; delayMs?: number } = {}): void {
+    if (this.presenceTrackTimer) {
+      if (!opts.social) return;
+      clearTimeout(this.presenceTrackTimer);
+    }
+    const delay = opts.delayMs ?? (opts.social ? SOCIAL_TRACK_DELAY_MS : POSITION_TRACK_DELAY_MS);
     this.presenceTrackTimer = setTimeout(() => {
       this.presenceTrackTimer = null;
-      if (!this.channel || !this.isSubscribed || this.isDisposed) return;
-      this.lastPresenceTrackTime = Date.now();
-      this.channel.track(this.presencePayload()).catch(() => {});
-    }, wait);
+      this.flushPresenceTrack();
+    }, delay);
+  }
+
+  /** Sends the latest payload if it changed, within the server's presence budget. */
+  private flushPresenceTrack(): void {
+    if (!this.channel || !this.isSubscribed || this.isDisposed) return;
+    const payload = this.presencePayload();
+    const key = JSON.stringify(payload);
+    if (key === this.lastTrackedKey) return;
+    const social = socialKey(payload);
+    const wait = this.presenceBudget.waitMs(social !== this.lastTrackedSocialKey ? TRACK_BUDGET : POSITION_TRACK_LIMIT);
+    if (wait > 0) {
+      // Position movers keep live broadcasts meanwhile; presence only serves late joiners.
+      this.schedulePresenceTrack({ delayMs: wait });
+      return;
+    }
+    this.presenceBudget.record();
+    this.lastTrackedKey = key;
+    this.lastTrackedSocialKey = social;
+    this.channel.track(payload).catch(() => {});
   }
 
   private presencePayload(): Record<string, unknown> {
@@ -634,6 +745,17 @@ export class WorldSyncService {
     return { ...this.extras };
   }
 
+  /**
+   * A new look for this visit (survival character creation). Goes out with the
+   * next presence track through the normal track budget; the saved profile
+   * avatar is not changed.
+   */
+  setAvatarConfig(cfg: AvatarConfig): void {
+    if (JSON.stringify(cfg) === JSON.stringify(this.avatarConfig)) return;
+    this.avatarConfig = cfg;
+    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack({ social: true });
+  }
+
   /** Raise hand / sit / status. Re-tracks presence only when something changed. */
   updatePresenceState(patch: Partial<PresenceExtras>): void {
     const next = { ...this.extras, ...patch };
@@ -646,7 +768,7 @@ export class WorldSyncService {
       return;
     }
     this.extras = next;
-    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack();
+    if (this.channel && this.isSubscribed && !this.isDisposed) this.schedulePresenceTrack({ social: true });
   }
 
   /** One-shot emote (throttled). Returns false when dropped by the cooldown. */
@@ -754,36 +876,57 @@ export class WorldSyncService {
 
   broadcastSpeech(text: string): void {
     const trimmed = text.trim();
-    if (!this.channel || !this.isSubscribed || !trimmed) return;
+    const channel = this.channel;
+    if (!channel || !this.isSubscribed || !trimmed) return;
 
-    this.channel.send({
-      type: 'broadcast',
-      event: 'speech',
-      payload: {
-        user_id: this.currentUserId,
-        client_id: this.clientInstanceId,
-        text: trimmed,
-      },
-    });
+    const sendPayload = (wireText: string) => {
+      if (this.isDisposed || !this.isSubscribed || this.channel !== channel) return;
+      channel.send({
+        type: 'broadcast',
+        event: 'speech',
+        payload: {
+          user_id: this.currentUserId,
+          client_id: this.clientInstanceId,
+          text: wireText,
+        },
+      });
+    };
+
+    if (E2EEManager.hasSpaceKey(this.spaceId)) {
+      void E2EEManager.encryptSpaceTextIfReady(this.spaceId, trimmed).then(sendPayload);
+    } else {
+      sendPayload(trimmed);
+    }
   }
 
   broadcastChatMessage(msg: ChatMessageModel): void {
-    if (!this.channel || !this.isSubscribed || !msg.content.trim()) return;
+    const trimmed = msg.content.trim();
+    const channel = this.channel;
+    if (!channel || !this.isSubscribed || !trimmed) return;
 
-    this.channel.send({
-      type: 'broadcast',
-      event: 'chat',
-      payload: {
-        id: msg.id,
-        room_id: msg.roomId,
-        space_id: msg.spaceId,
-        sender_id: msg.senderId,
-        sender_name: msg.senderName,
-        content: msg.content.trim(),
-        created_at: msg.createdAt,
-        is_direct: msg.isDirectMessage,
-      },
-    });
+    const sendPayload = (wireContent: string) => {
+      if (this.isDisposed || !this.isSubscribed || this.channel !== channel) return;
+      channel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: {
+          id: msg.id,
+          room_id: msg.roomId,
+          space_id: msg.spaceId,
+          sender_id: msg.senderId,
+          sender_name: msg.senderName,
+          content: wireContent,
+          created_at: msg.createdAt,
+          is_direct: msg.isDirectMessage,
+        },
+      });
+    };
+
+    if (E2EEManager.hasSpaceKey(this.spaceId)) {
+      void E2EEManager.encryptSpaceTextIfReady(this.spaceId, trimmed).then(sendPayload);
+    } else {
+      sendPayload(trimmed);
+    }
   }
 
   broadcastMapTheme(theme: string): void {
@@ -795,6 +938,42 @@ export class WorldSyncService {
         theme,
         user_id: this.currentUserId,
         created_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  broadcastSpaceKeyRotated(keyVersion: number): void {
+    if (!this.channel || !this.isSubscribed) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'space_key_rotated',
+      payload: {
+        key_version: keyVersion,
+        actor_id: this.currentUserId,
+      },
+    });
+  }
+
+  broadcastSpaceKeyShared(targetUserId: string, keyVersion: number): void {
+    if (!this.channel || !this.isSubscribed || !targetUserId) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'space_key_shared',
+      payload: {
+        target_user_id: targetUserId,
+        key_version: keyVersion,
+        sender_id: this.currentUserId,
+      },
+    });
+  }
+
+  broadcastSpaceKeyRequest(): void {
+    if (!this.channel || !this.isSubscribed) return;
+    this.channel.send({
+      type: 'broadcast',
+      event: 'space_key_request',
+      payload: {
+        user_id: this.currentUserId,
       },
     });
   }

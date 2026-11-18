@@ -380,6 +380,33 @@
   color: var(--cta-text);
 }
 
+.chatHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chatE2eeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  background: var(--card-inner);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  cursor: pointer;
+}
+
+.chatE2eeBtn:hover {
+  color: var(--text-main);
+}
+
 .closeChatBtn {
   background: none;
   border: none;

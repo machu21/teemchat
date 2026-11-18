@@ -17,6 +17,8 @@ interface RoomHudProps {
   onAnswerKnock: (knock: PendingKnock, allow: boolean) => void;
   /** Filters names shown in knock cards (viewer's chat filter). */
   safeText: (text: string) => string;
+  /** Optional handler to inspect space chat encryption details. */
+  onOpenEncryptionInfo?: () => void;
   /** Extra room tools under the badge (focus timer, notes). */
   children?: React.ReactNode;
 }
@@ -32,6 +34,7 @@ export function RoomHud({
   knocks,
   onAnswerKnock,
   safeText,
+  onOpenEncryptionInfo,
   children,
 }: RoomHudProps) {
   if (!room && !knockTarget && knocks.length === 0) return null;
@@ -46,6 +49,17 @@ export function RoomHud({
           <button type="button" className={styles.hudBtn} aria-pressed={roomLocked} onClick={onToggleLock}>
             {roomLocked ? <><AppIcon name="lock" /> Locked</> : <><AppIcon name="unlock" /> Lock</>}
           </button>
+          {onOpenEncryptionInfo && (
+            <button
+              type="button"
+              className={styles.hudBtn}
+              onClick={onOpenEncryptionInfo}
+              title="View space encryption details"
+              aria-label="Encryption details"
+            >
+              <AppIcon name="shield" />
+            </button>
+          )}
         </div>
       )}
 

@@ -14,6 +14,8 @@ import { getMapConfig, getZonesForMap, ZoneDefinition, MAP_REGISTRY } from '@/ga
 import { WorldSyncService } from '@/lib/services/worldSync';
 import { LiveKitService } from '@/lib/services/livekit';
 import { ChatService } from '@/lib/services/chat';
+import { E2EEManager } from '@/lib/services/e2eeManager';
+import { EncryptionDetailsModal } from '@/components/dashboard/EncryptionDetailsModal';
 import { PlaylistService } from '@/lib/services/playlist';
 import { ChatMessageModel } from '@/lib/models/chat';
 import { removeRealtimeChannel } from '@/lib/supabase';
@@ -148,6 +150,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   // Roblox-style Chat state
   const [chatOpen, setChatOpen] = useState(false);
+  const [spaceEncryptionOpen, setSpaceEncryptionOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState<'room' | 'companion'>('room');
   const [roomMessages, setRoomMessages] = useState<ChatMessageModel[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -356,7 +359,6 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   // Emotes, raise hand, status and private rooms (locks / knocking)
   const social = useWorldSocial({
     syncService,
-    userId: session?.id,
     mapTheme: space?.mapTheme,
     onToast: showMediaStatus,
   });
@@ -567,12 +569,23 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
   // Invited users of a private space become members (chat, rooms and world objects
   // are member-only there). The RPC is a no-op for codes that aren't invites.
   const sessionUserId = session?.id;
+  const spaceIdForInvite = space?.id;
   const spaceVisibility = space?.visibility;
   const spaceOwnerId = space?.ownerId;
   useEffect(() => {
     if (!sessionUserId || spaceVisibility !== 'private' || spaceOwnerId === sessionUserId) return;
-    SpaceService.joinSpaceViaInvite(spaceCode);
-  }, [sessionUserId, spaceVisibility, spaceOwnerId, spaceCode]);
+    let cancelled = false;
+    SpaceService.joinSpaceViaInvite(spaceCode).then((joined) => {
+      if (cancelled || !joined) return;
+      if (spaceIdForInvite) {
+        E2EEManager.refreshSpaceKey(spaceIdForInvite).catch(() => null);
+      }
+      syncService?.broadcastSpaceKeyRequest();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionUserId, spaceIdForInvite, spaceVisibility, spaceOwnerId, spaceCode, syncService]);
 
   // If the session ends while inside (e.g. signed out in another tab), leave the space
   // instead of stalling on the loading screen with a disconnected avatar.
@@ -640,6 +653,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       ? space.id
       : `room-${(space.slug || spaceCode).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
 
+    // Prime space encryption key so WorldSync chat & speech bubbles encrypt seamlessly
+    const spaceKeyReady = E2EEManager.initSpaceKey(syncRoomId, space.visibility).catch(() => null);
+
     const sync = new WorldSyncService({
       spaceId: syncRoomId,
       currentUserId: session.id,
@@ -681,6 +697,19 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     sync.onChatMessage = (msg) => {
       handleIncomingRoomMessage(msg);
+    };
+
+    sync.onEncryptionPeerJoined = (peerUserId) => {
+      if (space.visibility !== 'private') return;
+      E2EEManager.shareSpaceKeyWithPeer(syncRoomId, peerUserId)
+        .then((sharedVer) => {
+          if (sharedVer) sync.broadcastSpaceKeyShared(peerUserId, sharedVer);
+        })
+        .catch(() => null);
+    };
+
+    sync.onSpaceKeySync = () => {
+      E2EEManager.refreshSpaceKey(syncRoomId).catch(() => null);
     };
 
     // Host moderation notices are client-supplied: confirm with the database first.
@@ -822,8 +851,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       setIsMicOn(livekit.isMicEnabled);
     };
 
-    // Load initial 30s room chat (scoped to this space)
-    ChatService.fetchMessages('general', space.id)
+    // Load initial 30s room chat (scoped to this space) after priming space encryption key
+    spaceKeyReady
+      .then(() => ChatService.fetchMessages('general', space.id))
       .then((msgs) => {
         msgs.forEach((m) => seenMessageIdsRef.current.add(m.id));
         setRoomMessages(msgs);
@@ -841,6 +871,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
     return () => {
       sync.onModerationNotice = undefined;
+      sync.onEncryptionPeerJoined = undefined;
+      sync.onSpaceKeySync = undefined;
       livekit.isAudible = undefined;
       livekit.inSharedRoom = undefined;
       livekit.isVideoVisible = undefined;
@@ -1276,6 +1308,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         knocks={social.knocks}
         onAnswerKnock={social.answerKnock}
         safeText={safeText}
+        onOpenEncryptionInfo={() => setSpaceEncryptionOpen(true)}
       >
         <FocusTimer
           key={social.timer ? `${social.timer.endsAt}-${social.timer.running}-${social.timer.phase}` : 'none'}
@@ -1522,6 +1555,15 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         )}
       </footer>
 
+      <EncryptionDetailsModal
+        isOpen={spaceEncryptionOpen}
+        onClose={() => setSpaceEncryptionOpen(false)}
+        channelKind="space"
+        userId={session.id}
+        spaceId={space.id}
+        spaceVisibility={space.visibility}
+      />
+
       {/* Roblox-Style Chat Box Overlay */}
       {chatOpen && (
         <div className={styles.chatBox}>
@@ -1549,14 +1591,27 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   </button>
                 )}
               </div>
-              <button
-                type="button"
-                className={styles.closeChatBtn}
-                onClick={() => setChatOpen(false)}
-                aria-label="Close chat"
-              >
-                <AppIcon name="close" />
-              </button>
+              <div className={styles.chatHeaderActions}>
+                {activeChannel === 'room' && (
+                  <button
+                    type="button"
+                    className={styles.chatE2eeBtn}
+                    onClick={() => setSpaceEncryptionOpen(true)}
+                    title="View space chat encryption details"
+                    aria-label="View space chat encryption details"
+                  >
+                    <AppIcon name="lock" /> Encrypted
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.closeChatBtn}
+                  onClick={() => setChatOpen(false)}
+                  aria-label="Close chat"
+                >
+                  <AppIcon name="close" />
+                </button>
+              </div>
             </div>
 
             {companionEnabled && screenHelpSupported && (screenHelpActive || activeChannel === 'companion') && (
@@ -2275,6 +2330,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
                   onBlocked={() => setSelectedPlayer(null)}
                   onModerated={(action) => {
                     syncService?.broadcastModeration(selectedPlayer.userId, action);
+                    if ((action === 'kick' || action === 'ban') && space?.visibility === 'private') {
+                      syncService?.broadcastSpaceKeyRotated(E2EEManager.getActiveSpaceVersion(space.id));
+                    }
                     if (action === 'kick' || action === 'ban') setSelectedPlayer(null);
                   }}
                 />

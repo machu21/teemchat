@@ -117,4 +117,94 @@ describe('WorldSync social events', () => {
       vi.useRealTimers();
     }
   });
+
+  it('a survivor look goes out in one presence re-track, and only when it changed', async () => {
+    vi.useFakeTimers();
+    try {
+      const sync = await connected();
+      vi.advanceTimersByTime(1500);
+      mocks.channel.track.mockClear();
+      const look = { gender: 'female', skinColor: '#c68642', shirtColor: '#16a34a', hairColor: '#2b2530', hairStyle: 'bun', accessory: 'none' } as const;
+      sync.setAvatarConfig({ ...look });
+      vi.advanceTimersByTime(1500);
+      expect(mocks.channel.track).toHaveBeenCalledTimes(1);
+      expect(mocks.channel.track.mock.calls[0][0]).toMatchObject({ avatar_config: look });
+      sync.setAvatarConfig({ ...look }); // same look again
+      vi.advanceTimersByTime(1500);
+      expect(mocks.channel.track).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('WorldSync presence rate limit', () => {
+  // Supabase closes the channel on the 6th track inside its window (see presenceBudget.ts).
+  /** Most track() calls that fell inside any window of `windowMs`. */
+  const tracksWithin = (windowMs: number) =>
+    Math.max(0, ...trackTimes.map((t) => trackTimes.filter((u) => u >= t && u - t < windowMs).length));
+  let trackTimes: number[] = [];
+
+  beforeEach(() => {
+    trackTimes = [];
+    mocks.channel.track.mockImplementation(() => {
+      trackTimes.push(Date.now());
+      return Promise.resolve('ok');
+    });
+  });
+
+  it('walking and stopping repeatedly never exceeds the server presence budget', async () => {
+    vi.useFakeTimers();
+    try {
+      const sync = await connected();
+      for (let i = 0; i < 20; i++) {
+        sync.broadcastMovement(500 + i * 10, 300, 'right', true);
+        vi.advanceTimersByTime(150);
+        sync.broadcastMovement(510 + i * 10, 300, 'right', false, true);
+        vi.advanceTimersByTime(1200);
+      }
+      vi.advanceTimersByTime(60_000);
+      expect(tracksWithin(30_000)).toBeLessThanOrEqual(4);
+      // The final resting position still reaches presence for late joiners.
+      expect(mocks.channel.track.mock.calls.at(-1)?.[0]).toMatchObject({ x: 700, y: 300 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a status change goes out promptly even after position updates used their share', async () => {
+    vi.useFakeTimers();
+    try {
+      const sync = await connected();
+      for (let i = 0; i < 5; i++) {
+        sync.broadcastMovement(600 + i * 40, 300, 'right', false, true);
+        vi.advanceTimersByTime(1100);
+      }
+      const before = mocks.channel.track.mock.calls.length;
+      sync.updatePresenceState({ status: 'busy' });
+      vi.advanceTimersByTime(300);
+      expect(mocks.channel.track.mock.calls.length).toBe(before + 1);
+      expect(mocks.channel.track.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'busy' });
+      expect(tracksWithin(30_000)).toBeLessThanOrEqual(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('peers joining the space do not make us re-track an unchanged presence', async () => {
+    vi.useFakeTimers();
+    try {
+      await connected();
+      vi.advanceTimersByTime(2000);
+      mocks.channel.track.mockClear();
+      for (let i = 0; i < 10; i++) {
+        mocks.handlers.get('presence:join')?.({});
+        vi.advanceTimersByTime(500);
+      }
+      vi.advanceTimersByTime(5000);
+      expect(mocks.channel.track).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

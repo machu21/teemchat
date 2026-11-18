@@ -33,6 +33,10 @@ In TeemChat, clients communicate over two strictly isolated channel pipelines:
   - Throttle movement broadcasts to **minimum 100ms interval** (10 packets/second maximum).
   - Do NOT call `channel.track(...)` every frame; let standard presence heartbeats maintain presence state.
 
+### Presence Track Budget (server-enforced)
+- Supabase closes a presence channel when one client sends a 6th `track()` inside a 15-30s window ("Client presence rate limit exceeded"); supabase-js does not rejoin it.
+- Every presence channel spends at most 4 tracks per 30s per join via `PresenceTrackBudget` (`next-app/src/lib/services/presenceBudget.ts`), skips unchanged payloads, and rebuilds the channel on a server `CLOSED`. See `known_issues_and_solutions.md` Bug #2.
+
 ---
 
 ## 3. Presence Lifecycle & Identity Contracts (`worldSync.ts`)

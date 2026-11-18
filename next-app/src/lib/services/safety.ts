@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { E2EEManager } from './e2eeManager';
 import {
   AgeBand,
   DEFAULT_SAFETY_PREFS,
@@ -28,6 +29,13 @@ export const REPORT_REASONS: { id: ReportReason; label: string }[] = [
   { id: 'underage', label: 'Underage safety concern' },
   { id: 'other', label: 'Something else' },
 ];
+
+export interface ReportEvidenceItem {
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
 
 export type ModerationAction = 'kick' | 'ban' | 'unban' | 'mute_voice' | 'mute_chat' | 'unmute';
 
@@ -216,11 +224,22 @@ export class SafetyService {
     details?: string;
     spaceId?: string | null;
     roomId?: string | null;
+    evidenceSnapshot?: ReportEvidenceItem[];
   }): Promise<{ ok: boolean; error?: string }> {
-    const { reporterId, reportedUserId, reason, details, spaceId, roomId } = params;
+    const { reporterId, reportedUserId, reason, details, spaceId, roomId, evidenceSnapshot } = params;
     if (!isPersistedId(reporterId) || !isPersistedId(reportedUserId)) {
       return { ok: false, error: 'Reports need a signed-in account on both sides.' };
     }
+    const sanitizedEvidence =
+      Array.isArray(evidenceSnapshot) && evidenceSnapshot.length > 0
+        ? evidenceSnapshot.slice(-5).map((m) => ({
+          senderId: m.senderId,
+          senderName: m.senderName.slice(0, 64),
+          content: m.content.slice(0, 500),
+          createdAt: m.createdAt,
+        }))
+        : undefined;
+
     const { error } = await supabase.from('user_reports').insert({
       reporter_id: reporterId,
       reported_user_id: reportedUserId,
@@ -228,6 +247,7 @@ export class SafetyService {
       details: details?.trim().slice(0, 500) || null,
       space_id: isPersistedId(spaceId) ? spaceId : null,
       room_id: roomId || null,
+      ...(sanitizedEvidence ? { evidence_snapshot: sanitizedEvidence } : {}),
     });
     if (error) return { ok: false, error: 'Could not send the report. Please try again.' };
     return { ok: true };
@@ -288,6 +308,9 @@ export class SafetyService {
     if (error) {
       if (/owner/i.test(error.message)) return { ok: false, error: 'You cannot moderate the space owner or other admins.' };
       return { ok: false, error: 'Action failed. Please try again.' };
+    }
+    if (action === 'kick' || action === 'ban') {
+      await E2EEManager.rotateSpaceKey(spaceId, targetUserId).catch(() => null);
     }
     return { ok: true };
   }

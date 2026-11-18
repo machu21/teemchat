@@ -863,15 +863,29 @@
   background-color: #f59e0b;
 }
 
-.zombieToast {
+.zombieToastStack {
   position: absolute;
   top: max(64px, env(safe-area-inset-top, 0px) + 56px);
   left: 50%;
   z-index: 46;
   max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* Older notifications fade back; the newest is at the bottom */
+.zombieToastOld {
+  opacity: 0.72;
+  transform: scale(0.94);
+}
+
+.zombieToast {
   text-align: center;
   padding: 6px 12px;
-  transform: translateX(-50%);
   font-family: 'Plus Jakarta Sans', inherit;
   font-size: 0.85rem;
   font-weight: 800;
@@ -883,10 +897,20 @@
   pointer-events: none;
 }
 
+/* Mid widths: the clock chip (with its weather tag) can reach the centre, so toasts drop below it */
+@media (min-width: 641px) and (max-width: 1100px) {
+  .zombieToastStack {
+    top: calc(max(64px, env(safe-area-inset-top, 0px) + 56px) + 46px);
+  }
+}
+
 @media (max-width: 640px) {
-  .zombieToast {
+  .zombieToastStack {
     top: calc(104px + env(safe-area-inset-top, 0px));
     font-size: 0.78rem;
+  }
+
+  .zombieToastStack .zombieToast {
     padding: 5px 10px;
   }
 
@@ -962,9 +986,12 @@
     display: none;
   }
 
-  .zombieToast {
+  .zombieToastStack {
     top: calc(56px + env(safe-area-inset-top, 0px));
     font-size: 0.76rem;
+  }
+
+  .zombieToastStack .zombieToast {
     padding: 4px 10px;
   }
 
@@ -1444,6 +1471,23 @@
   white-space: nowrap;
 }
 
+/* Weather + outdoor temperature, with power-off / helicopter warnings */
+.weatherTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.weatherOff {
+  color: #dc2626;
+}
+
+.weatherWarn {
+  color: #d97706;
+}
+
 .flashlightBtn {
   min-width: 32px;
   height: 32px;
@@ -1471,11 +1515,29 @@
     right: max(10px, env(safe-area-inset-right, 0px) + 4px);
     font-size: 0.72rem;
     padding: 3px 4px 3px 8px;
+    /* Clock + weather on one row, the panel buttons on the next: never under the survival card */
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 4px;
+    column-gap: 5px;
+    max-width: calc(100vw - 186px);
+  }
+
+  /* Clock and weather on the first row, the panel buttons always together on the second */
+  .dayClock::after {
+    content: '';
+    flex-basis: 100%;
+    order: 1;
+    height: 0;
+  }
+
+  .dayClock > button {
+    order: 2;
   }
 
   /* Toasts go under the clock, right of the survival card, so neither covers the other */
-  .zombieToast {
-    top: calc(150px + env(safe-area-inset-top, 0px));
+  .zombieToastStack {
+    top: calc(196px + env(safe-area-inset-top, 0px));
     left: auto;
     right: max(10px, env(safe-area-inset-right, 0px) + 4px);
     max-width: calc(100vw - 190px);
@@ -1495,7 +1557,7 @@
     padding-left: 6px;
   }
 
-  .zombieToast {
-    top: calc(198px + env(safe-area-inset-top, 0px));
+  .zombieToastStack {
+    top: calc(272px + env(safe-area-inset-top, 0px));
   }
 }

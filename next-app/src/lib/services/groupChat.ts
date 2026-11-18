@@ -3,9 +3,37 @@ import { GroupConversationModel, SocialMessageModel } from '../models/social';
 import { defaultAvatarConfig } from '../models/avatar';
 import { messagePreview } from '../games/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { CryptoService } from './cryptoService';
+import { E2EEManager } from './e2eeManager';
 
 export class GroupChatService {
   private static localMessageCache: Map<string, SocialMessageModel[]> = new Map();
+  private static senderProfileCache: Map<string, { displayName: string; avatarConfig: typeof defaultAvatarConfig }> =
+    new Map();
+
+  private static async resolveSenderProfile(
+    senderId: string
+  ): Promise<{ displayName: string; avatarConfig: typeof defaultAvatarConfig }> {
+    const cached = this.senderProfileCache.get(senderId);
+    if (cached) return cached;
+
+    try {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('display_name, avatar_config')
+        .eq('id', senderId)
+        .maybeSingle();
+
+      const resolved = {
+        displayName: p?.display_name || 'Explorer',
+        avatarConfig: (p?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
+      };
+      this.senderProfileCache.set(senderId, resolved);
+      return resolved;
+    } catch {
+      return { displayName: 'Explorer', avatarConfig: defaultAvatarConfig };
+    }
+  }
 
   static async getUserGroups(userId: string): Promise<GroupConversationModel[]> {
     if (!userId) return [];
@@ -32,15 +60,25 @@ export class GroupChatService {
         return [];
       }
 
-      return convs.map((c) => ({
-        id: c.id,
-        name: c.name,
-        icon: c.icon || 'logo',
-        createdBy: c.created_by || '',
-        lastMessageAt: c.last_message_at,
-        lastPreview: c.last_preview || 'New group created',
-        membersCount: 3,
-      }));
+      return convs.map((c) => {
+        const cachedMsgs = this.localMessageCache.get(c.id);
+        const lastCached = cachedMsgs && cachedMsgs.length > 0 ? cachedMsgs[cachedMsgs.length - 1] : null;
+        const rawPreview = c.last_preview || 'New group created';
+        const resolvedPreview =
+          lastCached && (rawPreview === '[Encrypted message]' || CryptoService.isEncrypted(rawPreview))
+            ? messagePreview(lastCached.content).slice(0, 50)
+            : rawPreview;
+
+        return {
+          id: c.id,
+          name: c.name,
+          icon: c.icon || 'logo',
+          createdBy: c.created_by || '',
+          lastMessageAt: c.last_message_at,
+          lastPreview: resolvedPreview,
+          membersCount: 3,
+        };
+      });
     } catch (e) {
       console.warn('Error fetching group conversations, returning none:', e);
       return [];
@@ -90,6 +128,9 @@ export class GroupChatService {
 
       await supabase.from('group_conversation_members').insert(membersToInsert);
 
+      // Provision and distribute symmetric AES-256-GCM Squad room key to members
+      await E2EEManager.initGroupKey(conv.id, [creatorId, ...memberIds]).catch(() => null);
+
       return {
         id: conv.id,
         name: conv.name,
@@ -126,23 +167,43 @@ export class GroupChatService {
         return this.localMessageCache.get(conversationId) || [];
       }
 
-      const list: SocialMessageModel[] = (data as unknown as Array<{
-        id: string;
-        conversation_id: string;
-        sender_id: string;
-        content: string;
-        created_at: string;
-        sender?: { display_name?: string; avatar_config?: unknown };
-      }>).map((row) => ({
-        id: row.id,
-        conversationId: row.conversation_id,
-        senderId: row.sender_id,
-        senderName: row.sender?.display_name || 'Explorer',
-        senderAvatar: (row.sender?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
-        content: row.content,
-        createdAt: row.created_at,
-        isGroup: true,
-      }));
+      const list: SocialMessageModel[] = await Promise.all(
+        (data as unknown as Array<{
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          created_at: string;
+          sender?: { display_name?: string; avatar_config?: unknown };
+        }>).map(async (row) => {
+          const senderName = row.sender?.display_name || 'Explorer';
+          const senderAvatar =
+            (row.sender?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig;
+          if (row.sender?.display_name) {
+            this.senderProfileCache.set(row.sender_id, { displayName: senderName, avatarConfig: senderAvatar });
+          }
+
+          let resolvedContent = row.content;
+          if (CryptoService.isEncrypted(row.content)) {
+            try {
+              resolvedContent = await E2EEManager.decryptGroupMessage(conversationId, row.content);
+            } catch {
+              resolvedContent = '[Encrypted message]';
+            }
+          }
+
+          return {
+            id: row.id,
+            conversationId: row.conversation_id,
+            senderId: row.sender_id,
+            senderName,
+            senderAvatar,
+            content: resolvedContent,
+            createdAt: row.created_at,
+            isGroup: true,
+          };
+        })
+      );
 
       this.localMessageCache.set(conversationId, list);
       return list;
@@ -173,13 +234,20 @@ export class GroupChatService {
     const current = this.localMessageCache.get(conversationId) || [];
     this.localMessageCache.set(conversationId, [...current, localMsg]);
 
+    let wireContent = trimmed;
+    try {
+      wireContent = await E2EEManager.encryptGroupMessage(conversationId, trimmed);
+    } catch (e) {
+      console.warn('[GroupChatService] Encryption failed, falling back to plaintext:', e);
+    }
+
     try {
       const { data, error } = await supabase
         .from('group_messages')
         .insert({
           conversation_id: conversationId,
           sender_id: senderId,
-          content: trimmed,
+          content: wireContent,
         })
         .select('id, created_at')
         .single();
@@ -192,7 +260,9 @@ export class GroupChatService {
           .from('group_conversations')
           .update({
             last_message_at: data.created_at,
-            last_preview: messagePreview(trimmed).slice(0, 50),
+            last_preview: CryptoService.isEncrypted(wireContent)
+              ? '[Encrypted message]'
+              : messagePreview(trimmed).slice(0, 50),
           })
           .eq('id', conversationId);
       }
@@ -228,25 +298,33 @@ export class GroupChatService {
             content: string;
             created_at: string;
           };
-          let senderName = 'Explorer';
-          const { data: p } = await supabase
-            .from('profiles')
-            .select('display_name, avatar_config')
-            .eq('id', row.sender_id)
-            .maybeSingle();
+          const profile = await this.resolveSenderProfile(row.sender_id);
 
-          if (p?.display_name) senderName = p.display_name;
+          let content = row.content;
+          if (CryptoService.isEncrypted(content)) {
+            try {
+              content = await E2EEManager.decryptGroupMessage(conversationId, content);
+            } catch {
+              content = '[Encrypted message]';
+            }
+          }
 
-          onMessage({
+          const msg: SocialMessageModel = {
             id: row.id,
             conversationId: row.conversation_id,
             senderId: row.sender_id,
-            senderName,
-            senderAvatar: (p?.avatar_config as unknown as typeof defaultAvatarConfig) || defaultAvatarConfig,
-            content: row.content,
+            senderName: profile.displayName,
+            senderAvatar: profile.avatarConfig,
+            content,
             createdAt: row.created_at,
             isGroup: true,
-          });
+          };
+
+          const prev = this.localMessageCache.get(conversationId) || [];
+          if (!prev.some((m) => m.id === msg.id)) {
+            this.localMessageCache.set(conversationId, [...prev, msg]);
+          }
+          onMessage(msg);
         }
       )
       .subscribe();
@@ -254,4 +332,3 @@ export class GroupChatService {
     return channel;
   }
 }
-
