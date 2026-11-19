@@ -23,6 +23,7 @@ vi.mock('@/lib/companion/server', () => import('../../src/lib/companion/server')
 
 // 3. Mock @google/genai
 vi.mock('@google/genai', () => ({
+  ThinkingLevel: { MINIMAL: 'MINIMAL', LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' },
   GoogleGenAI: class {
     models = {
       embedContent: mockEmbedContent,
@@ -204,6 +205,9 @@ describe('POST /api/companion/chat', () => {
             maxOutputTokens: 4096,
             responseMimeType: 'application/json',
             systemInstruction: expect.stringContaining('You are Pixel Spark'),
+            // Low thinking + default temperature: fast, natural casual replies.
+            temperature: 1.0,
+            thinkingConfig: { thinkingLevel: 'LOW' },
           }),
         })
       );

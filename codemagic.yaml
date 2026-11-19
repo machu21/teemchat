@@ -1,0 +1,66 @@
+# Codemagic CI: builds the TeemChat iOS app and uploads it to TestFlight.
+# Setup steps (Apple account, API key, secrets): next-app/IOS_RELEASE.md
+#
+# The iOS app is a Capacitor shell that loads https://www.teemchat.chat, so
+# web changes ship through Vercel; rebuild here only for native changes,
+# version bumps, or the first release.
+
+workflows:
+  ios-testflight:
+    name: iOS - TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    # Name of the App Store Connect API key added under
+    # Codemagic > Personal Account > Integrations > Developer Portal.
+    integrations:
+      app_store_connect: TeemChat App Store Connect
+
+    environment:
+      groups:
+        # Holds CERTIFICATE_PRIVATE_KEY (secret). See IOS_RELEASE.md, step 6.
+        - ios_signing
+      vars:
+        BUNDLE_ID: com.antigravity.virtualworld
+        XCODE_PROJECT: next-app/ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+
+    # No triggers: builds start only when you press "Start new build".
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Sync Capacitor iOS project
+        script: |
+          cd next-app
+          unset CAPACITOR_SERVER_URL   # always ship the production URL
+          npx cap sync ios
+
+      - name: Fetch or create App Store signing files
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build signed .ipa
+        script: |
+          # Every upload needs a new build number; Codemagic's counter grows per build.
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

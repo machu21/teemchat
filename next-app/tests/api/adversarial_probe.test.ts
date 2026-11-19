@@ -85,6 +85,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 vi.mock('@google/genai', () => ({
+  ThinkingLevel: { MINIMAL: 'MINIMAL', LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' },
   GoogleGenAI: class {
     models = {
       generateContent: mockGenerateContent,

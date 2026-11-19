@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { RATE_LIMITS } from '@/lib/rateLimit';
 import {
   AI_ADDON_REQUIRED_MESSAGE,
@@ -163,12 +163,21 @@ export async function POST(req: NextRequest) {
       }));
     contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
+    // 5. Bond grows with every real conversation (throttled server-side). Started
+    // now so it runs alongside the model call instead of after it.
+    const bondPromise = companion ? awardBond(supabase, 1) : Promise.resolve(null);
+
     const response = await ai.models.generateContent({
       model: geminiModel,
       contents,
       config: {
         systemInstruction,
-        temperature: 0.9,
+        // Gemini 3 models are tuned for the default temperature (1.0); lower
+        // values tend to make replies flatter and more repetitive.
+        temperature: 1.0,
+        // Casual chat doesn't need long private reasoning, and the default
+        // (high) thinking is the main source of reply latency.
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         maxOutputTokens: 4096,
         responseMimeType: 'application/json',
         responseJsonSchema: COMPANION_REPLY_SCHEMA,
@@ -176,9 +185,7 @@ export async function POST(req: NextRequest) {
     });
 
     const reply = parseCompanionReply(response.text, companion?.mood ?? 'happy');
-
-    // 5. Bond grows with every real conversation (throttled server-side)
-    const bondXp = companion ? ((await awardBond(supabase, 1)) ?? companion.bondXp) : 0;
+    const bondXp = companion ? ((await bondPromise) ?? companion.bondXp) : 0;
 
     // 6. Background: persist history, learn facts, update mood, roll up summaries
     if (companion) {
