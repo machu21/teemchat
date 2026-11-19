@@ -12,7 +12,7 @@
 This review addresses two core topics raised by the product team:
 1. **The Avatar Invisibility Phenomenon**: Guests and registered users can exchange chat messages in real time, but their 2D pixel avatars do not render on screen.
 2. **Chat Ephemerality (30-Second Hard Removal)**: Architectural feasibility and implementation design for automatically deleting chat messages every 30 seconds across both the Flutter client and the Supabase PostgreSQL database.
-3. **Agent RAG Memory Integration**: Creation of an indexed persistent knowledge base under [`.agents/rag/`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/) so our specialized engineering team retains cross-session domain memory.
+3. **Agent RAG Memory Integration**: Creation of an indexed persistent knowledge base under [`.agents/rag/`](file:///c:/Users/LENOVO/teemchat/.agents/rag/) so our specialized engineering team retains cross-session domain memory.
 
 ---
 
@@ -48,8 +48,8 @@ This review addresses two core topics raised by the product team:
 ---
 
 ### Root Cause 1: WebSocket Broadcast Flooding & Channel Force-Close
-- In [`world_game.dart:345`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/features/world/game/world_game.dart#L345), `update(dt)` runs at 60 FPS. Every tick, it calls `syncService?.broadcastMovement(...)`.
-- In [`world_sync_service.dart:391`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/core/services/world_sync_service.dart#L391), movement broadcasting is only throttled to 50ms (20 packets/sec), and it broadcasts **even when the character is completely stationary** (`isMoving == false`).
+- In [`world_game.dart:345`](file:///c:/Users/LENOVO/teemchat/lib/features/world/game/world_game.dart#L345), `update(dt)` runs at 60 FPS. Every tick, it calls `syncService?.broadcastMovement(...)`.
+- In [`world_sync_service.dart:391`](file:///c:/Users/LENOVO/teemchat/lib/core/services/world_sync_service.dart#L391), movement broadcasting is only throttled to 50ms (20 packets/sec), and it broadcasts **even when the character is completely stationary** (`isMoving == false`).
 - In addition, every 3 seconds, `_channel?.track(...)` sends another heavy presence payload.
 - In Supabase's `realtime_client`, the client socket enforces `eventsPerSecondLimitMs = 100` (10 packets/sec maximum). Over 50% of the movement packets are dropped client-side with `'rate limited'`.
 - The Supabase server-side Realtime broker flags the connection as flooded and terminates the channel:
@@ -61,8 +61,8 @@ This review addresses two core topics raised by the product team:
 ---
 
 ### Root Cause 2: Flame Lifecycle & Listener Detachment in Flutter Web
-- In [`world_game.dart:243`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/features/world/game/world_game.dart#L243), the listener `syncService?.remotePlayers.addListener(_onRemotePlayersChanged)` is attached inside `onLoad()`.
-- In [`world_game.dart:324`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/features/world/game/world_game.dart#L324):
+- In [`world_game.dart:243`](file:///c:/Users/LENOVO/teemchat/lib/features/world/game/world_game.dart#L243), the listener `syncService?.remotePlayers.addListener(_onRemotePlayersChanged)` is attached inside `onLoad()`.
+- In [`world_game.dart:324`](file:///c:/Users/LENOVO/teemchat/lib/features/world/game/world_game.dart#L324):
   ```dart
   @override
   void onRemove() {
@@ -71,7 +71,7 @@ This review addresses two core topics raised by the product team:
   }
   ```
 - In Flame, `onLoad()` is only executed **once** in the lifetime of a game component instance.
-- Whenever Flutter rebuilds [`WorldScreen`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/features/world/world_screen.dart) (for example, when `_game.loaded` completes at line 247, when opening chat or companion modals, or when changing zones), Flutter's widget tree unmounts the game component, triggering `onRemove()`.
+- Whenever Flutter rebuilds [`WorldScreen`](file:///c:/Users/LENOVO/teemchat/lib/features/world/world_screen.dart) (for example, when `_game.loaded` completes at line 247, when opening chat or companion modals, or when changing zones), Flutter's widget tree unmounts the game component, triggering `onRemove()`.
 - Flame unhooks `_onRemotePlayersChanged`. Because there is **no `onMount()` override**, the listener is never re-attached. Even if `remotePlayers` receives data, `WorldGame` never knows and never creates the `RemotePlayerAvatar` components!
 
 ---
@@ -119,7 +119,7 @@ execute function public.purge_expired_messages();
 - Because `public.messages` is in `supabase_realtime`, any client listening for `DELETE` events will be notified immediately!
 
 #### 2. Frontend Tier: Local 1-Second Prune Timer & Realtime DELETE Listener
-In [`WorldScreen`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/features/world/world_screen.dart):
+In [`WorldScreen`](file:///c:/Users/LENOVO/teemchat/lib/features/world/world_screen.dart):
 - Add a periodic 1-second `Timer`:
   ```dart
   Timer? _messageCleanupTimer;
@@ -137,7 +137,7 @@ In [`WorldScreen`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/c
     });
   }
   ```
-- In [`ChatService.listenToRoomMessages`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/lib/core/services/chat_service.dart#L135), add a listener for `RealtimeListenTypes.postgresChanges` on `event: 'DELETE'` so that records removed by PostgreSQL are instantly purged from the UI without delay.
+- In [`ChatService.listenToRoomMessages`](file:///c:/Users/LENOVO/teemchat/lib/core/services/chat_service.dart#L135), add a listener for `RealtimeListenTypes.postgresChanges` on `event: 'DELETE'` so that records removed by PostgreSQL are instantly purged from the UI without delay.
 
 ---
 

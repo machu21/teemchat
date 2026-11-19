@@ -1,30 +1,30 @@
 import type { MetadataRoute } from 'next';
-import { getSiteUrl } from '@/lib/constants/site';
+import { getSiteUrl, SITE_CONTENT_UPDATED } from '@/lib/constants/site';
 import { supabase } from '@/lib/supabase';
 
 export const revalidate = 3600; // Revalidate sitemap at most once per hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = getSiteUrl();
-  const currentDate = new Date();
+  const contentUpdated = new Date(SITE_CONTENT_UPDATED);
 
   // Core static routes
   const routes: MetadataRoute.Sitemap = [
     {
       url: `${siteUrl}`,
-      lastModified: currentDate,
+      lastModified: contentUpdated,
       changeFrequency: 'daily',
       priority: 1.0,
     },
     ...['/terms', '/privacy', '/refunds', '/contact'].map((path) => ({
       url: `${siteUrl}${path}`,
-      lastModified: currentDate,
+      lastModified: contentUpdated,
       changeFrequency: 'monthly' as const,
       priority: 0.3,
     })),
     {
       url: `${siteUrl}/space/main-hq`,
-      lastModified: currentDate,
+      lastModified: contentUpdated,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
@@ -45,7 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (code && code !== 'main-hq') {
           routes.push({
             url: `${siteUrl}/space/${encodeURIComponent(code)}`,
-            lastModified: space.created_at ? new Date(space.created_at) : currentDate,
+            lastModified: space.created_at ? new Date(space.created_at) : contentUpdated,
             changeFrequency: 'weekly',
             priority: 0.7,
           });

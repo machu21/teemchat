@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { supabase } from '@/lib/supabase';
-import { useIsIosApp } from '@/lib/platform/nativeApp';
+import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import {
   AI_ADDON_PRICES,
   AiAddonInterval,
@@ -27,9 +27,9 @@ interface AiAddonCardProps {
   onPurchased?: () => void;
 }
 
-/** Buy or manage the AI Companion add-on (Stripe on web and the Android APK). */
+/** Buy or manage the AI Companion add-on (Stripe, web only; hidden in the native apps). */
 export function AiAddonCard({ session, onPurchased }: AiAddonCardProps) {
-  const isIosApp = useIsIosApp();
+  const isNativeApp = useIsNativeApp();
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [busy, setBusy] = useState<AiAddonInterval | 'portal' | null>(null);
   const [error, setError] = useState('');
@@ -93,7 +93,7 @@ export function AiAddonCard({ session, onPurchased }: AiAddonCardProps) {
 
   let actions: React.ReactNode = null;
   if (isActive) {
-    if (hasStripeBilling && !isIosApp) {
+    if (hasStripeBilling && !isNativeApp) {
       actions = (
         <NeoButton variant="secondary" size="md" fullWidth onClick={() => run('portal')} disabled={busy !== null}>
           {busy === 'portal' ? 'Opening…' : 'Manage billing'}
@@ -102,8 +102,8 @@ export function AiAddonCard({ session, onPurchased }: AiAddonCardProps) {
     } else if (!hasStripeBilling) {
       actions = <p className={styles.muted}>Included with your beta access.</p>;
     }
-  } else if (isIosApp) {
-    actions = <p className={styles.muted}>The AI add-on is coming to the iOS app soon.</p>;
+  } else if (isNativeApp) {
+    actions = <p className={styles.muted}>The AI add-on is coming to the app soon.</p>;
   } else {
     actions = (
       <div className={styles.actions}>
@@ -114,7 +114,7 @@ export function AiAddonCard({ session, onPurchased }: AiAddonCardProps) {
           {busy === 'year' ? 'Opening checkout…' : `$${AI_ADDON_PRICES.year} / year · save 25%`}
         </NeoButton>
         <p className={`${styles.fineprint} ${styles.actionsWide}`}>
-          Renews automatically. Cancel anytime. <Link href="/terms">Terms</Link> · <Link href="/refunds">Refunds</Link>
+          Renews automatically. Cancel anytime. <Link href="/terms">Terms</Link> · <Link href="/refunds">Cancellation</Link>
         </p>
       </div>
     );

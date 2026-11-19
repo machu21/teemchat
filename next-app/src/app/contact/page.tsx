@@ -14,7 +14,7 @@ export default function ContactPage() {
   return (
     <LegalPage
       title="Contact & Support"
-      intro="Need help with your account, a payment or the AI Companion? Email us and a person will reply."
+      intro={`Need help with TeemChat by ${companyName} — your account, a payment or the AI Companion? Email us and a person will reply.`}
     >
       <h2>Email</h2>
       <p>
@@ -34,10 +34,11 @@ export default function ContactPage() {
       <ul>
         <li>
           <strong>Cancel the AI add-on:</strong> use Manage billing in your account panel, or see the{' '}
-          <Link href="/refunds">Refund &amp; Cancellation Policy</Link>.
+          <Link href="/refunds">Cancellation Policy</Link>.
         </li>
         <li>
-          <strong>Refunds:</strong> see the <Link href="/refunds">Refund Policy</Link>, then email us.
+          <strong>Charged by mistake:</strong> email us with your account email and the date of the charge. See the{' '}
+          <Link href="/refunds">Cancellation Policy</Link> for details.
         </li>
         <li>
           <strong>Delete your account or get a copy of your data:</strong> email us from your account&apos;s address.
@@ -48,7 +49,7 @@ export default function ContactPage() {
         </li>
       </ul>
 
-      <p>TeemChat is operated by {companyName}.</p>
+      <p>TeemChat is a product by {companyName}.</p>
     </LegalPage>
   );
 }

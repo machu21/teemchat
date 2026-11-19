@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      intro={`This policy explains what information ${companyName} ("TeemChat", "we") collects when you use TeemChat, how we use it, and the choices you have. We do not sell your personal information.`}
+      intro={`This policy explains what information ${companyName} (operating TeemChat by ${companyName}, "we") collects when you use TeemChat, how we use it, and the choices you have. We do not sell your personal information.`}
     >
       <h2>What we collect</h2>
       <ul>
@@ -64,8 +64,8 @@ export default function PrivacyPage() {
       <h2>Who processes it for us</h2>
       <ul>
         <li><strong>Cloud database & authentication infrastructure</strong>: encrypted database storage, authentication, and real-time multiplayer synchronization.</li>
-        <li><strong>LiveKit</strong>: live voice and video.</li>
-        <li><strong>Google (Gemini API)</strong>: generates AI Companion and Screen Help replies.</li>
+        <li><strong>Real-time communications provider</strong>: live voice and video.</li>
+        <li><strong>AI service provider</strong>: generates AI Companion and Screen Help replies.</li>
         <li><strong>Stripe</strong>: payments and billing.</li>
       </ul>
       <p>

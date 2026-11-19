@@ -3,7 +3,7 @@
 **Explorer**: `survey_explorer_1`  
 **Identity**: `teamwork_explorer`  
 **Roles**: survey_explorer, security_auditor, type_safety_specialist  
-**Working Directory**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_1\`  
+**Working Directory**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_1\`  
 **Date**: 2026-11-06T03:22:00Z  
 **Parent Agent**: `07e623c4-695e-4410-b7be-65810324dd22`  
 **Integrity Mode**: Development  
@@ -407,7 +407,7 @@ No caveats. All findings are derived directly from physical source code, schema 
 To independently reproduce all tests and confirm current workspace status:
 
 ```bash
-cd c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app
+cd c:\\Users\\LENOVO\\teemchat\next-app
 
 # 1. Run ESLint across workspace (Verifies 0 errors currently)
 npm run lint

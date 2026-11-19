@@ -6,7 +6,7 @@ UI/UX, Neo-brutalism & Zero-Emoji Compliance Review for Milestone 1 (Admin Dashb
 ## 🔒 My Identity
 - Archetype: reviewer_critic
 - Roles: reviewer, critic
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_2\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_2\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1
 - Instance: 2 of 2 (reviewer_m1_2)

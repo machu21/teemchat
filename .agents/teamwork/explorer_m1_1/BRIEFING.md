@@ -6,7 +6,7 @@ Design and specify `next-app/src/lib/services/adminClient.ts` and test suite `ne
 ## 🔒 My Identity
 - Archetype: teamwork_explorer
 - Roles: explorer, investigator, architect
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_1\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1: Production Admin Dashboard UI (Client SDK Architect)
 

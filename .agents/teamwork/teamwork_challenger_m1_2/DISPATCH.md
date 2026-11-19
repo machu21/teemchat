@@ -4,12 +4,12 @@ Role: Adversarial Challenger 2
 
 MANDATORY FIRST STEP:
 Read the user's original request file at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 Also read the project architecture, test infrastructure, and worker handoff at:
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\handoff.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app\API_BEHAVIOR_AUDIT.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_1\handoff.md
+- c:\\Users\\LENOVO\\teemchat\next-app\API_BEHAVIOR_AUDIT.md
 
 OBJECTIVE:
 Adversarially challenge the API test suites in `next-app/tests/api/` and the route handlers in `next-app/src/app/api/`. Verify that test assertions are rigorous (not superficial true === true checks), that all error branches and status codes (200, 400, 401, 403, 429, 500) are genuinely tested, and that tests run reliably with zero race conditions.

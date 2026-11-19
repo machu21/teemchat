@@ -6,7 +6,7 @@ Perform strict forensic integrity audit on Milestone 1 work products (API routes
 ## 🔒 My Identity
 - Archetype: forensic_auditor
 - Roles: critic, specialist, auditor
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_auditor_m1_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_auditor_m1_1\
 - Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
 - Target: milestone 1 (API Route Handlers)
 

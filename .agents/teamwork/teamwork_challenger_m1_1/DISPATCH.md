@@ -5,18 +5,18 @@ The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provide
 
 <SYSTEM_MESSAGE>
 [Message] timestamp=2026-11-03T20:57:49Z sender=f7d714a1-bf43-49e6-b994-19f708dca4d9 priority=MESSAGE_PRIORITY_HIGH content=You are teamwork_challenger_m1_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_challenger_m1_1\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_challenger_m1_1\
 Your identity is: teamwork_challenger
 Your role is: Adversarial Challenger 1
 
 MANDATORY FIRST STEP:
 Read the user's original request file at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 Also read the project architecture, test infrastructure, and worker handoff at:
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\handoff.md
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app\API_BEHAVIOR_AUDIT.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_1\handoff.md
+- c:\\Users\\LENOVO\\teemchat\next-app\API_BEHAVIOR_AUDIT.md
 
 OBJECTIVE:
 Empirically stress-test the 5 API route handlers in `next-app/src/app/api/` and the test suites in `next-app/tests/api/`. Verify that handlers handle hostile inputs, boundary values, extreme payloads, malformed JSON, concurrent invocations, and rate limit edge cases without unhandled crashes.

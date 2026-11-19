@@ -1,8 +1,8 @@
 # Task Assignment: Admin Dashboard QA & Completion Verification
 
 **Role**: teamwork_worker
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Integrity Warning
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
@@ -36,19 +36,19 @@ Use send_message to report completion back to parent when done.
 ## 2026-11-05T22:46:07Z
 You are teamwork_worker assigned as replacement worker (worker_m1_2) to complete Milestone 1: Production Admin Dashboard UI Implementation & Test Suite.
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read TEST_INFRA.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 Read your task dispatch at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\DISPATCH.md
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.

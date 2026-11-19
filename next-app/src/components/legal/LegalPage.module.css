@@ -16,13 +16,32 @@
 }
 
 .brand {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
   font-weight: 900;
   font-size: 1.2rem;
   color: var(--text-main);
   text-decoration: none;
 }
 
+.brandBy {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
   font-size: 0.9rem;
   color: var(--text-main);
@@ -30,7 +49,7 @@
   padding: 6px 12px;
   border: 2px solid var(--card-border);
   border-radius: 999px;
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
   background: var(--card-bg);
 }
 
@@ -51,7 +70,7 @@
   background: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: 20px;
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
   padding: clamp(20px, 5vw, 40px);
 }
 
@@ -136,4 +155,12 @@
 
 .legalNavLink:hover {
   color: var(--primary);
+}
+
+.legalFooter {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
 }

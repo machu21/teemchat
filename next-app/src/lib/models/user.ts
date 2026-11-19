@@ -4,6 +4,7 @@ import {
   defaultMaleAvatarConfig,
   defaultFemaleAvatarConfig,
 } from './avatar';
+import type { PlanId } from '../membership';
 
 export interface UserSession {
   id: string;
@@ -15,6 +16,7 @@ export interface UserSession {
   gender: Gender;
   isGuest: boolean;
   tier: 'free' | 'paid';
+  plan: PlanId;
   isPaid: boolean;
   hasAiCompanion: boolean;
   countryCode?: string;
@@ -58,6 +60,7 @@ export function createGuestSession(
     },
     isGuest: true,
     tier: 'free',
+    plan: 'free',
     isPaid: false,
     hasAiCompanion: false,
     countryCode: countryCode || 'XX',

@@ -11,7 +11,7 @@
   color: var(--text-main);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-md, 12px);
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
   overflow: hidden;
   animation: popIn 0.18s ease-out;
 }
@@ -67,7 +67,7 @@
   background: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   cursor: pointer;
 }
 

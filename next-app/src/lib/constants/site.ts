@@ -2,9 +2,16 @@
  * Site configuration constants for SEO, metadata, and canonical URLs.
  */
 export const SITE_NAME = 'TeemChat';
-export const SITE_TITLE = 'TeemChat - 16-Bit Proximity Virtual Space';
+export const SITE_TITLE = 'TeemChat - Free Pixel Hangout with Proximity Voice & Games';
 export const SITE_DESCRIPTION =
-  'A collaborative 16-bit virtual space with spatial proximity voice, real-time multiplayer sync, customizable pixel avatars, and an interactive AI Companion.';
+  'Free pixel hangout in your browser. Walk up to friends to talk, play chess or zombie survival together, and meet your AI companion. Join as a guest in seconds.';
+
+/**
+ * lastmod for the static pages in sitemap.xml. Bump it when the landing or
+ * legal pages change meaningfully; a value that changes on every build
+ * teaches search engines to ignore lastmod.
+ */
+export const SITE_CONTENT_UPDATED = '2026-11-20';
 
 export const SITE_KEYWORDS = [
   'TeemChat',

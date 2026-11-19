@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import { LEGAL } from '@/lib/constants/legal';
 import styles from './LegalPage.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
+import { ThemeToggle } from '@/components/neo/ThemeToggle';
 
 const LEGAL_LINKS = [
   { href: '/terms', label: 'Terms of Service' },
   { href: '/privacy', label: 'Privacy Policy' },
-  { href: '/refunds', label: 'Refund Policy' },
+  { href: '/refunds', label: 'Cancellation Policy' },
   { href: '/contact', label: 'Contact & Support' },
 ] as const;
 
@@ -17,17 +18,20 @@ interface LegalPageProps {
   children: ReactNode;
 }
 
-/** Shared layout for the Terms, Privacy, Refund and Contact pages. */
+/** Shared layout for the Terms, Privacy, Cancellation and Contact pages. */
 export function LegalPage({ title, intro, children }: LegalPageProps) {
   return (
     <div className={styles.page}>
       <header className={styles.topBar}>
         <Link href="/" className={styles.brand}>
-          TeemChat
+          TeemChat <span className={styles.brandBy}>by {LEGAL.companyName}</span>
         </Link>
-        <Link href="/" className={styles.backLink}>
-          <AppIcon name="arrowLeft" /> Back to home
-        </Link>
+        <div className={styles.topActions}>
+          <ThemeToggle />
+          <Link href="/" className={styles.backLink}>
+            <AppIcon name="arrowLeft" /> Back to home
+          </Link>
+        </div>
       </header>
 
       <main className={styles.main}>
@@ -45,6 +49,10 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
             </Link>
           ))}
         </nav>
+
+        <p className={styles.legalFooter}>
+          © 2026 TeemChat by {LEGAL.companyName}. All rights reserved.
+        </p>
       </main>
     </div>
   );

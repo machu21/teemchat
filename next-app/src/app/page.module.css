@@ -421,7 +421,7 @@
 
 [data-theme='dark'] .mascotCircle {
   border-color: #FFFFFF;
-  box-shadow: 1.5px 2px 0px #FFFFFF;
+  box-shadow: 1.5px 2px 0px #000000;
   background: #2E1B4E;
 }
 
@@ -658,6 +658,7 @@
   border-color: #FFFFFF;
   background: #22123B;
   color: #FFFFFF;
+  box-shadow: 1px 1px 0px #000000;
 }
 
 .previewContent {
@@ -755,13 +756,18 @@
   border-radius: 50%;
   background: #FFF;
   border: 2.2px solid var(--card-border);
-  box-shadow: 1.5px 2px 0px var(--card-border);
+  box-shadow: 1.5px 2px 0px var(--neo-shadow-color);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 900;
   font-size: 0.95rem;
   color: #18181B;
+}
+
+[data-theme='dark'] .previewInitialsCircle {
+  background: var(--card-bg);
+  color: var(--text-main);
 }
 
 .previewBody {
@@ -797,7 +803,7 @@
 .simulatedChatBox {
   border: 2.2px solid var(--card-border);
   border-radius: 22px;
-  box-shadow: 3.5px 4px 0px var(--card-border);
+  box-shadow: 3.5px 4px 0px var(--neo-shadow-color);
   overflow: hidden;
   background: var(--card-bg);
   text-align: left;
@@ -830,6 +836,10 @@
   background: #FFF;
 }
 
+[data-theme='dark'] .chatAvatar {
+  background: #2E1B4E;
+}
+
 .chatAvatar img {
   width: 100%;
   height: 100%;
@@ -853,7 +863,7 @@
   background: var(--cta-btn);
   color: var(--cta-text);
   border: 1.8px solid var(--card-border);
-  box-shadow: 1.5px 2px 0px var(--card-border);
+  box-shadow: 1.5px 2px 0px var(--neo-shadow-color);
   border-radius: 14px;
   padding: 8px 16px;
   font-size: 0.82rem;
@@ -1022,6 +1032,24 @@
 }
 
 /* ── Pricing Section ── */
+.foundingBanner {
+  margin: 0 auto 18px;
+  padding: 10px 18px;
+  max-width: 720px;
+  background: var(--card-inner);
+  border: 2px solid var(--card-border);
+  border-radius: 14px;
+  box-shadow: 3px 3.5px 0px var(--card-border);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+[data-theme='dark'] .foundingBanner {
+  box-shadow: 3px 3.5px 0px #000000;
+}
+
 .billingToggle {
   display: inline-flex;
   align-items: center;
@@ -1071,10 +1099,83 @@
 
 .pricingGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
   width: 100%;
   text-align: left;
+}
+
+@media (max-width: 1100px) {
+  .pricingGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pricingAddonRow {
+  margin-top: 22px;
+  width: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.4fr) minmax(190px, 0.8fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.pricingAddonFeatures {
+  margin: 0;
+}
+
+.pricingAddonAction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pricingTeamStrip {
+  margin-top: 16px;
+  width: 100%;
+  padding: 16px 22px;
+  background: var(--card-bg);
+  border: 2.5px solid var(--card-border);
+  border-radius: 18px;
+  box-shadow: 4px 5px 0px var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  flex-wrap: wrap;
+}
+
+[data-theme='dark'] .pricingTeamStrip {
+  box-shadow: 4px 5px 0px #000000;
+}
+
+.pricingTeamText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.pricingTeamTitle {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.pricingTeamLink {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .pricingAddonRow {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 }
 
 .pricingCard {
@@ -1387,7 +1488,7 @@
 [data-theme='dark'] .footerLogoCircle {
   background: #2E1B4E;
   border-color: #FFFFFF;
-  box-shadow: 2px 2px 0px #FFFFFF;
+  box-shadow: 2px 2px 0px #000000;
 }
 
 .footerLogoImg {
@@ -1698,6 +1799,12 @@
   font-weight: 700;
 }
 
+[data-theme='dark'] .errorAlert {
+  background: rgba(239, 68, 68, 0.18);
+  color: #FCA5A5;
+  border-color: #EF4444;
+}
+
 .errorAlertAction {
   margin-left: 6px;
   padding: 0;
@@ -1744,7 +1851,7 @@
   background-color: var(--cta-btn);
   color: var(--cta-text);
   border: 2px solid var(--card-border);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 /* ── Birth date hint (signup) ── */
@@ -1792,14 +1899,14 @@
   font-weight: 800;
   font-size: 0.92rem;
   color: var(--text-main);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .genderCard:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0px var(--card-border);
+    box-shadow: 3px 3px 0px var(--neo-shadow-color);
   }
 }
 
@@ -1807,14 +1914,14 @@
   background-color: #38BDF8 !important;
   color: #032A46 !important;
   border: 2px solid var(--card-border) !important;
-  box-shadow: 3px 3px 0px var(--card-border) !important;
+  box-shadow: 3px 3px 0px var(--neo-shadow-color) !important;
 }
 
 .genderCardFemaleActive {
   background-color: #F472B6 !important;
   color: #4A0426 !important;
   border: 2px solid var(--card-border) !important;
-  box-shadow: 3px 3px 0px var(--card-border) !important;
+  box-shadow: 3px 3px 0px var(--neo-shadow-color) !important;
 }
 
 /* Character Modal Hero Pedestal */
@@ -1833,7 +1940,7 @@
   background-color: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-lg);
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1849,7 +1956,7 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 [data-theme='dark'] .pedestalStage {
@@ -1882,6 +1989,11 @@
   letter-spacing: -0.01em;
 }
 
+[data-theme='dark'] .pedestalHandle {
+  color: var(--primary-hover);
+  background-color: rgba(139, 92, 246, 0.22);
+}
+
 /* Live mini avatar preview inside auth modal */
 .signUpAvatarPreviewRow {
   display: flex;
@@ -1891,7 +2003,7 @@
   background-color: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-md);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   margin-top: -2px;
 }
 
@@ -2254,7 +2366,7 @@
   height: 96px;
   border-radius: 50%;
   border: 2px solid var(--card-border);
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -2279,7 +2391,7 @@
   align-items: center;
   gap: 8px;
   border: 2px solid var(--card-border);
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 0.9rem;

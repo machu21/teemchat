@@ -6,13 +6,13 @@ Test admin workflow and endpoints, check bugs, logic errors, and inefficiencies 
 ## 🔒 My Identity
 - Archetype: teamwork_orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\
 - Original parent: parent
 - Original parent conversation ID: 21389a38-8087-4b34-82af-8cc71ad60180
 
 ## 🔒 My Workflow
 - **Pattern**: Project
-- **Scope document**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+- **Scope document**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 1. **Decompose**: Survey backend admin APIs, design tokens/components, and test harness via 3 parallel Survey agents. Establish PROJECT.md with full feature inventory and interface contracts.
 2. **Dispatch & Execute**:
    - Milestone 1: Production Admin Dashboard UI & Test Verification [DONE]
@@ -85,16 +85,16 @@ Test admin workflow and endpoints, check bugs, logic errors, and inefficiencies 
 - Safety timer: cancelled
 
 ## Artifact Index
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md — Authoritative User Request
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\DISPATCH.md — Dispatch log
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\BRIEFING.md — Persistent working memory
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\progress.md — Liveness & status tracking
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md — Global architecture, feature inventory & milestones
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md — Test infrastructure specification
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\GATE_STATUS.md — Gate evaluations
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\handoff.md — Worker Milestone 2 Report
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_1\handoff.md — Reviewer 1 Report (APPROVE)
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_2\handoff.md — Reviewer 2 Report (APPROVE)
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\handoff.md — Challenger 1 Report (APPROVE)
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_2\handoff.md — Challenger 2 Report (APPROVE)
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m2_1\handoff.md — Forensic Auditor Report (CLEAN)
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md — Authoritative User Request
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\DISPATCH.md — Dispatch log
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\BRIEFING.md — Persistent working memory
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\progress.md — Liveness & status tracking
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md — Global architecture, feature inventory & milestones
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md — Test infrastructure specification
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\GATE_STATUS.md — Gate evaluations
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\handoff.md — Worker Milestone 2 Report
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_1\handoff.md — Reviewer 1 Report (APPROVE)
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_2\handoff.md — Reviewer 2 Report (APPROVE)
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\handoff.md — Challenger 1 Report (APPROVE)
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_2\handoff.md — Challenger 2 Report (APPROVE)
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m2_1\handoff.md — Forensic Auditor Report (CLEAN)

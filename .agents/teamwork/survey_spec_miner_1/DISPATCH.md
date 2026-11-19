@@ -1,8 +1,8 @@
 # Task Assignment: Admin Backend API Specification Mining
 
 **Role**: teamwork_spec_miner
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Objective
 Thoroughly examine all existing backend administration endpoints in `next-app/src/app/api/admin/` and associated auth/helper/service logic.
@@ -16,7 +16,7 @@ Mine exact request/response schemas, query parameters, path variables, error con
 
 ## Output
 Write a comprehensive specification document to:
-`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
+`c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
 and write your `handoff.md`.
 Report back when complete.
 
@@ -24,17 +24,17 @@ Report back when complete.
 ## 2026-11-05T22:12:07Z
 [Message] timestamp=2026-11-05T22:12:07Z sender=b94baafd-665a-4ce2-870b-448b49783b93 priority=MESSAGE_PRIORITY_HIGH content=You are teamwork_spec_miner assigned to Phase 0: Survey & Discovery for the Admin Dashboard UI.
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Also read your task dispatch at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\DISPATCH.md
 
 Investigate all existing admin backend API route handlers under `next-app/src/app/api/admin/` and associated auth/helper files. Extract exact endpoint signatures, request methods, query parameters, payload schemas, response structures, status codes, error models, capability flags, and whitelisted CRUD entities.
 
 Write your findings to:
-`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
+`c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
 and write your `handoff.md`.
 Use send_message to report completion back to parent when done.

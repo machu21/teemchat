@@ -783,9 +783,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ capabilities, onNotify
               lineHeight: 1.4,
             }}
           >
-            <strong>Auto-Sync Notice:</strong> Setting status to <code>active</code> will automatically
-            update the user&apos;s profile to <code>tier: &apos;pro&apos;</code> and <code>is_paid: true</code>.
-            Setting status to <code>canceled</code> downgrades to <code>tier: &apos;free&apos;</code>.
+            <strong>Auto-Sync Notice:</strong> Changes to <code>user_subscriptions</code> automatically
+            sync the user&apos;s profile <code>plan</code>, <code>is_paid</code>, and{' '}
+            <code>has_ai_companion</code> via database trigger.
           </div>
 
           <div className={styles.modalFooter}>

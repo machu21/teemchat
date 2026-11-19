@@ -6,7 +6,7 @@ Investigate existing test suites and perform comprehensive test gap analysis acr
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: investigation, synthesis
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: Admin Dashboard Test Suite & Gap Analysis
 

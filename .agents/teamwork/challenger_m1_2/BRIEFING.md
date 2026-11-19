@@ -6,7 +6,7 @@ Empirically challenge and stress-test Milestone 1 security hardening: route guar
 ## 🔒 My Identity
 - Archetype: empirical_challenger
 - Roles: critic, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m1_2
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m1_2
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1 (Route Guard & Privilege Escalation Hardening)
 - Instance: 1 of 1
@@ -37,7 +37,7 @@ Empirically challenge and stress-test Milestone 1 security hardening: route guar
 
 ## Artifact Index
 - `next-app/tests/admin_adversarial_guard.test.ts` — 49 adversarial test cases covering the 5 security challenge vectors
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m1_2\handoff.md` — Final verification report
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m1_2\handoff.md` — Final verification report
 
 ## Attack Surface
 - **Hypotheses tested**:

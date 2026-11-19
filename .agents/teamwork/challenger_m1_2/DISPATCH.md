@@ -1,14 +1,14 @@
 # Task Assignment: Empirical Verification - Route Guard & Privilege Escalation Hardening
 
 **Role**: teamwork_challenger
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m1_2\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m1_2\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Background Files to Read:
-1. `ORIGINAL_REQUEST.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `PROJECT.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `TEST_INFRA.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `worker_m1_2 handoff`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md`
+1. `ORIGINAL_REQUEST.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `PROJECT.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `TEST_INFRA.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `worker_m1_2 handoff`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md`
 
 ## Challenge Mission:
 Empirically stress-test the route guard and security state machine (`next-app/src/app/admin/page.tsx` and `next-app/tests/admin_guard.test.ts`):
@@ -28,21 +28,21 @@ Write `handoff.md` with your findings and verdict: **APPROVE** (secure and robus
 ## 2026-11-05T23:03:45Z
 You are challenger_m1_2, assigned as Empirical Verification Challenger for Milestone 1 (Route Guard & Privilege Escalation Hardening).
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m1_2\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m1_2\
 
 Read your dispatch instructions at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m1_2\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m1_2\DISPATCH.md
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read TEST_INFRA.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 Read worker_m1_2's handoff report at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md
 
 Empirically challenge and stress-test the route guard, capability matrix, privilege escalation prevention, self-deletion guards, and dev machine key persistence. Run tests, write handoff.md with verdict APPROVE or REQUEST_CHANGES, and send_message back to parent when done.

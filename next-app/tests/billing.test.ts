@@ -6,7 +6,12 @@ vi.mock('../src/lib/supabase', () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => invoke(...args) } },
 }));
 
-import { AI_ADDON_PRICES, openBillingPortal, startAiAddonCheckout } from '../src/lib/services/billing';
+import {
+  AI_ADDON_PRICES,
+  openBillingPortal,
+  startAiAddonCheckout,
+  startPlanCheckout,
+} from '../src/lib/services/billing';
 
 describe('billing service', () => {
   const assign = vi.fn();
@@ -64,5 +69,22 @@ describe('billing service', () => {
 
     expect(invoke).toHaveBeenCalledWith('create-portal-session', { body: {} });
     expect(assign).toHaveBeenCalledWith('https://billing.stripe.com/p/session/test_1');
+  });
+
+  it('starts membership plan checkout with product, plan, and interval', async () => {
+    invoke.mockResolvedValue({ data: { url: 'https://checkout.stripe.com/c/pay/cs_plan_1' }, error: null });
+
+    await startPlanCheckout('host', 'year');
+
+    expect(invoke).toHaveBeenCalledWith('create-checkout-session', {
+      body: {
+        product: 'membership',
+        plan: 'host',
+        interval: 'year',
+        successUrl: '/dashboard?billing=success',
+        cancelUrl: '/dashboard?billing=cancel',
+      },
+    });
+    expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_plan_1');
   });
 });

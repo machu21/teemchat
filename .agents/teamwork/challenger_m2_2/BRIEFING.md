@@ -6,7 +6,7 @@ Adversarially challenge Milestone 2 security boundaries, privilege escalation de
 ## 🔒 My Identity
 - Archetype: Empirical Challenger
 - Roles: critic, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_2
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_2
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: Milestone 2 (M2) Adversarial Review
 - Instance: 1 of 1

@@ -350,6 +350,9 @@ export class WorldGame {
       this.zombieMode.setVehicles(getMapConfig(this.space.mapTheme).vehicles ?? [], hash32(`${this.space.id}:vehicles`));
       const groundAt = getMapConfig(this.space.mapTheme).groundAt;
       if (groundAt) this.zombieMode.setGround(groundAt);
+      this.zombieMode.setExitBlocked(
+        (box) => this.wallIndex.hits(box) || this.lowWallIndex.hits(box) || this.hitsFurniture(box, false)
+      );
       this.connectZombieNet();
       this.startSaves();
       this.applyZoomLimits(SURVIVAL_ZOOM_LIMITS.min, SURVIVAL_ZOOM_LIMITS.max);
@@ -395,6 +398,27 @@ export class WorldGame {
       !!this.zombieMode?.isBlocked(box) ||
       (!airborne && this.lowWallIndex.hits(box))
     );
+  }
+
+  /** Placed / map furniture hitboxes; jumpable props clear when airborne. */
+  private hitsFurniture(box: Rect, airborne: boolean): boolean {
+    for (const furn of this.furniture) {
+      if (airborne && JUMPABLE_FURNITURE.has(furn.type)) continue;
+      const hb = furn.getHitbox();
+      if (hb && checkAABB(box, hb)) return true;
+    }
+    return false;
+  }
+
+  /** Low walls or jumpable furniture currently under `box` (extends jump hang-time). */
+  private hitsJumpableObstacle(box: Rect): boolean {
+    if (this.lowWallIndex.hits(box)) return true;
+    for (const furn of this.furniture) {
+      if (!JUMPABLE_FURNITURE.has(furn.type)) continue;
+      const hb = furn.getHitbox();
+      if (hb && checkAABB(box, hb)) return true;
+    }
+    return false;
   }
 
   /** Closest saved whiteboard / task board / note within its reach of (x, y). */
@@ -525,7 +549,7 @@ export class WorldGame {
       return;
     }
     const box = this.playerHitbox(this.player.x, this.player.y);
-    if (this.lowWallIndex.hits(box) && this.jumpT < JUMP_SECONDS + JUMP_HANG_SECONDS) {
+    if (this.hitsJumpableObstacle(box) && this.jumpT < JUMP_SECONDS + JUMP_HANG_SECONDS) {
       this.player.jumpHeight = 2; // still clearing the fence/car
       return;
     }
@@ -1141,13 +1165,10 @@ export class WorldGame {
     this.lastMoveInput.x = dx;
     this.lastMoveInput.y = dy;
     if (isMoving) {
-      // If a saved position overlaps a collider, let the player walk free instead of sticking
+      // If a saved position or exit spot overlaps a collider, let the player walk free instead of sticking
       const currentHitbox = this.playerHitbox(this.player.x, this.player.y);
       const airborne = this.jumpT >= 0;
-      const stuck =
-        this.wallIndex.hits(currentHitbox) ||
-        !!this.zombieMode?.isBlocked(currentHitbox) ||
-        (!airborne && this.lowWallIndex.hits(currentHitbox));
+      const stuck = this.blocksMove(currentHitbox, airborne) || this.hitsFurniture(currentHitbox, airborne);
 
       const len = Math.hypot(dx, dy);
       const nx = (dx / len) * speed * dt;
@@ -1159,33 +1180,15 @@ export class WorldGame {
 
       // Collision Check X
       const playerHitboxX = this.playerHitbox(targetX, this.player.y);
-      let collidesX = !stuck && this.blocksMove(playerHitboxX, airborne);
-      if (!collidesX) {
-        for (const furn of this.furniture) {
-          if (airborne && JUMPABLE_FURNITURE.has(furn.type)) continue;
-          const hb = furn.getHitbox();
-          if (hb && checkAABB(playerHitboxX, hb)) {
-            collidesX = true;
-            break;
-          }
-        }
-      }
+      let collidesX =
+        !stuck && (this.blocksMove(playerHitboxX, airborne) || this.hitsFurniture(playerHitboxX, airborne));
       if (!collidesX && this.blocksLockedEntry(targetX, this.player.y)) collidesX = true;
       if (collidesX) targetX = this.player.x;
 
       // Collision Check Y
       const playerHitboxY = this.playerHitbox(targetX, targetY);
-      let collidesY = !stuck && this.blocksMove(playerHitboxY, airborne);
-      if (!collidesY) {
-        for (const furn of this.furniture) {
-          if (airborne && JUMPABLE_FURNITURE.has(furn.type)) continue;
-          const hb = furn.getHitbox();
-          if (hb && checkAABB(playerHitboxY, hb)) {
-            collidesY = true;
-            break;
-          }
-        }
-      }
+      let collidesY =
+        !stuck && (this.blocksMove(playerHitboxY, airborne) || this.hitsFurniture(playerHitboxY, airborne));
       if (!collidesY && this.blocksLockedEntry(targetX, targetY)) collidesY = true;
       if (collidesY) targetY = this.player.y;
 

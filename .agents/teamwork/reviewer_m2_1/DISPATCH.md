@@ -2,16 +2,16 @@
 From: 07e623c4-695e-4410-b7be-65810324dd22
 Content:
 You are reviewer_m2_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_1\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_1\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your review.
 
 Also inspect the worker's handoff report:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\handoff.md
 and the project specification:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Focus: Backend API Route Handlers, RBAC Security, Database Schema/Triggers, and Helper Services.
 Inspect:
@@ -30,6 +30,6 @@ Mandatory verification commands to run:
 - `cd next-app; npx tsc --noEmit`
 
 Write your handoff report to:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_1\handoff.md
 Explicitly state your verdict: **APPROVE** or **REQUEST_CHANGES**.
 Then notify me with send_message.

@@ -1,15 +1,15 @@
 ## 2026-11-06T03:46:33Z
 You are auditor_m2_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m2_1\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m2_1\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your audit.
 
 Also inspect the worker's handoff report:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\handoff.md
 and the previous audit report:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\handoff.md
 
 Your role is FORENSIC INTEGRITY AUDITOR.
 Perform rigorous, independent verification across the entire admin dashboard implementation and test suites:
@@ -42,7 +42,7 @@ Check 6: Linter Execution & Attestation Verification
 - Verify worker's claims in `worker_m2_1/handoff.md` against real command outputs.
 
 Write your complete audit report to:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m2_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m2_1\handoff.md
 State your verdict explicitly: **CLEAN** or **INTEGRITY VIOLATION**.
 Then notify me with send_message.
 

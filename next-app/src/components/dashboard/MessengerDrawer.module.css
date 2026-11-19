@@ -27,7 +27,7 @@
   height: 100dvh;
   background-color: var(--card-bg);
   border-left: var(--neo-border-width) solid var(--card-border);
-  box-shadow: -4px 0px 0px var(--card-border);
+  box-shadow: -4px 0px 0px var(--neo-shadow-color);
   z-index: 999;
   display: flex;
   flex-direction: column;
@@ -67,7 +67,7 @@
   background: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   color: var(--text-main);
   font-size: 1rem;
   font-weight: 900;
@@ -83,7 +83,7 @@
 @media (hover: hover) and (pointer: fine) {
   .closeButton:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -122,7 +122,7 @@
   background-color: var(--card-inner);
   border-color: var(--card-border);
   color: var(--text-main);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 .tabBadge {
@@ -175,7 +175,7 @@
   background-color: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
@@ -183,7 +183,7 @@
 @media (hover: hover) and (pointer: fine) {
   .convItem:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
     background-color: var(--card-inner);
   }
 }
@@ -296,7 +296,7 @@
 .backBtn {
   background: var(--card-bg);
   border: 2px solid var(--card-border);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   padding: 4px 10px;
   border-radius: var(--neo-radius-sm);
   color: var(--text-main);
@@ -312,7 +312,7 @@
 @media (hover: hover) and (pointer: fine) {
   .backBtn:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -357,7 +357,7 @@
   background: var(--card-bg, #fff);
   border: 2px solid var(--card-border, #000);
   border-radius: var(--neo-radius-sm, 8px);
-  box-shadow: 2px 2px 0px var(--card-border, #000);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color, #000);
   padding: 5px 8px;
   font-size: 1rem;
   color: var(--text-main);
@@ -371,7 +371,7 @@
 @media (hover: hover) and (pointer: fine) {
   .callHeaderBtn:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border, #000);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color, #000);
   }
 }
 
@@ -505,7 +505,7 @@
   background-color: var(--cta-btn);
   border: 1.8px solid var(--card-border);
   border-radius: 14px;
-  box-shadow: 1.5px 2px 0px var(--card-border);
+  box-shadow: 1.5px 2px 0px var(--neo-shadow-color);
   padding: 8px 16px;
 }
 
@@ -551,6 +551,7 @@
 
 .reactionBtn {
   background: var(--card-bg);
+  color: var(--text-main);
   border: 1px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
   padding: 2px 8px;
@@ -586,7 +587,7 @@
   color: var(--text-main);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   outline: none;
 }
 
@@ -665,7 +666,12 @@
   color: #7f1d1d;
   font-size: 0.82rem;
   font-weight: 800;
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
+}
+
+:global([data-theme='dark']) .sendError {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
 }
 
 

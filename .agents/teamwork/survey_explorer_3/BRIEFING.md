@@ -6,7 +6,7 @@ Deep read-only investigation of Database Schema, Migrations, Triggers & Frontend
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: survey_explorer_3 (Database Schema, Migrations, Triggers & Frontend Admin UI Integration)
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: investigation
 

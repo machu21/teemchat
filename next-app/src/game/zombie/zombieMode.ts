@@ -1065,6 +1065,7 @@ export class ZombieMode {
   /** The vehicle whose Inspect panel is open. */
   private vehiclePanel: number | null = null;
   private exitTo: { x: number; y: number } | null = null;
+  private extraExitBlocked: ((box: Rect) => boolean) | null = null;
   private vehicleSendTimer = 0;
   private hornCooldown = 0;
   private crankCooldown = 0;
@@ -2966,6 +2967,11 @@ export class ZombieMode {
     this.groundAt = fn;
   }
 
+  /** Extra obstacle check when exiting a vehicle (WorldGame furniture, indoor walls, etc.). */
+  setExitBlocked(fn: ((box: Rect) => boolean) | null) {
+    this.extraExitBlocked = fn;
+  }
+
   private myVehicleState(): VehicleState | null {
     return this.myVehicle === null ? null : (this.vehicles.get(this.myVehicle) ?? null);
   }
@@ -3276,11 +3282,24 @@ export class ZombieMode {
     }
     const spec = VEHICLE_SPECS[v.kind];
     const self = this.selfId();
-    // Out on the first free side
+    // Out on the first free side (checking the full player hitbox, not just the centre tile)
     const g = this.vision.grid;
+    const ts = g.tileSize;
+    const isSolidTileBox = (box: Rect): boolean => {
+      const c0 = Math.floor(box.x / ts);
+      const c1 = Math.floor((box.x + box.w - 0.01) / ts);
+      const r0 = Math.floor(box.y / ts);
+      const r1 = Math.floor((box.y + box.h - 0.01) / ts);
+      for (let r = r0; r <= r1; r++) {
+        for (let c = c0; c <= c1; c++) {
+          if (!inBounds(g, c, r) || (g.flags[tileIndex(g, c, r)] & TILE_SOLID) !== 0) return true;
+        }
+      }
+      return false;
+    };
     const spot = exitPoints(v, spec).find((p) => {
       const box = { x: p.x - 6, y: p.y - 8, w: 12, h: 10 };
-      return !this.vehicles.blocksBox(box) && !this.isBlocked(box) && !(g.flags[tileIndex(g, Math.floor(p.x / g.tileSize), Math.floor(p.y / g.tileSize))] & TILE_SOLID);
+      return !this.vehicles.blocksBox(box) && !this.isBlocked(box) && !isSolidTileBox(box) && !this.extraExitBlocked?.(box);
     });
     if (!spot && !force) {
       this.showToast("There's no room to get out", 'warning');

@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import type { BillingInterval, PaidPlanId } from '../membership';
 
 export type AiAddonInterval = 'month' | 'year';
 
@@ -32,6 +33,20 @@ async function requestBillingUrl(fn: string, body: Record<string, unknown>): Pro
  */
 export async function startAiAddonCheckout(interval: AiAddonInterval): Promise<void> {
   const url = await requestBillingUrl('create-checkout-session', {
+    interval,
+    successUrl: '/dashboard?billing=success',
+    cancelUrl: '/dashboard?billing=cancel',
+  });
+  window.location.assign(url);
+}
+
+/**
+ * Sends the user to Stripe Checkout for a membership plan (Plus or Host).
+ */
+export async function startPlanCheckout(plan: PaidPlanId, interval: BillingInterval): Promise<void> {
+  const url = await requestBillingUrl('create-checkout-session', {
+    product: 'membership',
+    plan,
     interval,
     successUrl: '/dashboard?billing=success',
     cancelUrl: '/dashboard?billing=cancel',

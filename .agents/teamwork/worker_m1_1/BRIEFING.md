@@ -6,7 +6,7 @@ Implement complete production Admin Dashboard UI at `/admin` for TeemChat with N
 ## 🔒 My Identity
 - Archetype: teamwork_worker
 - Roles: implementer, qa, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_1\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1: Production Admin Dashboard UI Implementation & Test Suite
 

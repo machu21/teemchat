@@ -16,6 +16,7 @@ export async function generateMetadata({
   const { code } = await params;
   const siteUrl = getSiteUrl();
   const decodedCode = decodeURIComponent(code || '');
+  const quoted = `"${decodedCode.replace(/["\\]/g, '\\$&')}"`;
 
   let spaceName = decodedCode === 'main-hq' ? 'TeemChat HQ' : `Space ${decodedCode}`;
   let spaceDescription =
@@ -27,7 +28,8 @@ export async function generateMetadata({
     const { data: space, error } = await supabase
       .from('spaces')
       .select('name, description, visibility, map_theme')
-      .or(`slug.eq.${decodedCode},join_code.eq.${decodedCode}`)
+      // Quote the value so commas or parens in the URL cannot inject extra PostgREST filters.
+      .or(`slug.eq.${quoted},join_code.eq.${quoted}`)
       .maybeSingle();
 
     if (!error && space) {
@@ -45,7 +47,8 @@ export async function generateMetadata({
   const ogImageUrl = `${canonicalUrl}/opengraph-image`;
 
   return {
-    title,
+    // absolute: the root layout template would append "| TeemChat" a second time.
+    title: { absolute: title },
     description: spaceDescription,
     alternates: {
       canonical: canonicalUrl,

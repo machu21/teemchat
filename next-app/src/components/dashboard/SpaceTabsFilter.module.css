@@ -7,7 +7,7 @@
   background-color: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 2.5px 3px 0px var(--card-border);
+  box-shadow: 2.5px 3px 0px var(--neo-shadow-color);
   padding: 10px 16px;
 }
 
@@ -26,7 +26,7 @@
   border-radius: var(--neo-radius-sm);
   background-color: var(--card-inner);
   color: var(--text-muted);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -37,7 +37,7 @@
 @media (hover: hover) and (pointer: fine) {
   .filterPill:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -51,6 +51,13 @@
   border-color: #7C3AED;
   color: #6D28D9;
   box-shadow: 2px 2px 0px #7C3AED;
+}
+
+[data-theme='dark'] .filterPill.activePill {
+  background-color: rgba(139, 92, 246, 0.28);
+  border-color: var(--primary);
+  color: #EDE9FE;
+  box-shadow: 2px 2px 0px #000000;
 }
 
 .searchWrap {
@@ -68,7 +75,7 @@
   color: var(--text-main);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   outline: none;
 }
 
@@ -93,6 +100,9 @@
 @media (max-width: 640px) {
   .filterContainer {
     flex-direction: column;
+    /* A wrapping column sizes each line to its widest item, which let the
+       tab row grow past the card instead of scrolling inside it. */
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 10px;
     padding: 10px 12px;

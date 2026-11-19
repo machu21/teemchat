@@ -42,15 +42,51 @@ import { getOrFetchGuestIdentity, GuestIdentity } from '@/lib/security/guestIden
 import { useRouter } from 'next/navigation';
 import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import { LEGAL } from '@/lib/constants/legal';
+import { BETA_FREE_MEMBERSHIP, PLAN_LIMITS, PLAN_PRICES, TEAM_SEAT_PRICE } from '@/lib/membership';
+import { AI_ADDON_PRICES } from '@/lib/services/billing';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { validateBirthDate } from '@/lib/safety/ageBand';
 import { AppIcon } from '@/components/icons/AppIcon';
+import type { IconName } from '@/lib/icons';
 
 const TYPEWRITER_PHRASES = [
   'cozy 2D spaces.',
   'campfire circles.',
   'pixel retreat cabins.',
   'virtual world avenues.',
+];
+
+const LANDING_GAMES: ReadonlyArray<{ icon: IconName; color: string; title: string; desc: string }> = [
+  {
+    icon: 'biohazard',
+    color: '#10B981',
+    title: 'Zombie Survival',
+    desc: 'A multiplayer zombie survival game in your browser. Scavenge, barricade, and hold out together with proximity voice.',
+  },
+  {
+    icon: 'chessKnight',
+    color: 'var(--primary)',
+    title: 'Chess',
+    desc: 'Play chess online with friends. Send a challenge from any chat and keep talking while you play.',
+  },
+  {
+    icon: 'dotFilled',
+    color: '#E76F51',
+    title: 'Dama',
+    desc: 'The classic Filipino checkers game, playable online with friends from DMs or group chat.',
+  },
+  {
+    icon: 'grid3x3',
+    color: '#2A9D8F',
+    title: 'Tic-Tac-Toe',
+    desc: 'Quick rounds of tic-tac-toe with friends whenever the conversation needs a tiebreaker.',
+  },
+  {
+    icon: 'blocks',
+    color: '#FAB936',
+    title: 'Block Drop',
+    desc: 'Head-to-head falling block puzzle battles. Clear lines to send garbage rows to your rival.',
+  },
 ];
 
 interface LandingPageClientProps {
@@ -103,7 +139,8 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
 
   // ── Typewriter Animated Headline ──
   const [phraseIdx, setPhraseIdx] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
+  // Start fully typed so the server-rendered H1 is a complete sentence for crawlers.
+  const [displayedText, setDisplayedText] = useState(TYPEWRITER_PHRASES[0]);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ── Interactive Space Customizer State ──
@@ -169,7 +206,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
     } else if (isDeleting && displayedText.length === 0) {
       timer = setTimeout(() => {
         setIsDeleting(false);
-        setPhraseIdx((prev) => (prev + 1) % 4);
+        setPhraseIdx((prev) => (prev + 1) % TYPEWRITER_PHRASES.length);
       }, 300);
     }
 
@@ -833,7 +870,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
             </h1>
 
             <p className={styles.heroSubtext}>
-              Group chat, voice huts and buddy chat for your teemchat, team or class. One cozy place
+              Group chat, voice huts and buddy chat for your friends, team or class. One cozy place
               to hang out.
             </p>
 
@@ -989,7 +1026,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               ) : (
                 <div className={styles.simulatedChatBox}>
                   <div
-                    className={styles.stripedHeader}
+                    className={styles.previewHeader}
                     style={{ backgroundColor: selectedPalette.base }}
                   >
                     <div className={styles.previewInitialsCircle}>{initials}</div>
@@ -1158,15 +1195,39 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           </div>
         </section>
 
+        {/* Section 3b: Games */}
+        <section className={styles.sectionWrapper} id="games">
+          <div className={`${styles.sectionKicker} ${styles.kickerFeatures}`}>
+            GAMES BUILT IN
+          </div>
+          <h2 className={styles.sectionTitle}>Play games with friends, right in the space.</h2>
+
+          <div className={styles.featuresGrid}>
+            {LANDING_GAMES.map((game) => (
+              <NeoCard inner key={game.title}>
+                <div className={styles.featIconBox}>
+                  <AppIcon name={game.icon} size={24} color={game.color} />
+                </div>
+                <h3 className={styles.stepTitle} style={{ marginTop: 0 }}>{game.title}</h3>
+                <p className={styles.stepDesc} style={{ margin: 0 }}>{game.desc}</p>
+              </NeoCard>
+            ))}
+          </div>
+        </section>
+
         {/* Section 4: Plans & Pricing */}
         <section className={styles.sectionWrapper} id="pricing">
           <div className={`${styles.sectionKicker} ${styles.kickerPricing}`}>
-            PLANS & PRICING
+            PLANS &amp; PRICING
           </div>
           <h2 className={styles.sectionTitle}>Simple, transparent pricing.</h2>
-          <p className={styles.heroSubtext} style={{ marginBottom: '20px' }}>
-            Free during the beta. Add the AI Companion whenever you want it.
+          <p className={styles.heroSubtext} style={{ marginBottom: '16px' }}>
+            Free while we&apos;re in beta. Paid plans unlock bigger rooms and more maps.
           </p>
+
+          <div className={styles.foundingBanner}>
+            <strong>Founding Member Offer:</strong> Beta accounts lock in Plus at 50% off for life when paid plans launch.
+          </div>
 
           <div className={styles.billingToggle}>
             <button
@@ -1187,17 +1248,17 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           </div>
 
           <div className={styles.pricingGrid}>
-            {/* Free Tier */}
+            {/* Guest Pass */}
             <div className={styles.pricingCard}>
               <NeoBadge
                 color={isDark ? '#064E3B' : '#D1FAE5'}
                 textColor={isDark ? '#34D399' : '#065F46'}
               >
-                FREE TIER
+                NO ACCOUNT
               </NeoBadge>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Guest Pass</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Join spaces instantly as a guest without an account.
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '10px' }}>Guest Pass</h3>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                Jump into any space instantly without registering.
               </p>
 
               <div className={styles.priceDisplay}>
@@ -1206,13 +1267,12 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </div>
 
               <ul className={styles.featureList}>
-                <li><CheckIcon size={16} color="#10B981" /> Join any space instantly as Guest</li>
-                <li><CheckIcon size={16} color="#10B981" /> No account registration needed</li>
-                <li><CheckIcon size={16} color="#10B981" /> 2D Virtual world &amp; river swimming</li>
-                <li><CheckIcon size={16} color="#10B981" /> Proximity spatial voice audio</li>
-                <li><CheckIcon size={16} color="#10B981" /> In-world messaging &amp; campfire chat</li>
-                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No AI companion persona</li>
-                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No persistent account or space saves</li>
+                <li><CheckIcon size={16} color="#10B981" /> Join any space as Guest</li>
+                <li><CheckIcon size={16} color="#10B981" /> 2D world &amp; river swimming</li>
+                <li><CheckIcon size={16} color="#10B981" /> Proximity spatial voice</li>
+                <li><CheckIcon size={16} color="#10B981" /> In-world chat &amp; campfire</li>
+                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No saved maps or profile</li>
+                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> Voice-only calls</li>
               </ul>
 
               <NeoButton
@@ -1226,30 +1286,31 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </NeoButton>
             </div>
 
-            {/* Member Tier: free during the beta */}
+            {/* Free */}
             <div className={styles.pricingCard}>
               <NeoBadge
-                color={isDark ? '#312E81' : '#EDE9FE'}
-                textColor={isDark ? '#C4B5FD' : '#5B21B6'}
+                color={isDark ? '#1E293B' : '#E2E8F0'}
+                textColor={isDark ? '#E2E8F0' : '#1E293B'}
               >
-                MEMBER • FREE DURING BETA
+                FREE ACCOUNT
               </NeoBadge>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>Member</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                A full account that keeps your avatar, friends and worlds.
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '10px' }}>Free</h3>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                Keep your avatar, friends list, and a permanent space.
               </p>
 
               <div className={styles.priceDisplay}>
                 <span>$0</span>
-                <span className={styles.pricePeriod}>during beta</span>
+                <span className={styles.pricePeriod}>forever</span>
               </div>
 
               <ul className={styles.featureList}>
-                <li><CheckIcon size={16} color="#10B981" /> Full registered account &amp; profile</li>
-                <li><CheckIcon size={16} color="#10B981" /> Up to 10 permanent maps</li>
-                <li><CheckIcon size={16} color="#10B981" /> Rooms of up to 50 people</li>
-                <li><CheckIcon size={16} color="#10B981" /> World decorator &amp; custom outfits</li>
-                <li><CheckIcon size={16} color="#10B981" /> Screen sharing &amp; video calls</li>
+                <li><CheckIcon size={16} color="#10B981" /> Persistent account &amp; friends</li>
+                <li><CheckIcon size={16} color="#10B981" /> {PLAN_LIMITS.free.maps} permanent map</li>
+                <li><CheckIcon size={16} color="#10B981" /> Rooms of up to {PLAN_LIMITS.free.capacity} players</li>
+                <li><CheckIcon size={16} color="#10B981" /> Proximity spatial voice</li>
+                <li><CheckIcon size={16} color="#10B981" /> Voice-only DM &amp; group calls</li>
+                <li style={{ opacity: 0.5 }}><XIcon size={16} color="#EF4444" /> No call camera or screen share</li>
               </ul>
 
               <NeoButton
@@ -1265,32 +1326,113 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </NeoButton>
             </div>
 
-            {/* AI Companion add-on: the only paid product */}
+            {/* Plus */}
             <div className={`${styles.pricingCard} ${styles.pricingPopular}`}>
+              <NeoBadge
+                color={isDark ? '#312E81' : '#EDE9FE'}
+                textColor={isDark ? '#C4B5FD' : '#5B21B6'}
+              >
+                {BETA_FREE_MEMBERSHIP ? 'FREE DURING BETA' : 'MOST POPULAR'}
+              </NeoBadge>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '10px' }}>Plus</h3>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                For friend groups and creators running multiple worlds.
+              </p>
+
+              <div className={styles.priceDisplay}>
+                <span>${isPricingAnnual ? PLAN_PRICES.plus.year : PLAN_PRICES.plus.month}</span>
+                <span className={styles.pricePeriod}>{isPricingAnnual ? '/ year' : '/ month'}</span>
+              </div>
+
+              <ul className={styles.featureList}>
+                <li><CheckIcon size={16} color="#10B981" /> Up to {PLAN_LIMITS.plus.maps} permanent maps</li>
+                <li><CheckIcon size={16} color="#10B981" /> Rooms of up to {PLAN_LIMITS.plus.capacity} players</li>
+                <li><CheckIcon size={16} color="#10B981" /> Video &amp; screen share in calls</li>
+                <li><CheckIcon size={16} color="#10B981" /> Full world decorator &amp; outfits</li>
+                <li><CheckIcon size={16} color="#10B981" /> Email support</li>
+              </ul>
+
+              <NeoButton
+                variant="primary"
+                size="md"
+                fullWidth
+                onClick={() => {
+                  setIsSignUp(true);
+                  setAuthModalOpen(true);
+                }}
+              >
+                {BETA_FREE_MEMBERSHIP ? 'Start Free in Beta' : 'Get Plus'}
+              </NeoButton>
+            </div>
+
+            {/* Host */}
+            <div className={styles.pricingCard}>
+              <NeoBadge
+                color={isDark ? '#0F766E' : '#CCFBF1'}
+                textColor={isDark ? '#99F6E4' : '#115E59'}
+              >
+                COMMUNITIES &amp; CLUBS
+              </NeoBadge>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '10px' }}>Host</h3>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                Big rooms and moderation tools for active communities.
+              </p>
+
+              <div className={styles.priceDisplay}>
+                <span>${isPricingAnnual ? PLAN_PRICES.host.year : PLAN_PRICES.host.month}</span>
+                <span className={styles.pricePeriod}>{isPricingAnnual ? '/ year' : '/ month'}</span>
+              </div>
+
+              <ul className={styles.featureList}>
+                <li><CheckIcon size={16} color="#10B981" /> Up to {PLAN_LIMITS.host.maps} permanent maps</li>
+                <li><CheckIcon size={16} color="#10B981" /> Rooms of up to {PLAN_LIMITS.host.capacity} players</li>
+                <li><CheckIcon size={16} color="#10B981" /> Everything in Plus</li>
+                <li><CheckIcon size={16} color="#10B981" /> Host controls &amp; moderation</li>
+                <li><CheckIcon size={16} color="#10B981" /> Priority email support</li>
+              </ul>
+
+              <NeoButton
+                variant="secondary"
+                size="md"
+                fullWidth
+                onClick={() => {
+                  setIsSignUp(true);
+                  setAuthModalOpen(true);
+                }}
+              >
+                Get Host
+              </NeoButton>
+            </div>
+          </div>
+
+          {/* AI Companion Add-on (full-width row) */}
+          <div className={`${styles.pricingCard} ${styles.pricingAddonRow}`}>
+            <div className={styles.pricingAddonInfo}>
               <NeoBadge
                 color={isDark ? '#E2F952' : '#FAB936'}
                 textColor={isDark ? '#180D26' : '#18181B'}
               >
                 ADD-ON • FOR ANY ACCOUNT
               </NeoBadge>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px' }}>AI Companion</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '10px' }}>AI Companion</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
                 Your personal AI pixel pet that learns and remembers you.
               </p>
-
-              <div className={styles.priceDisplay}>
-                <span>{isPricingAnnual ? '$45' : '$5'}</span>
+              <div className={styles.priceDisplay} style={{ margin: '6px 0 0 0' }}>
+                <span>${isPricingAnnual ? AI_ADDON_PRICES.year : AI_ADDON_PRICES.month}</span>
                 <span className={styles.pricePeriod}>{isPricingAnnual ? '/ year' : '/ month'}</span>
               </div>
+            </div>
 
-              <ul className={styles.featureList}>
-                <li><CheckIcon size={16} color="#10B981" /> 60 AI messages every 5 hours</li>
-                <li><CheckIcon size={16} color="#10B981" /> Memories, diary &amp; custom persona</li>
-                <li><CheckIcon size={16} color="#10B981" /> Screen Help for step-by-step tech support</li>
-                <li><CheckIcon size={16} color="#10B981" /> World guide, tours &amp; reminders</li>
-                <li><CheckIcon size={16} color="#10B981" /> Renews automatically, cancel anytime</li>
-              </ul>
+            <ul className={`${styles.featureList} ${styles.pricingAddonFeatures}`}>
+              <li><CheckIcon size={16} color="#10B981" /> 60 AI messages every 5 hours</li>
+              <li><CheckIcon size={16} color="#10B981" /> Memories, diary &amp; custom persona</li>
+              <li><CheckIcon size={16} color="#10B981" /> Screen Help for step-by-step tech support</li>
+              <li><CheckIcon size={16} color="#10B981" /> World guide, tours &amp; reminders</li>
+              <li><CheckIcon size={16} color="#10B981" /> Renews automatically, cancel anytime</li>
+            </ul>
 
+            <div className={styles.pricingAddonAction}>
               <NeoButton
                 variant="primary"
                 size="md"
@@ -1305,9 +1447,26 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
             </div>
           </div>
 
+          {/* Compact Team Strip */}
+          <div className={styles.pricingTeamStrip}>
+            <div className={styles.pricingTeamText}>
+              <span className={styles.pricingTeamTitle}>Team</span>
+              <span>
+                ${isPricingAnnual ? TEAM_SEAT_PRICE.year : TEAM_SEAT_PRICE.month}/seat/
+                {isPricingAnnual ? 'year' : 'month'}, min {TEAM_SEAT_PRICE.minSeats} seats · Rooms of up to{' '}
+                {PLAN_LIMITS.team.capacity} players, admin &amp; invoicing
+              </span>
+            </div>
+            <Link href="/contact" className={styles.pricingTeamLink}>
+              <NeoButton variant="secondary" size="sm">
+                Contact us
+              </NeoButton>
+            </Link>
+          </div>
+
           <p className={styles.pricingFootnote}>
-            Prices in US dollars, plus any applicable tax. The AI add-on renews monthly or yearly until you cancel
-            from Manage billing. See our <Link href="/terms">Terms</Link>, <Link href="/refunds">Refund Policy</Link>{' '}
+            Prices in US dollars, plus any applicable tax. Subscriptions renew monthly or yearly until you cancel
+            from Manage billing. See our <Link href="/terms">Terms</Link>, <Link href="/refunds">Cancellation Policy</Link>{' '}
             and <Link href="/privacy">Privacy Policy</Link>, or <Link href="/contact">contact support</Link>.
           </p>
         </section>
@@ -1457,7 +1616,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </button>
 
               <p className={styles.footerTagline}>
-                The 16-bit virtual hangout space for remote teams, study squads, and friends. Proximity spatial voice, interactive rooms, and retro avatars.
+                TeemChat by {LEGAL.companyName} — the 16-bit virtual hangout space for remote teams, study squads, and friends. Proximity spatial voice, interactive rooms, and retro avatars.
               </p>
 
               <div className={styles.footerStatusPill}>
@@ -1555,13 +1714,18 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
                   <Link href="/contact" className={styles.footerLink}>Contact &amp; Support</Link>
                 </li>
                 <li>
+                  <a href={`mailto:${LEGAL.supportEmail}`} className={styles.footerLink}>
+                    {LEGAL.supportEmail}
+                  </a>
+                </li>
+                <li>
                   <Link href="/terms" className={styles.footerLink}>Terms of Service</Link>
                 </li>
                 <li>
                   <Link href="/privacy" className={styles.footerLink}>Privacy Policy</Link>
                 </li>
                 <li>
-                  <Link href="/refunds" className={styles.footerLink}>Refund Policy</Link>
+                  <Link href="/refunds" className={styles.footerLink}>Cancellation Policy</Link>
                 </li>
               </ul>
             </div>
@@ -1570,7 +1734,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
           {/* Bottom Bar: Copyright & Back to Top */}
           <div className={styles.footerBottomBar}>
             <div className={styles.footerCopy}>
-              <span>© 2026 {LEGAL.companyName}. All rights reserved.</span>
+              <span>© 2026 TeemChat by {LEGAL.companyName}. All rights reserved.</span>
               <span className={styles.footerCopyTag}>
                 • Crafted with <HeartIcon size={13} color="#EF4444" style={{ display: 'inline-flex', verticalAlign: 'middle', margin: '0 2px' }} /> for cozy virtual spaces.
               </span>

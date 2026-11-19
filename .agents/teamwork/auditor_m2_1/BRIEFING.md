@@ -6,7 +6,7 @@ Forensic integrity audit of Milestone 2 (Admin Dashboard, real-time metrics, aud
 ## 🔒 My Identity
 - Archetype: forensic_auditor
 - Roles: critic, specialist, auditor
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m2_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m2_1\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Target: milestone 2 (Admin Dashboard & Monitoring)
 

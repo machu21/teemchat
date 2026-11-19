@@ -8,23 +8,23 @@ Welcome to the **TeemChat Agent RAG (Retrieval-Augmented Generation) Knowledge B
 
 | Document | Focus Domain | Key Topics Covered |
 | :--- | :--- | :--- |
-| [`system_architecture.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/system_architecture.md) | Fullstack Topology | Next.js 16 (App Router), React 19, HTML5 Canvas 2D Engine, Supabase BaaS, LiveKit WebRTC, Zustand, Capacitor |
-| [`realtime_sync_spec.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/realtime_sync_spec.md) | Networking & Realtime | Channels (`space:id:world` vs `public:messages`), Broadcast throttling (100ms), Presence diffs, auto-reconnect |
-| [`database_schema_and_rls.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/database_schema_and_rls.md) | PostgreSQL & Supabase | Tables (`profiles`, `spaces`, `messages`, `direct_messages`), RLS policies, Guest provisioning, Realtime publication |
-| [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md) | 2D Canvas Engine | React `<GameCanvas />` lifecycle, `WorldGame.ts` RAF loop, depth sorting, pre-rendered tilemaps, camera follow |
-| [`chat_system_and_retention.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/chat_system_and_retention.md) | Messaging & Lifecycle | `postgres_changes` replication, 30s hard removal architecture (DB trigger/pg_cron + React client interval) |
+| [`system_architecture.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/system_architecture.md) | Fullstack Topology | Next.js 16 (App Router), React 19, HTML5 Canvas 2D Engine, Supabase BaaS, LiveKit WebRTC, Zustand, Capacitor |
+| [`realtime_sync_spec.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/realtime_sync_spec.md) | Networking & Realtime | Channels (`space:id:world` vs `public:messages`), Broadcast throttling (100ms), Presence diffs, auto-reconnect |
+| [`database_schema_and_rls.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/database_schema_and_rls.md) | PostgreSQL & Supabase | Tables (`profiles`, `spaces`, `messages`, `direct_messages`), RLS policies, Guest provisioning, Realtime publication |
+| [`canvas_game_engine.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/canvas_game_engine.md) | 2D Canvas Engine | React `<GameCanvas />` lifecycle, `WorldGame.ts` RAF loop, depth sorting, pre-rendered tilemaps, camera follow |
+| [`chat_system_and_retention.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/chat_system_and_retention.md) | Messaging & Lifecycle | `postgres_changes` replication, 30s hard removal architecture (DB trigger/pg_cron + React client interval) |
 | [`companion_architecture.md`](companion_architecture.md) | Living AI Companion | Server-side persona, memory facts + diary, bond XP, proactive brain, guide actions, tour, canvas pet states, presence badge |
 | [`zombie_mode_architecture.md`](zombie_mode_architecture.md) | Zombie Survival Mode | Tile grid, entrances/barricades, directional FOV shadowcasting, fog mask, noise propagation, flow-field AI, host-authoritative sync |
 | [`survival_sandbox_roadmap.md`](survival_sandbox_roadmap.md) | Survival Sandbox Roadmap | Phase checklist for the Zomboid-style expansion, technical assessment, phase reports (Phases 1–9) |
 | [`chat_games.md`](chat_games.md) | Chat Mini-Games | `chat_games` table + RPCs, invite messages, `chatgame:<id>` broadcast (refetch on `moved`), Chess / Dama / Tic-Tac-Toe / Block Drop rules |
-| [`known_issues_and_solutions.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/known_issues_and_solutions.md) | Post-Mortems & Bug Bank | Avatar invisibility root cause, WebSocket broadcast rate-limiting, React StrictMode listener teardown |
+| [`known_issues_and_solutions.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/known_issues_and_solutions.md) | Post-Mortems & Bug Bank | Avatar invisibility root cause, WebSocket broadcast rate-limiting, React StrictMode listener teardown |
 
 ---
 
 ## 🛠 How Agents Use This RAG
 
-1. **Before Modifying Services**: Read [`realtime_sync_spec.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/realtime_sync_spec.md) to preserve packet bandwidth constraints (max 10 msgs/sec in Supabase Realtime).
-2. **Before Modifying Canvas / Game Loop**: Read [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md) to avoid uncleaned `requestAnimationFrame` loops or listener detachment on React unmounts.
-3. **Before Authoring SQL**: Read [`database_schema_and_rls.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/database_schema_and_rls.md) to ensure idempotent statements and compatibility with guest sessions.
-4. **Before Fixing Synchronization Bugs**: Check [`known_issues_and_solutions.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/known_issues_and_solutions.md) to inspect proven root causes and verified architectural patches.
+1. **Before Modifying Services**: Read [`realtime_sync_spec.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/realtime_sync_spec.md) to preserve packet bandwidth constraints (max 10 msgs/sec in Supabase Realtime).
+2. **Before Modifying Canvas / Game Loop**: Read [`canvas_game_engine.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/canvas_game_engine.md) to avoid uncleaned `requestAnimationFrame` loops or listener detachment on React unmounts.
+3. **Before Authoring SQL**: Read [`database_schema_and_rls.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/database_schema_and_rls.md) to ensure idempotent statements and compatibility with guest sessions.
+4. **Before Fixing Synchronization Bugs**: Check [`known_issues_and_solutions.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/known_issues_and_solutions.md) to inspect proven root causes and verified architectural patches.
 

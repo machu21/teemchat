@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccessToken, TrackSource } from 'livekit-server-sdk';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type User } from '@supabase/supabase-js';
 import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rateLimit';
+import { canUseCallVideo, type PlanId } from '@/lib/membership';
 import { defaultHQ } from '@/lib/models/space';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -97,6 +98,50 @@ async function roomSafety(db: ScopedClient, userId: string, room: string): Promi
   return { denied: false, listenOnly: false };
 }
 
+function isGuestUser(user: User): boolean {
+  return (
+    Boolean(user.is_anonymous) ||
+    Boolean(user.app_metadata?.is_guest) ||
+    Boolean(user.user_metadata?.is_guest) ||
+    Boolean(user.email?.endsWith('@guest.teemchat.local'))
+  );
+}
+
+async function callerCanUseCallVideo(db: ScopedClient, user: User): Promise<boolean> {
+  if (isGuestUser(user)) return false;
+  try {
+    const [{ data: profile, error: profileErr }, { data: settings, error: settingsErr }] =
+      await Promise.all([
+        db.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
+        db.from('billing_settings').select('beta_free_membership').eq('id', true).maybeSingle(),
+      ]);
+
+    if (profileErr) return false;
+
+    let betaFree = true;
+    if (settingsErr) {
+      // Treat missing table/row as beta=true; any other DB error fails closed to mic-only.
+      const code = (settingsErr as { code?: string }).code;
+      if (code !== '42P01' && code !== 'PGRST205') return false;
+    } else if (
+      settings &&
+      typeof (settings as { beta_free_membership?: unknown }).beta_free_membership === 'boolean'
+    ) {
+      betaFree = (settings as { beta_free_membership: boolean }).beta_free_membership;
+    }
+
+    const rawPlan = (profile as { plan?: unknown } | null)?.plan;
+    const plan: PlanId =
+      rawPlan === 'free' || rawPlan === 'plus' || rawPlan === 'host' || rawPlan === 'team'
+        ? rawPlan
+        : 'free';
+
+    return canUseCallVideo({ isGuest: false, isPaid: plan !== 'free', plan }, betaFree);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -158,16 +203,16 @@ export async function POST(req: NextRequest) {
       ttl: '2h',
     });
 
-    // Spaces never publish cameras; camera is reserved for DM/group calls.
+    // Spaces never publish cameras; DM/group calls also require a plan with call video.
     const isCallRoom = CALL_ROOM.test(targetRoom);
+    const allowCallVideo = isCallRoom ? await callerCanUseCallVideo(supabase, user) : false;
     at.addGrant({
       room: targetRoom,
       roomJoin: true,
       canPublish: !safety.listenOnly,
       canSubscribe: true,
       canPublishData: true,
-      // Spaces are voice-only on every map: microphone only, no camera or screen share.
-      ...(isCallRoom ? {} : { canPublishSources: [TrackSource.MICROPHONE] }),
+      ...(allowCallVideo ? {} : { canPublishSources: [TrackSource.MICROPHONE] }),
     });
 
     const jwt = await at.toJwt();

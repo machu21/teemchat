@@ -2,7 +2,7 @@
 
 **Agent**: `survey_spec_miner_1`  
 **Milestone**: Phase 0 — Survey & Discovery  
-**Target Path**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
+**Target Path**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md`
 
 ---
 
@@ -102,4 +102,4 @@ To independently verify all observations and test results:
    *Expected outcome*: Exits with code 0.
 
 3. **Inspect Specification Document**:
-   Read `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md` to verify all 17 features, schemas, and edge case analyses.
+   Read `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md` to verify all 17 features, schemas, and edge case analyses.

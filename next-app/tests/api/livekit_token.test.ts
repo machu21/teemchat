@@ -219,6 +219,106 @@ describe('POST /api/livekit/token', () => {
       expect(mockSupabase.from).toHaveBeenCalledWith('group_conversation_members');
     });
 
+    it('restricts DM call to microphone-only for guest callers', async () => {
+      const dmConvId = '11111111-2222-3333-4444-555555555555';
+      mockGetUser.mockResolvedValueOnce({
+        data: {
+          user: {
+            id: 'guest-call-user',
+            is_anonymous: true,
+            email: 'guest_call@guest.teemchat.local',
+          },
+        },
+        error: null,
+      });
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: { user_one: 'guest-call-user', user_two: 'user-friend-456' },
+        error: null,
+      });
+
+      const req = new NextRequest('http://localhost:3000/api/livekit/token', {
+        method: 'POST',
+        headers: validHeaders(),
+        body: JSON.stringify({ roomName: `call-dm-${dmConvId}` }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockAddGrant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          room: `call-dm-${dmConvId}`,
+          canPublishSources: [2],
+        })
+      );
+    });
+
+    it('restricts DM call to microphone-only for Free plan when beta is off', async () => {
+      const dmConvId = '11111111-2222-3333-4444-555555555555';
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: { plan: 'free' }, error: null })
+        .mockResolvedValueOnce({ data: { beta_free_membership: false }, error: null });
+
+      const req = new NextRequest('http://localhost:3000/api/livekit/token', {
+        method: 'POST',
+        headers: validHeaders(),
+        body: JSON.stringify({ roomName: `call-dm-${dmConvId}` }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockAddGrant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          room: `call-dm-${dmConvId}`,
+          canPublishSources: [2],
+        })
+      );
+    });
+
+    it('allows full video & screen share in DM call for Plus plan when beta is off', async () => {
+      const dmConvId = '11111111-2222-3333-4444-555555555555';
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: { plan: 'plus' }, error: null })
+        .mockResolvedValueOnce({ data: { beta_free_membership: false }, error: null });
+
+      const req = new NextRequest('http://localhost:3000/api/livekit/token', {
+        method: 'POST',
+        headers: validHeaders(),
+        body: JSON.stringify({ roomName: `call-dm-${dmConvId}` }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockAddGrant.mock.calls[0][0]).not.toHaveProperty('canPublishSources');
+    });
+
+    it('falls back to microphone-only when profile plan lookup errors', async () => {
+      const dmConvId = '11111111-2222-3333-4444-555555555555';
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: { user_one: callerUser.id, user_two: 'user-friend-456' }, error: null })
+        .mockResolvedValueOnce({ data: null, error: { message: 'db error' } })
+        .mockResolvedValueOnce({ data: { beta_free_membership: true }, error: null });
+
+      const req = new NextRequest('http://localhost:3000/api/livekit/token', {
+        method: 'POST',
+        headers: validHeaders(),
+        body: JSON.stringify({ roomName: `call-dm-${dmConvId}` }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockAddGrant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          room: `call-dm-${dmConvId}`,
+          canPublishSources: [2],
+        })
+      );
+    });
+
     it('allows verified guest users to join public lobby rooms', async () => {
       mockGetUser.mockResolvedValueOnce({
         data: {

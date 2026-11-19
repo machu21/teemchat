@@ -10,6 +10,43 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
 
 const endpointSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 
+type PlanName = "free" | "plus" | "host" | "team";
+
+function resolveMembershipPlan(subscription: any): PlanName {
+  if (subscription?.status === "canceled") return "free";
+
+  const price = subscription?.items?.data?.[0]?.price;
+  const priceId = typeof price?.id === "string" ? price.id : null;
+  if (priceId) {
+    const plusIds = [
+      Deno.env.get("STRIPE_PRICE_PLUS_MONTHLY"),
+      Deno.env.get("STRIPE_PRICE_PLUS_YEARLY"),
+    ].filter(Boolean);
+    const hostIds = [
+      Deno.env.get("STRIPE_PRICE_HOST_MONTHLY"),
+      Deno.env.get("STRIPE_PRICE_HOST_YEARLY"),
+    ].filter(Boolean);
+    if (plusIds.includes(priceId)) return "plus";
+    if (hostIds.includes(priceId)) return "host";
+  }
+
+  const unitAmount = price?.unit_amount;
+  if (unitAmount === 400 || unitAmount === 3600) return "plus";
+  if (unitAmount === 1200 || unitAmount === 10800) return "host";
+
+  const metaPlan = subscription?.metadata?.plan;
+  if (metaPlan === "plus" || metaPlan === "host" || metaPlan === "team") {
+    return metaPlan;
+  }
+  return "plus";
+}
+
+function resolveMembershipInterval(subscription: any): "month" | "year" | null {
+  const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval;
+  if (interval === "month" || interval === "year") return interval;
+  return null;
+}
+
 serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -40,7 +77,6 @@ serve(async (req: Request) => {
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // Create privileged Supabase admin client (Service Role key) to update user_subscriptions
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
@@ -58,6 +94,49 @@ serve(async (req: Request) => {
       updated_at: new Date().toISOString(),
     });
 
+    const membershipFields = (subscription: StripeSubscription, existingFounding = false) => ({
+      membership_plan: resolveMembershipPlan(subscription),
+      membership_status: subscription.status,
+      membership_interval: resolveMembershipInterval(subscription),
+      membership_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      membership_cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+      is_founding_member: existingFounding || subscription.metadata?.foundingMember === "true",
+      updated_at: new Date().toISOString(),
+    });
+
+    const isMembershipSubscription = async (subscription: StripeSubscription): Promise<boolean> => {
+      if (subscription?.metadata?.product === "membership") return true;
+      if (subscription?.metadata?.product === "ai_addon") return false;
+      const { data } = await supabaseAdmin
+        .from("user_subscriptions")
+        .select("id")
+        .eq("membership_stripe_subscription_id", subscription.id)
+        .maybeSingle();
+      return Boolean(data);
+    };
+
+    const applySubscriptionUpdate = async (subscription: StripeSubscription) => {
+      const membership = await isMembershipSubscription(subscription);
+      if (membership) {
+        const { data: existing } = await supabaseAdmin
+          .from("user_subscriptions")
+          .select("is_founding_member")
+          .eq("membership_stripe_subscription_id", subscription.id)
+          .maybeSingle();
+        const { error } = await supabaseAdmin
+          .from("user_subscriptions")
+          .update(membershipFields(subscription, Boolean(existing?.is_founding_member)))
+          .eq("membership_stripe_subscription_id", subscription.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseAdmin
+          .from("user_subscriptions")
+          .update(addonFields(subscription))
+          .eq("stripe_subscription_id", subscription.id);
+        if (error) throw error;
+      }
+    };
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as StripeSession;
@@ -67,14 +146,67 @@ serve(async (req: Request) => {
 
         if (userId && subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const { error } = await supabaseAdmin.from("user_subscriptions").upsert({
-            user_id: userId,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            plan_id: session.metadata?.planId || "ai_addon_monthly",
-            ...addonFields(subscription),
-          }, { onConflict: "user_id" });
-          if (error) throw error;
+          const product =
+            session.metadata?.product === "membership" || subscription.metadata?.product === "membership"
+              ? "membership"
+              : "ai_addon";
+
+          const { data: existingRow } = await supabaseAdmin
+            .from("user_subscriptions")
+            .select("id, is_founding_member")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (product === "membership") {
+            const fields = {
+              stripe_customer_id: customerId,
+              membership_stripe_subscription_id: subscriptionId,
+              ...membershipFields(subscription, Boolean(existingRow?.is_founding_member)),
+            };
+
+            if (existingRow) {
+              const { error } = await supabaseAdmin
+                .from("user_subscriptions")
+                .update(fields)
+                .eq("user_id", userId);
+              if (error) throw error;
+            } else {
+              const { error } = await supabaseAdmin
+                .from("user_subscriptions")
+                .insert({
+                  user_id: userId,
+                  plan_id: session.metadata?.planId || "plus_monthly",
+                  status: "canceled",
+                  has_ai_addon: false,
+                  has_ai_unlimited: false,
+                  ...fields,
+                });
+              if (error) throw error;
+            }
+          } else {
+            const fields = {
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              plan_id: session.metadata?.planId || "ai_addon_monthly",
+              ...addonFields(subscription),
+            };
+
+            if (existingRow) {
+              const { error } = await supabaseAdmin
+                .from("user_subscriptions")
+                .update(fields)
+                .eq("user_id", userId);
+              if (error) throw error;
+            } else {
+              const { error } = await supabaseAdmin
+                .from("user_subscriptions")
+                .insert({
+                  user_id: userId,
+                  ...fields,
+                });
+              if (error) throw error;
+            }
+          }
         }
         break;
       }
@@ -86,11 +218,7 @@ serve(async (req: Request) => {
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const { error } = await supabaseAdmin
-            .from("user_subscriptions")
-            .update(addonFields(subscription))
-            .eq("stripe_subscription_id", subscriptionId);
-          if (error) throw error;
+          await applySubscriptionUpdate(subscription);
         }
 
         // Record or update the invoice log in billing_invoices
@@ -100,7 +228,7 @@ serve(async (req: Request) => {
             const { data: sub } = await supabaseAdmin
               .from("user_subscriptions")
               .select("user_id")
-              .eq("stripe_subscription_id", subscriptionId)
+              .or(`stripe_subscription_id.eq.${subscriptionId},membership_stripe_subscription_id.eq.${subscriptionId}`)
               .maybeSingle();
             userId = sub?.user_id;
           }
@@ -132,31 +260,40 @@ serve(async (req: Request) => {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as StripeSubscription;
-        const { error } = await supabaseAdmin
-          .from("user_subscriptions")
-          .update(addonFields(subscription))
-          .eq("stripe_subscription_id", subscription.id);
-        if (error) throw error;
+        await applySubscriptionUpdate(subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as StripeSubscription;
-        const { error } = await supabaseAdmin
-          .from("user_subscriptions")
-          .update({
-            status: "canceled",
-            has_ai_addon: false,
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_subscription_id", subscription.id);
-        if (error) throw error;
+        const membership = await isMembershipSubscription(subscription);
+        if (membership) {
+          const { error } = await supabaseAdmin
+            .from("user_subscriptions")
+            .update({
+              membership_status: "canceled",
+              membership_plan: "free",
+              membership_cancel_at_period_end: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("membership_stripe_subscription_id", subscription.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabaseAdmin
+            .from("user_subscriptions")
+            .update({
+              status: "canceled",
+              has_ai_addon: false,
+              cancel_at_period_end: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("stripe_subscription_id", subscription.id);
+          if (error) throw error;
+        }
         break;
       }
 
       default:
-        // Other events ignored
         break;
     }
 

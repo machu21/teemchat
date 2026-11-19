@@ -9,7 +9,7 @@
    - Exit code: `0`
    - Verbatim Output:
      ```
-      RUN  v5.0.4 C:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/next-app
+      RUN  v5.0.4 c:/Users/LENOVO/teemchat/next-app
 
       ✓ src/game/zombie/zombieSim.test.ts (9 tests) 864ms
       ✓ tests/api/ratelimit_complexity.test.ts (1 test) 1977ms

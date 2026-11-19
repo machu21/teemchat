@@ -15,16 +15,16 @@ None. All acceptance criteria from `ORIGINAL_REQUEST.md` have been met.
 None. The admin dashboard frontend UI, backend API endpoints, helper services, database schema/triggers, and test suites are fully tested, remediated, and verified.
 
 ## Key Artifacts
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`: Authoritative User Request
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`: Global architecture, feature inventory & milestones
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`: Test infrastructure specification
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\GATE_STATUS.md`: Gate evaluation log (Gate 2: PASS)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\handoff.md`: Worker remediation report
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_1\handoff.md`: Reviewer 1 report (APPROVE)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_2\handoff.md`: Reviewer 2 report (APPROVE)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\handoff.md`: Challenger 1 report (APPROVE)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_2\handoff.md`: Challenger 2 report (APPROVE)
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m2_1\handoff.md`: Forensic Auditor report (CLEAN)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`: Authoritative User Request
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`: Global architecture, feature inventory & milestones
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`: Test infrastructure specification
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\GATE_STATUS.md`: Gate evaluation log (Gate 2: PASS)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\handoff.md`: Worker remediation report
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_1\handoff.md`: Reviewer 1 report (APPROVE)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_2\handoff.md`: Reviewer 2 report (APPROVE)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\handoff.md`: Challenger 1 report (APPROVE)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_2\handoff.md`: Challenger 2 report (APPROVE)
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m2_1\handoff.md`: Forensic Auditor report (CLEAN)
 
 ---
 

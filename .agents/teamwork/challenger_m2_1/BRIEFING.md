@@ -6,7 +6,7 @@ Adversarially challenge Milestone 2 Admin API endpoints (query strings, invalid 
 ## 🔒 My Identity
 - Archetype: challenger
 - Roles: critic, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: milestone_2
 - Instance: 1 of 1
@@ -47,11 +47,11 @@ Adversarially challenge Milestone 2 Admin API endpoints (query strings, invalid 
 - Verdict: **APPROVE**.
 
 ## Artifact Index
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\DISPATCH.md` — Initial dispatch and coordination messages
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\BRIEFING.md` — Agent briefing & situational awareness
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\progress.md` — Liveness heartbeat
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\challenger_m2_1\handoff.md` — Final handoff report
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app\tests\api\admin_adversarial_challenge.test.ts` — 60-test empirical challenge suite
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\DISPATCH.md` — Initial dispatch and coordination messages
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\BRIEFING.md` — Agent briefing & situational awareness
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\progress.md` — Liveness heartbeat
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\challenger_m2_1\handoff.md` — Final handoff report
+- `c:\\Users\\LENOVO\\teemchat\next-app\tests\api\admin_adversarial_challenge.test.ts` — 60-test empirical challenge suite
 
 ## Attack Surface
 - **Hypotheses tested**:

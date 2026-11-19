@@ -2,7 +2,7 @@
 
 **Role**: Explorer Agent (`explorer_m1_2`)  
 **Milestone**: Milestone 1: Production Admin Dashboard UI (UI Shell & Users Architect)  
-**Target Output**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`  
+**Target Output**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`  
 **Status**: Complete Architectural Blueprint & Implementation Specification  
 
 ---

@@ -2,7 +2,12 @@ import { supabase } from '../supabase';
 import { SpaceModel, SpaceMode, SpaceTierType, defaultHQ, WorldObjectModel } from '../models/space';
 import { UserSession } from '../models/user';
 import { InviteLinkService } from './invite';
-import { mapLimitFor } from '../membership';
+import {
+  PLAN_LIMITS,
+  capacityLimitFor,
+  effectivePlan,
+  mapLimitFor,
+} from '../membership';
 import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -155,7 +160,7 @@ export const SpaceService = {
           category,
           visibility,
           tier: 'free',
-          max_capacity: 50,
+          max_capacity: PLAN_LIMITS.free.capacity,
           owner_id: currentUserId && UUID_REGEX.test(currentUserId) ? currentUserId : null,
           member_count: 1,
           is_active: true,
@@ -190,7 +195,7 @@ export const SpaceService = {
         mapTheme,
         mode,
         joinCode: params.slug,
-        maxCapacity: 50,
+        maxCapacity: PLAN_LIMITS.free.capacity,
         ownerId: currentUserId || 'guest',
         memberCount: 1,
         paletteIndex: 0,
@@ -207,21 +212,30 @@ export const SpaceService = {
       return localSpace;
     }
 
-    // Map limit: Members (free for every registered account during the beta) own up to
-    // MAP_LIMITS.member maps; guests and free accounts get one.
+    // Map limit & default capacity follow the caller's effective plan.
     if (currentUserId) {
       const mapLimit = mapLimitFor(session);
+      const plan = effectivePlan(session);
       const { data: existing } = await supabase
         .from('spaces')
         .select('id')
         .eq('owner_id', currentUserId);
       if (existing && existing.length >= mapLimit) {
+        if (session?.isGuest) {
+          throw new Error('Guest sessions can only have 1 map. Create a free account to make more maps!');
+        }
+        if (plan === 'free') {
+          throw new Error(
+            `Free accounts can have 1 map. Upgrade to Plus for up to ${PLAN_LIMITS.plus.maps} maps!`
+          );
+        }
+        if (plan === 'plus') {
+          throw new Error(
+            `You've reached the limit of ${mapLimit} maps. Upgrade to Host for up to ${PLAN_LIMITS.host.maps} maps, or delete a map to create a new one.`
+          );
+        }
         throw new Error(
-          mapLimit > 1
-            ? `You've reached the limit of ${mapLimit} maps. Delete a map to create a new one.`
-            : session?.isGuest
-              ? 'Guest sessions can only have 1 map. Create a free account to make more maps!'
-              : 'Free accounts can have 1 map. Upgrade to Member to create more!'
+          `You've reached the limit of ${mapLimit} maps. Delete a map to create a new one.`
         );
       }
     }
@@ -237,7 +251,7 @@ export const SpaceService = {
       ...modeColumn,
       join_code: joinCode,
       owner_id: currentUserId,
-      max_capacity: 50,
+      max_capacity: capacityLimitFor(session),
       member_count: 1,
       is_active: true,
     };

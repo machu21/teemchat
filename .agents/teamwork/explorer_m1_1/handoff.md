@@ -2,7 +2,7 @@
 
 **Agent**: `explorer_m1_1` (teamwork_explorer / Client SDK Architect)  
 **Task**: Milestone 1: Production Admin Dashboard UI (Client SDK Architect)  
-**Target Specifications Produced**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_1\client_service_plan.md`  
+**Target Specifications Produced**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_1\client_service_plan.md`  
 **Date**: 2026-11-05T22:28:00Z  
 
 ---
@@ -107,7 +107,7 @@ The specification covers:
 To verify the findings and implementation plan:
 
 1. **Inspect Specification Artifact**:
-   Read `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_1\client_service_plan.md` to review method signatures, interfaces, and test scenarios.
+   Read `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_1\client_service_plan.md` to review method signatures, interfaces, and test scenarios.
 2. **Run Baseline Test Suite**:
    ```powershell
    cd next-app

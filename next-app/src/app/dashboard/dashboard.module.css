@@ -5,6 +5,8 @@
   width: 100%;
   overflow-x: hidden;
   box-sizing: border-box;
+  background-color: var(--bg);
+  color: var(--text-main);
 }
 
 .header {
@@ -90,7 +92,7 @@
   gap: 8px;
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   padding: 4px 10px 4px 6px;
   border-radius: var(--neo-radius-full);
   cursor: pointer;
@@ -102,7 +104,7 @@
 @media (hover: hover) and (pointer: fine) {
   .avatarPill:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -340,7 +342,7 @@
   color: var(--text-main);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  box-shadow: 2.5px 2.5px 0px var(--neo-shadow-color);
   outline: none;
 }
 
@@ -357,6 +359,11 @@
   border-radius: var(--neo-radius-sm);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+[data-theme='dark'] .errorAlert {
+  background: rgba(239, 68, 68, 0.18);
+  color: #FCA5A5;
 }
 
 /* Avatar Customizer Styles */
@@ -389,7 +396,7 @@
   border-radius: var(--neo-radius-sm);
   cursor: pointer;
   background: none;
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 .formRow {
@@ -473,7 +480,7 @@
   background-color: var(--card-inner);
   border: 1.5px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
@@ -498,7 +505,7 @@
   background-color: var(--card-inner);
   border: 1.5px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease;
 }
@@ -507,6 +514,11 @@
   .deleteSpaceBtn:hover {
     color: #B91C1C;
     background-color: #FEE2E2;
+  }
+
+  [data-theme='dark'] .deleteSpaceBtn:hover {
+    color: #FCA5A5;
+    background-color: rgba(239, 68, 68, 0.22);
   }
 }
 
@@ -647,9 +659,10 @@
 .pinBtn {
   background: none;
   border: none;
+  color: var(--text-main);
   font-size: 1.1rem;
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.6;
   transition: transform 0.1s, opacity 0.1s;
 }
 
@@ -680,7 +693,7 @@
   border: 1.5px solid var(--card-border);
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 1px 1px 0px var(--card-border);
+  box-shadow: 1px 1px 0px var(--neo-shadow-color);
 }
 
 .liveCountText {
@@ -718,7 +731,7 @@
   color: #FFFFFF;
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius-full);
-  box-shadow: 3.5px 4px 0px var(--card-border);
+  box-shadow: 3.5px 4px 0px var(--neo-shadow-color);
   padding: 12px 20px;
   font-size: 0.95rem;
   font-weight: 900;
@@ -735,7 +748,7 @@
 @media (hover: hover) and (pointer: fine) {
   .floatingMessengerBtn:hover {
     transform: translate(2px, 2px);
-    box-shadow: 1.5px 2px 0px var(--card-border);
+    box-shadow: 1.5px 2px 0px var(--neo-shadow-color);
   }
 }
 
@@ -750,11 +763,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--accent, #F59E0B);
-  color: #18181B;
+  background-color: var(--cta-btn);
+  color: var(--cta-text);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: 50%;
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
   cursor: pointer;
   flex-shrink: 0;
   touch-action: manipulation;
@@ -765,7 +778,7 @@
 @media (hover: hover) and (pointer: fine) {
   .floatingCompanionBtn:hover {
     transform: translate(2px, 2px);
-    box-shadow: 1px 1.5px 0px var(--card-border);
+    box-shadow: 1px 1.5px 0px var(--neo-shadow-color);
   }
 }
 
@@ -805,27 +818,27 @@
   font-weight: 800;
   font-size: 0.9rem;
   color: var(--text-main);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .genderBtn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0px var(--card-border);
+    box-shadow: 3px 3px 0px var(--neo-shadow-color);
   }
 }
 
 .genderBtnMaleActive {
   background-color: #38BDF8 !important;
   color: #032A46 !important;
-  box-shadow: 3px 3px 0px var(--card-border) !important;
+  box-shadow: 3px 3px 0px var(--neo-shadow-color) !important;
 }
 
 .genderBtnFemaleActive {
   background-color: #F472B6 !important;
   color: #4A0426 !important;
-  box-shadow: 3px 3px 0px var(--card-border) !important;
+  box-shadow: 3px 3px 0px var(--neo-shadow-color) !important;
 }
 
 /* Medium Desktop & Tablet Landscape (<= 1024px) */
@@ -904,11 +917,11 @@
   }
 
   .avatarPill {
-    box-shadow: 2px 2px 0px var(--card-border);
+    box-shadow: 2px 2px 0px var(--neo-shadow-color);
   }
 
   .headerSignOutBtn {
-    box-shadow: 2px 2px 0px var(--card-border);
+    box-shadow: 2px 2px 0px var(--neo-shadow-color);
   }
 
   .main {
@@ -1001,7 +1014,7 @@
     background-color: var(--card-inner);
     border: 1.5px solid var(--card-border);
     border-radius: var(--neo-radius-sm);
-    box-shadow: 1.5px 1.5px 0px var(--card-border);
+    box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
     opacity: 0.85;
   }
 
@@ -1073,13 +1086,13 @@
   .floatingCompanionBtn {
     width: 46px;
     height: 46px;
-    box-shadow: 2.5px 2.5px 0px var(--card-border);
+    box-shadow: 2.5px 2.5px 0px var(--neo-shadow-color);
   }
 
   .floatingMessengerBtn {
     padding: 10px 14px;
     font-size: 0.85rem;
-    box-shadow: 2.5px 2.5px 0px var(--card-border);
+    box-shadow: 2.5px 2.5px 0px var(--neo-shadow-color);
   }
 
   .colorPickers {
@@ -1168,7 +1181,7 @@
   grid-template-columns: 1fr 1fr;
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
   overflow: hidden;
   background-color: var(--card-bg);
 }
@@ -1229,7 +1242,7 @@
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
 }
 
 /* Zombie Survival space type */
@@ -1246,7 +1259,7 @@
   background-color: #84cc16;
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
 }
 
 .lockedMapCard {
@@ -1259,7 +1272,7 @@
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
 }
 
 .lockedMapIcon {
@@ -1270,6 +1283,7 @@
   width: 44px;
   height: 44px;
   font-size: 1.5rem;
+  color: #18181b;
   background-color: #84cc16;
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);

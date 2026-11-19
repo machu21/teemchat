@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > The Flutter/Flame engine has been migrated to a native HTML5 Canvas 2D game engine in Next.js (`next-app/src/game/`).
-> For the comprehensive specification, consult [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md).
+> For the comprehensive specification, consult [`canvas_game_engine.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/canvas_game_engine.md).
 
 ## Summary of Migration & Canvas Engine Architecture
 
@@ -18,5 +18,5 @@
    - World tilemap is pre-rendered onto an offscreen canvas (`createPreRenderedWorldMap`) and drawn with a single `ctx.drawImage` slice per frame.
    - Entities (`PlayerEntity`, `RemotePlayerEntity`, `CompanionEntity`, `FurnitureEntity`) are depth-sorted by Y coordinates before drawing.
 
-For detailed lifecycle stages, remote player reconciliation, and collision physics, see [`canvas_game_engine.md`](file:///c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/.agents/rag/canvas_game_engine.md).
+For detailed lifecycle stages, remote player reconciliation, and collision physics, see [`canvas_game_engine.md`](file:///c:/Users/LENOVO/teemchat/.agents/rag/canvas_game_engine.md).
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PlayerStatus, STATUS_OPTIONS } from '@/lib/world/emotes';
 import styles from './WorldSocial.module.css';
 import { AppIcon } from '@/components/icons/AppIcon';
@@ -15,7 +15,21 @@ interface StatusPickerProps {
 export function StatusPicker({ status, onChange, compact = false }: StatusPickerProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const current = STATUS_OPTIONS.find((o) => o.id === status) || STATUS_OPTIONS[0];
+
+  // The menu hangs off the button's right edge; on narrow screens that pushes it
+  // past the left edge of the viewport. Nudge it back inside before paint.
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!open || !menu) return;
+    const margin = 8;
+    const rect = menu.getBoundingClientRect();
+    let dx = 0;
+    if (rect.left < margin) dx = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) dx = window.innerWidth - margin - rect.right;
+    menu.style.transform = dx ? `translateX(${Math.round(dx)}px)` : '';
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +61,7 @@ export function StatusPicker({ status, onChange, compact = false }: StatusPicker
         {!compact && <span>{current.label}</span>}
       </button>
       {open && (
-        <div className={`${styles.popover} ${styles.statusMenu}`} role="menu" aria-label="Set status">
+        <div ref={menuRef} className={`${styles.popover} ${styles.statusMenu}`} role="menu" aria-label="Set status">
           {STATUS_OPTIONS.map((o) => (
             <button
               key={o.id}

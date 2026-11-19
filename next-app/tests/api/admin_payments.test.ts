@@ -262,7 +262,7 @@ describe('Admin Payments & Billing Logs API', () => {
       expect(body.error).toBe('Subscription not found');
     });
 
-    it('overrides subscription status to canceled, synchronizes profile to free tier, and logs audit', async () => {
+    it('overrides subscription status to canceled, lets DB trigger sync profile, and logs audit', async () => {
       const req = new NextRequest('http://localhost:3000/api/admin/payments/subscriptions', {
         method: 'PATCH',
         headers: {
@@ -283,8 +283,8 @@ describe('Admin Payments & Billing Logs API', () => {
       expect(body.message).toContain('Subscription updated successfully');
       expect(body.subscription.status).toBe('canceled');
 
-      // Verify profile sync to free
-      expect(mockProfileUpdate).toHaveBeenCalledWith({ is_paid: false, tier: 'free' });
+      // Profiles are synchronized via DB trigger on user_subscriptions rather than direct writes
+      expect(mockProfileUpdate).not.toHaveBeenCalled();
 
       // Verify audit logging
       expect(mockAuditInsert).toHaveBeenCalledWith(
@@ -296,7 +296,7 @@ describe('Admin Payments & Billing Logs API', () => {
       );
     });
 
-    it('overrides subscription status to active and synchronizes profile to pro tier', async () => {
+    it('overrides subscription status to active without overwriting profile tier to legacy pro', async () => {
       const req = new NextRequest('http://localhost:3000/api/admin/payments/subscriptions', {
         method: 'PATCH',
         headers: {
@@ -311,9 +311,7 @@ describe('Admin Payments & Billing Logs API', () => {
 
       const res = await updateSub(req);
       expect(res.status).toBe(200);
-
-      // Verify profile sync to pro
-      expect(mockProfileUpdate).toHaveBeenCalledWith({ is_paid: true, tier: 'pro', has_ai_companion: true });
+      expect(mockProfileUpdate).not.toHaveBeenCalled();
     });
   });
 

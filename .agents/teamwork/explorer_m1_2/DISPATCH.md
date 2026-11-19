@@ -1,13 +1,13 @@
 # Task Assignment: Admin UI Shell, Navigation, Overview & Users Tab Architecture
 
 **Role**: teamwork_explorer
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Objective
 Read `PROJECT.md`, `TEST_INFRA.md`, and the survey reports:
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\design_system_report.md`
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\routing_auth_test_report.md`
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\design_system_report.md`
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\routing_auth_test_report.md`
 
 Produce the detailed, step-by-step implementation strategy for:
 1. `next-app/src/app/admin/admin.module.css`: Neo-brutalist styling rules (borders, shadows, theme support).
@@ -18,29 +18,29 @@ Produce the detailed, step-by-step implementation strategy for:
 6. `next-app/src/app/admin/components/UsersTab.tsx`: User list, search, role/tier/status filters, pagination, Create User modal, Edit User modal, and Delete confirmation.
 
 Write your findings to:
-`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
+`c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
 and write your `handoff.md`.
 Report back when complete.
 
 ## 2026-11-05T22:23:37Z
 You are teamwork_explorer assigned to Milestone 1: Production Admin Dashboard UI (UI Shell & Users Architect).
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read TEST_INFRA.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 Read your task dispatch at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\DISPATCH.md
 
 Inspect the survey design system report in:
-`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\design_system_report.md`
+`c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\design_system_report.md`
 
 Produce a comprehensive, concrete implementation specification for:
 - `next-app/src/app/admin/admin.module.css` (drop-in Neo-brutalist styling)
@@ -51,6 +51,6 @@ Produce a comprehensive, concrete implementation specification for:
 - `next-app/src/app/admin/components/UsersTab.tsx` (table, search, filters, pagination, Create User modal, Edit User modal, and Delete confirmation)
 
 Write your report to:
-`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
+`c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
 and write your `handoff.md`.
 Use send_message to report completion back to parent when done.

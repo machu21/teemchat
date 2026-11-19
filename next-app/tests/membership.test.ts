@@ -2,10 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createGuestSession, UserSession } from '../src/lib/models/user';
 import {
   BETA_FREE_MEMBERSHIP,
+  FOUNDING_DISCOUNT,
   MAP_LIMITS,
+  PLAN_LIMITS,
+  PLAN_NAMES,
+  PLAN_PRICES,
+  TEAM_SEAT_PRICE,
+  actualPlan,
+  canUseCallVideo,
+  capacityLimitFor,
+  effectivePlan,
   hasMemberAccess,
   mapLimitFor,
   membershipLabel,
+  planLimits,
+  type PlanId,
 } from '../src/lib/membership';
 
 let ownedMaps = 0;
@@ -42,52 +53,106 @@ import { SpaceService } from '../src/lib/services/spaces';
 
 const ownerId = '22222222-2222-4222-8222-222222222222';
 
-function accountSession(isPaid = false): UserSession {
-  return { ...createGuestSession('Owner'), id: ownerId, isGuest: false, isPaid };
+function accountSession(plan: PlanId = 'free', isPaid = plan !== 'free'): UserSession {
+  return { ...createGuestSession('Owner'), id: ownerId, isGuest: false, plan, isPaid };
 }
 
-describe('membership rules (beta)', () => {
-  it('runs with free Member access for the beta', () => {
+describe('membership plan constants', () => {
+  it('defines prices, limits, team seats, and founding discount', () => {
     expect(BETA_FREE_MEMBERSHIP).toBe(true);
-  });
-
-  it('gives every registered account Member access, never guests', () => {
-    expect(hasMemberAccess(accountSession(false))).toBe(true);
-    expect(hasMemberAccess(accountSession(true))).toBe(true);
-    expect(hasMemberAccess(createGuestSession('Guest'))).toBe(false);
-    expect(hasMemberAccess(null)).toBe(false);
-  });
-
-  it('sets map limits by membership', () => {
-    expect(mapLimitFor(accountSession(false))).toBe(MAP_LIMITS.member);
-    expect(mapLimitFor(createGuestSession('Guest'))).toBe(MAP_LIMITS.free);
-  });
-
-  it('labels beta, paid and guest accounts', () => {
-    expect(membershipLabel(accountSession(false))).toBe('Beta Member');
-    expect(membershipLabel(accountSession(true))).toBe('Paid Member');
-    expect(membershipLabel(createGuestSession('Guest'))).toBe('Guest');
+    expect(PLAN_PRICES).toEqual({
+      plus: { month: 4, year: 36 },
+      host: { month: 12, year: 108 },
+    });
+    expect(TEAM_SEAT_PRICE).toEqual({ month: 6, year: 54, minSeats: 5 });
+    expect(FOUNDING_DISCOUNT).toBe(0.5);
+    expect(PLAN_NAMES).toEqual({ free: 'Free', plus: 'Plus', host: 'Host', team: 'Team' });
+    expect(PLAN_LIMITS.free).toEqual({ maps: 1, capacity: 15, callVideo: false });
+    expect(PLAN_LIMITS.plus).toEqual({ maps: 10, capacity: 50, callVideo: true });
+    expect(PLAN_LIMITS.host).toEqual({ maps: 25, capacity: 150, callVideo: true });
+    expect(PLAN_LIMITS.team).toEqual({ maps: 100, capacity: 250, callVideo: true });
   });
 });
 
-describe('SpaceService.createSpace map limit', () => {
+describe('membership rules (beta on)', () => {
+  it('upgrades free accounts to Plus limits, never guests', () => {
+    expect(effectivePlan(accountSession('free'), true)).toBe('plus');
+    expect(effectivePlan(accountSession('host'), true)).toBe('host');
+    expect(effectivePlan(createGuestSession('Guest'), true)).toBe('free');
+    expect(effectivePlan(null, true)).toBe('free');
+
+    expect(hasMemberAccess(accountSession('free'), true)).toBe(true);
+    expect(hasMemberAccess(createGuestSession('Guest'), true)).toBe(false);
+    expect(hasMemberAccess(null, true)).toBe(false);
+  });
+
+  it('sets map, capacity, and call video limits in beta', () => {
+    expect(mapLimitFor(accountSession('free'), true)).toBe(MAP_LIMITS.member);
+    expect(capacityLimitFor(accountSession('free'), true)).toBe(50);
+    expect(canUseCallVideo(accountSession('free'), true)).toBe(true);
+
+    expect(mapLimitFor(createGuestSession('Guest'), true)).toBe(MAP_LIMITS.free);
+    expect(capacityLimitFor(createGuestSession('Guest'), true)).toBe(15);
+    expect(canUseCallVideo(createGuestSession('Guest'), true)).toBe(false);
+  });
+
+  it('labels beta, paid, and guest accounts', () => {
+    expect(membershipLabel(accountSession('free'), true)).toBe('Beta Member');
+    expect(membershipLabel(accountSession('plus'), true)).toBe('Plus Member');
+    expect(membershipLabel(accountSession('host'), true)).toBe('Host');
+    expect(membershipLabel(accountSession('team'), true)).toBe('Team');
+    expect(membershipLabel(createGuestSession('Guest'), true)).toBe('Guest');
+  });
+});
+
+describe('membership rules (beta off)', () => {
+  it('enforces Free limits on unpaid accounts and unlocks paid plans', () => {
+    const free = accountSession('free', false);
+    const plus = accountSession('plus', true);
+    const host = accountSession('host', true);
+    const team = accountSession('team', true);
+    const guest = createGuestSession('Guest');
+
+    expect(actualPlan(free)).toBe('free');
+    expect(effectivePlan(free, false)).toBe('free');
+    expect(hasMemberAccess(free, false)).toBe(false);
+    expect(mapLimitFor(free, false)).toBe(1);
+    expect(capacityLimitFor(free, false)).toBe(15);
+    expect(canUseCallVideo(free, false)).toBe(false);
+    expect(membershipLabel(free, false)).toBe('Free Account');
+
+    expect(planLimits(plus, false)).toEqual({ maps: 10, capacity: 50, callVideo: true });
+    expect(planLimits(host, false)).toEqual({ maps: 25, capacity: 150, callVideo: true });
+    expect(planLimits(team, false)).toEqual({ maps: 100, capacity: 250, callVideo: true });
+    expect(planLimits(guest, false)).toEqual({ maps: 1, capacity: 15, callVideo: false });
+  });
+});
+
+describe('SpaceService.createSpace map limit & capacity', () => {
   beforeEach(() => {
     inserted.length = 0;
     ownedMaps = 0;
     SpaceService.clearGuestMaps();
   });
 
-  it('lets an unpaid registered account create a second map during the beta', async () => {
+  it('lets an unpaid registered account create a second map during the beta with Plus capacity', async () => {
     ownedMaps = 1;
-    await SpaceService.createSpace({ name: 'Second Map', slug: 'second-map' }, accountSession(false));
+    await SpaceService.createSpace({ name: 'Second Map', slug: 'second-map' }, accountSession('free'));
     expect(inserted).toHaveLength(1);
+    expect(inserted[0].max_capacity).toBe(50);
   });
 
-  it('refuses a map past the Member limit', async () => {
-    ownedMaps = MAP_LIMITS.member;
+  it('uses Host capacity (150) when a Host creates a space', async () => {
+    await SpaceService.createSpace({ name: 'Big Arena', slug: 'big-arena' }, accountSession('host'));
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].max_capacity).toBe(150);
+  });
+
+  it('refuses a map past the Plus limit and prompts Host upgrade', async () => {
+    ownedMaps = PLAN_LIMITS.plus.maps;
     await expect(
-      SpaceService.createSpace({ name: 'One Too Many', slug: 'one-too-many' }, accountSession(false))
-    ).rejects.toThrow(`limit of ${MAP_LIMITS.member} maps`);
+      SpaceService.createSpace({ name: 'One Too Many', slug: 'one-too-many' }, accountSession('free'))
+    ).rejects.toThrow(`limit of ${PLAN_LIMITS.plus.maps} maps`);
     expect(inserted).toHaveLength(0);
   });
 });

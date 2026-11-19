@@ -1,14 +1,14 @@
 # Task Assignment: Code Review - Neo-Brutalist UI/UX, Zero Emojis & Styling Compliance
 
 **Role**: teamwork_reviewer
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_2\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_2\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Background Files to Read:
-1. `ORIGINAL_REQUEST.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `PROJECT.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `TEST_INFRA.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `worker_m1_2 handoff`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md`
+1. `ORIGINAL_REQUEST.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `PROJECT.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `TEST_INFRA.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `worker_m1_2 handoff`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md`
 
 ## Primary Target Files to Review:
 - `next-app/src/app/admin/admin.module.css`
@@ -42,4 +42,4 @@ Write `handoff.md` with your verdict: **APPROVE** or **REQUEST_CHANGES** (with d
 ## 2026-11-05T23:03:30Z
 [Message] timestamp=2026-11-05T23:03:30Z sender=b94baafd-665a-4ce2-870b-448b49783b93 priority=MESSAGE_PRIORITY_HIGH content=You are reviewer_m1_2, assigned as UI/UX, Neo-brutalism & Zero-Emoji Compliance Reviewer for Milestone 1.
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_2\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_2\

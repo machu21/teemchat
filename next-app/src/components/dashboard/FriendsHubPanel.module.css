@@ -5,7 +5,7 @@
   background-color: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 3px 3.5px 0px var(--card-border);
+  box-shadow: 3px 3.5px 0px var(--neo-shadow-color);
   padding: 18px 22px;
 }
 
@@ -43,6 +43,12 @@
   gap: 5px;
 }
 
+[data-theme='dark'] .onlineBadge {
+  background-color: #064E3B;
+  color: #34D399;
+  border-color: #10B981;
+}
+
 .pulseDot {
   width: 7px;
   height: 7px;
@@ -73,7 +79,7 @@
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   padding: 10px 14px;
   gap: 8px 10px;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
@@ -82,7 +88,7 @@
 @media (hover: hover) and (pointer: fine) {
   .friendCard:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -108,7 +114,7 @@
   width: 9px;
   height: 9px;
   background-color: #10B981;
-  border: 1.5px solid #FFFFFF;
+  border: 1.5px solid var(--card-inner);
   border-radius: 50%;
 }
 

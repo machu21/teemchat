@@ -1,10 +1,10 @@
 ## 2026-11-06T03:11:33Z
 
 You are survey_explorer_2.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your work.
 
 Your Focus: Existing Test Suites & Test Gap Analysis.
@@ -28,5 +28,5 @@ Deliverables:
 5. Provide a concrete blueprint for new and updated test cases so that 100% of admin endpoints, error states, and workflows are covered under Vitest with mocks and zero live external dependency requirements.
 
 Update progress.md frequently. When done, write your structured report to:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\handoff.md
 Then notify me with send_message.

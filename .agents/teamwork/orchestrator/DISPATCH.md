@@ -28,9 +28,9 @@ Audit each endpoint's response status codes, payload structures, and error handl
 
 ---
 Working directory: .agents/teamwork/orchestrator/
-Project root: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
-Target application directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app
-Original request file: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+Project root: c:\\Users\\LENOVO\\teemchat
+Target application directory: c:\\Users\\LENOVO\\teemchat\next-app
+Original request file: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 Your identity: teamwork_orchestrator
 
 

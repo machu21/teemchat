@@ -6,7 +6,7 @@ Investigate Supabase query builder and RPC type interfaces to design clean, type
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: read-only investigation, type-safe fix design, synthesis
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_5\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_5\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: m1 (Iteration 2)
 

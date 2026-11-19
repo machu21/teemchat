@@ -1,9 +1,9 @@
 ## 2026-11-06T03:11:49Z
 You are survey_explorer_3.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your work.
 
 Your Focus: Database Schema, Migrations, Triggers & Frontend Admin UI Integration.
@@ -32,5 +32,5 @@ Deliverables:
 3. Recommend specific bug fixes and integration improvements.
 
 Update progress.md frequently. When done, write your structured report to:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\handoff.md
 Then notify me with send_message.

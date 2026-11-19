@@ -14,9 +14,16 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
   initTheme: () => {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('teemchat-theme') as 'light' | 'dark' | null;
-    const currentAttr = document.documentElement.getAttribute('data-theme') as 'light' | 'dark' | null;
-    const active = saved || currentAttr || 'light';
+    let saved: 'light' | 'dark' | null = null;
+    try {
+      const raw = localStorage.getItem('teemchat-theme');
+      if (raw === 'light' || raw === 'dark') saved = raw;
+    } catch {
+      // Ignore storage access errors in restricted contexts
+    }
+    const currentAttr = document.documentElement.getAttribute('data-theme');
+    const attrTheme = currentAttr === 'dark' || currentAttr === 'light' ? currentAttr : null;
+    const active = saved || attrTheme || 'light';
     document.documentElement.setAttribute('data-theme', active);
     set({ theme: active });
   },
@@ -24,7 +31,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   toggleTheme: () => {
     const next = get().theme === 'light' ? 'dark' : 'light';
     if (typeof window !== 'undefined') {
-      localStorage.setItem('teemchat-theme', next);
+      try {
+        localStorage.setItem('teemchat-theme', next);
+      } catch {
+        // Ignore storage access errors
+      }
       document.documentElement.setAttribute('data-theme', next);
     }
     set({ theme: next });
@@ -32,7 +43,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('teemchat-theme', theme);
+      try {
+        localStorage.setItem('teemchat-theme', theme);
+      } catch {
+        // Ignore storage access errors
+      }
       document.documentElement.setAttribute('data-theme', theme);
     }
     set({ theme });

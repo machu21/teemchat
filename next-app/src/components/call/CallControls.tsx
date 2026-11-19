@@ -3,6 +3,8 @@
 import React from 'react';
 import styles from './CallControls.module.css';
 import { useCallStore } from '@/stores/call';
+import { useSessionStore } from '@/stores/session';
+import { canUseCallVideo } from '@/lib/membership';
 import {
   MicIcon,
   MicOffIcon,
@@ -40,6 +42,8 @@ export function CallControls({
     leaveCall,
     voiceOnly,
   } = useCallStore();
+  const session = useSessionStore((s) => s.session);
+  const allowCallVideo = canUseCallVideo(session);
 
   return (
     <div className={styles.controlsDock}>
@@ -54,28 +58,46 @@ export function CallControls({
         {isMicMuted ? <MicOffIcon size={20} /> : <MicIcon size={20} />}
       </button>
 
-      {/* Camera + screen share (hidden in voice-only calls, e.g. inside a space) */}
+      {/* Camera + screen share (hidden in voice-only calls; locked on Free/Guest) */}
       {!voiceOnly && (
       <>
       <button
         type="button"
-        className={`${styles.dockBtn} ${isCameraActive ? styles.activeBtn : ''}`}
-        onClick={toggleCamera}
-        title={isCameraActive ? 'Turn Off Camera' : 'Turn On Camera'}
-        aria-label="Toggle Camera"
+        className={`${styles.dockBtn} ${isCameraActive ? styles.activeBtn : ''} ${!allowCallVideo ? styles.lockedBtn : ''}`}
+        onClick={allowCallVideo ? toggleCamera : undefined}
+        disabled={!allowCallVideo}
+        aria-disabled={!allowCallVideo}
+        title={
+          !allowCallVideo
+            ? 'Upgrade to Plus to use camera in calls'
+            : isCameraActive
+              ? 'Turn Off Camera'
+              : 'Turn On Camera'
+        }
+        aria-label={allowCallVideo ? 'Toggle Camera' : 'Camera requires Plus'}
       >
         {isCameraActive ? <VideoIcon size={20} /> : <VideoOffIcon size={20} />}
+        {!allowCallVideo && <span className={styles.plusLockTag}>Plus</span>}
       </button>
 
       {/* Screen Share Toggle */}
       <button
         type="button"
-        className={`${styles.dockBtn} ${isScreenSharing ? styles.screenShareActive : ''}`}
-        onClick={toggleScreenShare}
-        title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
-        aria-label="Toggle Screen Share"
+        className={`${styles.dockBtn} ${isScreenSharing ? styles.screenShareActive : ''} ${!allowCallVideo ? styles.lockedBtn : ''}`}
+        onClick={allowCallVideo ? toggleScreenShare : undefined}
+        disabled={!allowCallVideo}
+        aria-disabled={!allowCallVideo}
+        title={
+          !allowCallVideo
+            ? 'Upgrade to Plus to share your screen'
+            : isScreenSharing
+              ? 'Stop Screen Share'
+              : 'Share Screen'
+        }
+        aria-label={allowCallVideo ? 'Toggle Screen Share' : 'Screen Share requires Plus'}
       >
         <ScreenShareIcon size={20} />
+        {!allowCallVideo && <span className={styles.plusLockTag}>Plus</span>}
       </button>
       </>
       )}

@@ -1,8 +1,8 @@
 # Task Assignment: Complete Production Admin Dashboard UI Implementation & Test Suite
 
 **Role**: teamwork_worker
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_1\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_1\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Integrity Warning
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
@@ -11,14 +11,14 @@ DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results,
 Implement the complete, production-grade Admin Dashboard UI at `/admin` for TeemChat, strictly following the architectural specifications and blueprints prepared by the survey and explorer agents. Ensure 0 ESLint errors and 100% green tests with zero regressions.
 
 ### Reference Documents
-1. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_1\client_service_plan.md` (Client SDK & admin_client.test.ts)
-5. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md` (CSS, Icons, Nav, Page guard, OverviewTab, UsersTab)
-6. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md` (PaymentsTab, LogsTab, CrudTab, admin_guard.test.ts)
-7. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\design_system_report.md` (CSS Tokens, Components, Zero Emojis)
-8. `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md` (API Schemas & Endpoints)
+1. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_1\client_service_plan.md` (Client SDK & admin_client.test.ts)
+5. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md` (CSS, Icons, Nav, Page guard, OverviewTab, UsersTab)
+6. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md` (PaymentsTab, LogsTab, CrudTab, admin_guard.test.ts)
+7. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\design_system_report.md` (CSS Tokens, Components, Zero Emojis)
+8. `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md` (API Schemas & Endpoints)
 
 ### Files to Implement (Exclusive Write Ownership)
 1. `next-app/src/lib/services/adminClient.ts`: Admin API client service

@@ -17,6 +17,7 @@ export default async function Image({
 }) {
   const { code } = await params;
   const decodedCode = decodeURIComponent(code || '');
+  const quoted = `"${decodedCode.replace(/["\\]/g, '\\$&')}"`;
 
   let spaceName = decodedCode === 'main-hq' ? 'TeemChat HQ' : `Space #${decodedCode}`;
   let mapTheme = 'village';
@@ -26,7 +27,8 @@ export default async function Image({
     const { data: space } = await supabase
       .from('spaces')
       .select('name, map_theme, member_count')
-      .or(`slug.eq.${decodedCode},join_code.eq.${decodedCode}`)
+      // Quote the value so commas or parens in the URL cannot inject extra PostgREST filters.
+      .or(`slug.eq.${quoted},join_code.eq.${quoted}`)
       .maybeSingle();
 
     if (space) {

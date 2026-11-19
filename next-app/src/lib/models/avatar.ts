@@ -76,6 +76,35 @@ export const defaultFemaleAvatarConfig: AvatarConfig = {
 
 export const defaultAvatarConfig: AvatarConfig = defaultMaleAvatarConfig;
 
+/** Look fields that have a different default per gender. */
+type GenderedLookKey = 'hairStyle' | 'topStyle' | 'bottomStyle' | 'shirtColor' | 'hairColor' | 'bottomColor';
+const GENDERED_LOOK_KEYS: readonly GenderedLookKey[] = [
+  'hairStyle', 'topStyle', 'bottomStyle', 'shirtColor', 'hairColor', 'bottomColor',
+];
+
+/**
+ * Switches an avatar to another gender. Any field still on the old gender's
+ * default (short hair, t-shirt, pants…) moves to the new gender's default, so the
+ * preview visibly changes; fields the user customized are kept.
+ */
+export function switchAvatarGender(config: AvatarConfig, to: Gender): AvatarConfig {
+  if (config.gender === to) return config;
+  const from = to === 'female' ? defaultMaleAvatarConfig : defaultFemaleAvatarConfig;
+  const target = to === 'female' ? defaultFemaleAvatarConfig : defaultMaleAvatarConfig;
+  const next: AvatarConfig = { ...config, gender: to };
+  for (const key of GENDERED_LOOK_KEYS) {
+    const value = config[key];
+    if (value === undefined || value === from[key]) {
+      (next as unknown as Record<GenderedLookKey, unknown>)[key] = target[key];
+    }
+  }
+  if (to === 'female') {
+    if (next.topStyle === 'shirt_tie' || next.topStyle === 'polo') next.topStyle = 'blouse';
+    next.facialHair = 'none';
+  }
+  return next;
+}
+
 export const availableGenders = ['male', 'female'] as const;
 
 export const availableHairStyles: readonly ExtendedHairStyle[] = [

@@ -11,8 +11,9 @@
     "cap:sync": "cap sync",
     "cap:open:android": "cap open android",
     "cap:open:ios": "cap open ios",
-    "apk:debug": "cap sync android && cd android && ./gradlew assembleDebug",
-    "apk:release": "cap sync android && cd android && ./gradlew assembleRelease"
+    "apk:debug": "cap sync android && node scripts/gradle.mjs assembleDebug",
+    "apk:release": "cap sync android && node scripts/gradle.mjs assembleRelease",
+    "aab:release": "cap sync android && node scripts/gradle.mjs bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

@@ -13,7 +13,7 @@
   border-radius: var(--neo-radius, 12px);
   background: var(--card-bg);
   color: var(--text-main);
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
 }
 
 .anchor {
@@ -119,7 +119,7 @@
   font-size: 0.8rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
 }
 
 .statusMenu {
@@ -131,7 +131,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 230px;
+  min-width: min(230px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
 }
 
 .statusOption {

@@ -2,7 +2,7 @@
 
 **Agent**: `survey_explorer_3`  
 **Focus**: Database Schema & Migrations, Triggers, Security Boundaries, Performance Inefficiencies, and Frontend Admin UI / Client Integration.  
-**Working Directory**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\`  
+**Working Directory**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\`  
 **Date**: 2026-11-06T03:21:00Z  
 
 ---

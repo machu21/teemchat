@@ -20,7 +20,7 @@
   color: var(--text-main);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 2.5px 2.5px 0px var(--card-border);
+  box-shadow: 2.5px 2.5px 0px var(--neo-shadow-color);
   outline: none;
   box-sizing: border-box;
   touch-action: manipulation;

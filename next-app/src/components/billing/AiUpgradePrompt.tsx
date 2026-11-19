@@ -3,22 +3,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { NeoButton } from '@/components/neo/NeoButton';
-import { useIsIosApp } from '@/lib/platform/nativeApp';
+import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import { AI_ADDON_PRICES, AiAddonInterval, startAiAddonCheckout } from '@/lib/services/billing';
 import styles from './AiUpgradePrompt.module.css';
 
 /**
  * Payment buttons shown under the companion's reply when the account has no paid
- * AI add-on. Opens Stripe Checkout (system browser in the Android app); hidden in
- * the iOS app, where Apple requires in-app purchase.
+ * AI add-on. Opens Stripe Checkout on the web; hidden in the iOS and Android
+ * apps, where the stores require their own in-app billing.
  */
 export function AiUpgradePrompt() {
-  const isIosApp = useIsIosApp();
+  const isNativeApp = useIsNativeApp();
   const [busy, setBusy] = useState<AiAddonInterval | null>(null);
   const [error, setError] = useState('');
 
-  if (isIosApp) {
-    return <p className={styles.note}>The AI add-on is coming to the iOS app soon.</p>;
+  if (isNativeApp) {
+    return <p className={styles.note}>The AI add-on is coming to the app soon.</p>;
   }
 
   const buy = async (interval: AiAddonInterval) => {
@@ -45,7 +45,7 @@ export function AiUpgradePrompt() {
       </div>
       {error && <p className={styles.error}>{error}</p>}
       <p className={styles.fineprint}>
-        Renews automatically. Cancel anytime. <Link href="/terms">Terms</Link> · <Link href="/refunds">Refunds</Link>
+        Renews automatically. Cancel anytime. <Link href="/terms">Terms</Link> · <Link href="/refunds">Cancellation</Link>
       </p>
     </div>
   );

@@ -6,7 +6,7 @@
   background: var(--card-inner);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 3px 3.5px 0 var(--card-border);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
 }
 
 .header {
@@ -28,7 +28,7 @@
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
-  color: var(--text-main);
+  color: #FFFFFF;
   background: var(--primary);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-full);

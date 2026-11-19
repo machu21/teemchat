@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalPage } from '@/components/legal/LegalPage';
-import { AI_ADDON_PRICE_TEXT, LEGAL } from '@/lib/constants/legal';
+import { AI_ADDON_PRICE_TEXT, LEGAL, PLAN_PRICE_TEXT } from '@/lib/constants/legal';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'The terms for using TeemChat and buying the AI Companion add-on.',
+  description: 'The terms for using TeemChat, paid membership plans, and the AI Companion add-on.',
   alternates: { canonical: '/terms' },
 };
 
@@ -14,7 +14,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      intro={`These terms are an agreement between you and ${companyName} ("TeemChat", "we", "us") about your use of the TeemChat website, web app and mobile apps. By using TeemChat you agree to them.`}
+      intro={`These terms are an agreement between you and ${companyName} (operating TeemChat by ${companyName}, "we", "us") about your use of the TeemChat website, web app and mobile apps. By using TeemChat you agree to them.`}
     >
       <h2>1. Who can use TeemChat</h2>
       <p>
@@ -29,30 +29,38 @@ export default function TermsPage() {
         responsible for what happens under your account. We may suspend or close accounts that break these terms.
       </p>
 
-      <h2>3. Beta service</h2>
+      <h2>3. Beta service &amp; Founding Member offer</h2>
       <p>
-        TeemChat is in beta. Features may change, break or be removed, and during the beta Member features are free
-        for every registered account. We will tell you before Member features become paid.
+        TeemChat is in beta. Features may change, break or be removed, and during the beta Plus features are free
+        for every registered account. We will give advance notice before Free accounts drop to Free limits. Beta
+        accounts created before launch are eligible for the Founding Member discount (50% off Plus for life), which
+        remains active only as long as the Plus subscription stays active and is forfeited if cancelled.
       </p>
 
-      <h2>4. AI Companion add-on</h2>
+      <h2>4. Membership plans &amp; AI Companion add-on</h2>
       <ul>
         <li>
-          The AI Companion add-on costs {AI_ADDON_PRICE_TEXT.month} or {AI_ADDON_PRICE_TEXT.year} (US dollars, plus
-          any applicable tax). AI features are only available to accounts with an active add-on.
+          <strong>Plus plan:</strong> {PLAN_PRICE_TEXT.plus.month} or {PLAN_PRICE_TEXT.plus.year} (up to 10 permanent
+          maps, rooms of up to 50 players, and call video &amp; screen share).
         </li>
         <li>
-          It includes up to 60 AI messages in each 5-hour window. The window starts with your first message and
-          resets 5 hours later.
+          <strong>Host plan:</strong> {PLAN_PRICE_TEXT.host.month} or {PLAN_PRICE_TEXT.host.year} (up to 25 permanent
+          maps, rooms of up to 150 players, and moderation controls).
         </li>
         <li>
-          <strong>Your subscription renews automatically</strong> at the end of each month or year and is charged
-          to your payment method until you cancel.
+          <strong>AI Companion add-on:</strong> {AI_ADDON_PRICE_TEXT.month} or {AI_ADDON_PRICE_TEXT.year}. AI
+          features are only available to accounts with an active add-on and include up to 60 AI messages in each
+          5-hour window.
         </li>
         <li>
-          You can cancel at any time from <strong>Manage billing</strong> in your account panel. Access continues
-          until the end of the period you paid for. Refunds are covered by our{' '}
-          <Link href="/refunds">Refund Policy</Link>.
+          All paid prices are in US dollars plus any applicable tax. <strong>Your subscription renews
+          automatically</strong> at the end of each month or year and is charged to your payment method until you
+          cancel.
+        </li>
+        <li>
+          You can cancel or switch plans at any time from <strong>Manage billing</strong> in your account panel.
+          Access continues until the end of the period you paid for. All payments are final, as set out in our{' '}
+          <Link href="/refunds">Cancellation Policy</Link>.
         </li>
         <li>
           We may change prices with at least 30 days&apos; notice. A new price applies from your next renewal after

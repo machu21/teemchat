@@ -6,7 +6,7 @@ Harden TeemChat Admin Dashboard backend: database schema & security fixes, route
 ## 🔒 My Identity
 - Archetype: worker
 - Roles: implementer, qa, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: Milestone 2 - Admin Dashboard Backend Hardening & Test Suite
 

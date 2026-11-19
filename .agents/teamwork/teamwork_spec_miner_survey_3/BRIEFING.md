@@ -6,13 +6,13 @@ Extract and document exhaustive behavioral specifications and matrices for all A
 ## 🔒 My Identity
 - Archetype: teamwork_spec_miner
 - Roles: API Spec Miner
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_spec_miner_survey_3\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_spec_miner_survey_3\
 - Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
 - Milestone: Endpoint Discovery and Behavioral Matrix
 
 ## 🔒 Key Constraints
 - Read-only investigation across application codebase (no code or test modifications).
-- Write only to working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_spec_miner_survey_3\
+- Write only to working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_spec_miner_survey_3\
 - Prioritize authoritative source code analysis over assumptions.
 - Maintain progress.md with timestamps as heartbeat.
 - Send message via send_message to f7d714a1-bf43-49e6-b994-19f708dca4d9 when handoff is ready.

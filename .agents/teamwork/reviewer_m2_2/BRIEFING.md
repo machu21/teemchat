@@ -6,7 +6,7 @@ Review and adversarial stress-test Milestone 2 deliverable: Admin API test suite
 ## 🔒 My Identity
 - Archetype: reviewer
 - Roles: reviewer, critic
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m2_2\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m2_2\
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: Milestone 2 Review
 - Instance: 2 of 2

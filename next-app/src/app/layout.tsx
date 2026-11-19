@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { NativeAuthListener } from "@/components/auth/NativeAuthListener";
+import { NativeThemeBars } from "@/components/native/NativeThemeBars";
 import { AccessibilityBoot } from "@/components/settings/AccessibilitySettings";
 import {
   SITE_NAME,
@@ -35,9 +36,9 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
-  authors: [{ name: "TeemChat Team" }],
-  creator: "TeemChat",
-  publisher: "TeemChat",
+  authors: [{ name: "Elevate Remote Solutions" }],
+  creator: "Elevate Remote Solutions",
+  publisher: "Elevate Remote Solutions",
   category: "technology",
   applicationName: SITE_NAME,
   alternates: {
@@ -93,9 +94,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
-    <html lang="en" className={plusJakartaSans.variable}>
+    <html lang="en" className={plusJakartaSans.variable} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('teemchat-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>
         <NativeAuthListener />
+        <NativeThemeBars />
         <AccessibilityBoot />
         {children}
         {gtmId && (

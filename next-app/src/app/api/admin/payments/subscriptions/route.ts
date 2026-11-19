@@ -101,12 +101,30 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
-    // 2. Perform update
+    // 2. Perform update (profiles.plan / is_paid / tier / has_ai_companion are synced by DB trigger)
     const updates: Database['public']['Tables']['user_subscriptions']['Update'] = {
       status: parsedOverride.data.status,
       updated_at: new Date().toISOString(),
     };
-    if (parsedOverride.data.planId !== undefined) updates.plan_id = parsedOverride.data.planId;
+    if (parsedOverride.data.planId !== undefined) {
+      updates.plan_id = parsedOverride.data.planId;
+      const normalized = parsedOverride.data.planId.toLowerCase();
+      if (normalized.startsWith('plus')) {
+        updates.membership_plan = 'plus';
+        updates.membership_status = parsedOverride.data.status;
+      } else if (normalized.startsWith('host')) {
+        updates.membership_plan = 'host';
+        updates.membership_status = parsedOverride.data.status;
+      } else if (normalized.startsWith('team')) {
+        updates.membership_plan = 'team';
+        updates.membership_status = parsedOverride.data.status;
+      } else if (normalized === 'free') {
+        updates.membership_plan = 'free';
+        updates.membership_status = parsedOverride.data.status;
+      }
+    } else if (existingSub.membership_plan && existingSub.membership_plan !== 'free') {
+      updates.membership_status = parsedOverride.data.status;
+    }
     if (parsedOverride.data.hasAiUnlimited !== undefined) updates.has_ai_unlimited = parsedOverride.data.hasAiUnlimited;
     if (parsedOverride.data.currentPeriodEnd !== undefined) updates.current_period_end = parsedOverride.data.currentPeriodEnd;
     if (parsedOverride.data.cancelAtPeriodEnd !== undefined) updates.cancel_at_period_end = parsedOverride.data.cancelAtPeriodEnd;
@@ -120,19 +138,6 @@ export async function PATCH(req: NextRequest) {
 
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
-    }
-
-    // Also synchronize profile is_paid and tier if subscription is active
-    if (parsedOverride.data.status === 'active') {
-      await auth.supabaseAdmin
-        .from('profiles')
-        .update({ is_paid: true, tier: 'pro', has_ai_companion: true })
-        .eq('id', existingSub.user_id);
-    } else if (parsedOverride.data.status === 'canceled') {
-      await auth.supabaseAdmin
-        .from('profiles')
-        .update({ is_paid: false, tier: 'free' })
-        .eq('id', existingSub.user_id);
     }
 
     // 3. Log administrative action

@@ -1,63 +1,73 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalPage } from '@/components/legal/LegalPage';
-import { AI_ADDON_PRICE_TEXT, LEGAL } from '@/lib/constants/legal';
+import { AI_ADDON_PRICE_TEXT, LEGAL, PLAN_PRICE_TEXT } from '@/lib/constants/legal';
 
 export const metadata: Metadata = {
-  title: 'Refund & Cancellation Policy',
-  description: 'How to cancel the TeemChat AI Companion add-on and when you can get a refund.',
+  title: 'Cancellation Policy',
+  description: 'How to cancel TeemChat membership plans or the AI Companion add-on. All payments are final.',
   alternates: { canonical: '/refunds' },
 };
 
 export default function RefundsPage() {
-  const { supportEmail } = LEGAL;
+  const { companyName, supportEmail } = LEGAL;
   return (
     <LegalPage
-      title="Refund & Cancellation Policy"
-      intro="You can cancel the AI Companion add-on at any time. Here is how cancelling works and when we give refunds."
+      title="Cancellation Policy"
+      intro={`You can cancel any TeemChat by ${companyName} subscription (Plus, Host, or the AI Companion add-on) at any time. Paid features are available as soon as you pay, so all payments are final. Here is how cancelling works.`}
     >
       <h2>What you pay for</h2>
+      <ul>
+        <li>
+          <strong>Plus plan:</strong> {PLAN_PRICE_TEXT.plus.month} or {PLAN_PRICE_TEXT.plus.year} (10 permanent maps,
+          rooms up to 50 players, call video and screen share). Plus features are free during the beta, and eligible
+          Founding Member accounts receive 50% off Plus for as long as their subscription stays active.
+        </li>
+        <li>
+          <strong>Host plan:</strong> {PLAN_PRICE_TEXT.host.month} or {PLAN_PRICE_TEXT.host.year} (25 permanent maps,
+          rooms up to 150 players, moderation tools).
+        </li>
+        <li>
+          <strong>AI Companion add-on:</strong> {AI_ADDON_PRICE_TEXT.month} or {AI_ADDON_PRICE_TEXT.year} (60 AI
+          messages per 5-hour window, memories, and Screen Help).
+        </li>
+      </ul>
       <p>
-        The AI Companion add-on is a subscription: {AI_ADDON_PRICE_TEXT.month} or {AI_ADDON_PRICE_TEXT.year}, in US
-        dollars plus any applicable tax. It renews automatically until you cancel. Member features are free during
-        the beta, so the AI add-on is currently the only paid product.
+        All prices are in US dollars plus any applicable tax, and subscriptions renew automatically until you cancel.
       </p>
 
       <h2>How to cancel</h2>
       <ol>
         <li>Open the dashboard and click your profile to open the account panel.</li>
-        <li>In the AI Companion add-on card, click <strong>Manage billing</strong>.</li>
+        <li>In your plan card or AI Companion add-on card, click <strong>Manage billing</strong>.</li>
         <li>Choose <strong>Cancel subscription</strong> on the Stripe billing page.</li>
       </ol>
       <p>
         Or email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> from your account&apos;s email address and we
-        will cancel it for you. After cancelling, you keep AI access until the end of the period you already paid
-        for, and you won&apos;t be charged again.
+        will cancel it for you. After cancelling, you keep paid features until the end of the period you already paid
+        for, and you won&apos;t be charged again. If you cancel a Founding Member Plus subscription, the lifetime 50%
+        discount ends when the subscription closes.
       </p>
 
-      <h2>Refunds</h2>
+      <h2>No refunds</h2>
+      <p>
+        All payments are final. Paid features unlock as soon as you pay and stay available for the whole period you
+        paid for, so we don&apos;t refund monthly or yearly payments, including partly used periods. Cancel before
+        your renewal date to stop the next charge.
+      </p>
+      <p>The only exceptions are charges that should not have happened, or the end of the service:</p>
       <ul>
         <li>
-          <strong>Yearly plan:</strong> a full refund if you ask within 14 days of the first payment.
-        </li>
-        <li>
-          <strong>Monthly plan:</strong> payments are not refunded for partly used months; cancel to stop the next
-          charge.
-        </li>
-        <li>
           <strong>Charged by mistake</strong> (for example a duplicate charge, or a renewal after you cancelled):
-          a full refund of that charge.
+          we refund that charge. Email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> with your account email
+          and the date of the charge. Refunds go back to your original payment method, usually within 5–10 business
+          days depending on your bank.
         </li>
         <li>
-          <strong>The AI Companion didn&apos;t work</strong> for a significant part of a billing period because of a
-          problem on our side: a refund or credit for that period.
+          <strong>Service shutdown:</strong> if we stop offering TeemChat, we refund the unused part of any paid
+          period, as described in our <Link href="/terms">Terms of Service</Link>.
         </li>
       </ul>
-      <p>
-        To ask for a refund, email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> with your account email and
-        the date of the charge. Approved refunds go back to your original payment method, usually within 5–10
-        business days depending on your bank.
-      </p>
 
       <h2>App store purchases</h2>
       <p>

@@ -3,8 +3,8 @@
 **Author**: `explorer_m1_2` (teamwork_explorer)  
 **Recipient**: Parent Orchestrator / Developer Agents  
 **Date**: 2026-11-05T22:30:00Z  
-**Working Directory**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\`  
-**Target Specification Artifact**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`  
+**Working Directory**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\`  
+**Target Specification Artifact**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`  
 
 ---
 
@@ -99,7 +99,7 @@ The architectural design for the Admin Dashboard UI Shell, Navigation, Overview 
 To independently verify the architecture and readiness:
 
 1. **Inspect Plan Artifact**:
-   - Open `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
+   - Open `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md`
    - Check that all CSS rules, SVG icons, and component interfaces match the specifications.
 2. **Zero-Emoji Compliance Verification**:
    - Verify that no unicode emojis (`grep -P "[\x{1F300}-\x{1F9FF}]"`) exist in `AdminIcons.tsx` or `ui_shell_users_plan.md`.

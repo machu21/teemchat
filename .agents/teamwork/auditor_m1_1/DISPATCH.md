@@ -1,14 +1,14 @@
 # Task Assignment: Forensic Integrity Audit
 
 **Role**: teamwork_auditor
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Background Files to Read:
-1. `ORIGINAL_REQUEST.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `PROJECT.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `TEST_INFRA.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `worker_m1_2 handoff`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md`
+1. `ORIGINAL_REQUEST.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `PROJECT.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `TEST_INFRA.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `worker_m1_2 handoff`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md`
 
 ## Audit Scope:
 Perform a comprehensive integrity audit on all 10 Admin Dashboard implementation files and 2 test files:
@@ -47,22 +47,22 @@ Send a message back to parent when done.
 ## 2026-11-05T23:03:53Z
 You are auditor_m1_1, assigned as Forensic Integrity Auditor for Milestone 1.
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\
 
 Read your dispatch instructions at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\DISPATCH.md
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read TEST_INFRA.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 Read worker_m1_2's handoff report at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md
 
 Conduct a rigorous forensic integrity audit across all 10 Admin Dashboard files and 2 test files in next-app.
 Verify:

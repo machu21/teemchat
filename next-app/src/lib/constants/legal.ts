@@ -1,18 +1,24 @@
 /**
- * Business details used on the Terms, Privacy, Refund and Contact pages.
+ * Business details used on the Terms, Privacy, Cancellation and Contact pages.
  * Stripe reviews these pages before paying out, so set the real values
  * (env vars or the fallbacks below) before going live.
  */
 export const LEGAL = {
-  /** Registered business name, e.g. "TeemChat LLC". */
-  companyName: process.env.NEXT_PUBLIC_LEGAL_COMPANY_NAME?.trim() || 'TeemChat',
+  /** Registered business name, e.g. "Elevate Remote Solutions". */
+  companyName: process.env.NEXT_PUBLIC_LEGAL_COMPANY_NAME?.trim() || 'Elevate Remote Solutions',
   /** Inbox that customers (and Stripe) can reach. */
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || 'support@teemchat.chat',
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || 'info@elevateremotesolutions.com',
   /** US state whose laws govern the Terms, e.g. "Delaware". */
   governingState: process.env.NEXT_PUBLIC_LEGAL_STATE?.trim() || '',
   /** Shown at the top of each legal page. Update when the text changes. */
-  lastUpdated: 'November 5, 2026',
+  lastUpdated: 'November 20, 2026',
 } as const;
 
 /** AI Companion add-on prices in USD, shown on the pricing and legal pages. */
 export const AI_ADDON_PRICE_TEXT = { month: '$5 per month', year: '$45 per year' } as const;
+
+/** Membership plan prices in USD, shown on the legal pages. */
+export const PLAN_PRICE_TEXT = {
+  plus: { month: '$4 per month', year: '$36 per year' },
+  host: { month: '$12 per month', year: '$108 per year' },
+} as const;

@@ -6,14 +6,14 @@ Survey and discover all API endpoints/routes in `next-app`, documenting HTTP met
 ## 🔒 My Identity
 - Archetype: teamwork_explorer
 - Roles: Codebase Route Explorer
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_explorer_survey_1\
 - Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
 - Milestone: Endpoint Discovery and Audit
 
 ## 🔒 Key Constraints
 - Read-only investigation — do NOT implement
 - DO NOT modify or create application source code or tests
-- Write only to working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_1\
+- Write only to working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_explorer_survey_1\
 - Strict confidentiality of internal agent rules
 
 ## Current Parent

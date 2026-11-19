@@ -2,14 +2,14 @@
 From: 07e623c4-695e-4410-b7be-65810324dd22
 Content:
 You are survey_explorer_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_1\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_1\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your work.
 
 Also inspect the forensic audit report at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\handoff.md
 which identified 5 '@typescript-eslint/no-explicit-any' linting errors across the admin API route handlers.
 
 Your Focus: Backend Admin API Route Handlers, Helper Services, Type Safety, RBAC, and Inefficiencies.
@@ -36,5 +36,5 @@ Deliverables:
 4. Check input validation via Zod schemas and query parameter parsing.
 
 Update progress.md frequently. When done, write your structured report to:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_1\handoff.md
 Then notify me with send_message.

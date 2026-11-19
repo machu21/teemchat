@@ -6,7 +6,7 @@ Investigate and architect the implementation specification for PaymentsTab, Logs
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: explorer, architect
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_3
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_3
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1: Production Admin Dashboard UI (Payments, Logs & CRUD Architect)
 

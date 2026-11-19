@@ -4,9 +4,10 @@
 
 .bellBtn {
   background-color: var(--card-inner);
+  color: var(--text-main);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   width: 40px;
   height: 40px;
   display: flex;
@@ -21,7 +22,7 @@
 @media (hover: hover) and (pointer: fine) {
   .bellBtn:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -52,7 +53,7 @@
   background-color: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
   border-radius: var(--neo-radius);
-  box-shadow: 4px 4px 0px var(--card-border);
+  box-shadow: 4px 4px 0px var(--neo-shadow-color);
   z-index: 990;
   display: flex;
   flex-direction: column;

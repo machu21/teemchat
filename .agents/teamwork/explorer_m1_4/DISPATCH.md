@@ -2,14 +2,14 @@
 
 **Role**: teamwork_explorer
 **Iteration**: 2 (Remediation following Forensic Audit Failure)
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_4\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_4\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Background Files to Read:
-1. `ORIGINAL_REQUEST.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `PROJECT.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `TEST_INFRA.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `auditor_m1_1 handoff`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\handoff.md`
+1. `ORIGINAL_REQUEST.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `PROJECT.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `TEST_INFRA.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `auditor_m1_1 handoff`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\handoff.md`
 
 ## Full Forensic Auditor Evidence:
 The Forensic Auditor reported INTEGRITY VIOLATION with the following evidence:
@@ -36,18 +36,18 @@ Priority: MESSAGE_PRIORITY_HIGH
 Content:
 You are explorer_m1_4, assigned as Explorer for Iteration 2 (Remediation of Forensic Audit Failure - Route Handler Type Safety).
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_4\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_4\
 
 Read your dispatch instructions at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_4\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_4\DISPATCH.md
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read the Forensic Auditor's full handoff report at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\handoff.md
 
 Formulate a type-safe code fix strategy for the 5 ESLint errors in src/app/api/admin/ that satisfies both TypeScript compilation and ESLint (0 errors, 0 warnings, no any). Write your report in handoff.md and send_message back to parent when done. Do NOT implement.

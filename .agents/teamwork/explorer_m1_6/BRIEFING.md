@@ -6,7 +6,7 @@ Investigate schema types for user_subscriptions and profiles to formulate type-s
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: teamwork_explorer
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_6\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_6\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: milestone_1
 

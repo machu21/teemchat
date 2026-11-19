@@ -7,7 +7,8 @@ import { useSocialStore } from '@/stores/social';
 import { SpaceService } from '@/lib/services/spaces';
 import { InviteLinkService } from '@/lib/services/invite';
 import { SpaceMode, SpaceModel, spaceTiers } from '@/lib/models/space';
-import { membershipLabel } from '@/lib/membership';
+import { membershipLabel, PLAN_LIMITS } from '@/lib/membership';
+import { PlanCard } from '@/components/billing/PlanCard';
 import { AiAddonCard } from '@/components/billing/AiAddonCard';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoBadge } from '@/components/neo/NeoBadge';
@@ -26,6 +27,7 @@ import {
   availableTopStyles,
   availableBottomStyles,
   availableFacialHair,
+  switchAvatarGender,
 } from '@/lib/models/avatar';
 import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
@@ -193,11 +195,30 @@ export default function DashboardPage() {
   }, [needsAuthRedirect, router]);
 
   const handleSelectGender = (gender: Gender) => {
-    setEditGender(gender);
-    if (gender === 'female') {
-      if (editTopStyle === 'shirt_tie' || editTopStyle === 'polo') setEditTopStyle('blouse');
-      if (editFacialHair !== 'none') setEditFacialHair('none');
-    }
+    const next = switchAvatarGender(
+      {
+        gender: editGender,
+        skinColor: editSkin,
+        shirtColor: editShirt,
+        hairColor: editHair,
+        hairStyle: editHairStyle,
+        accessory: editAccessory,
+        topStyle: editTopStyle,
+        bottomStyle: editBottomStyle,
+        bottomColor: editBottomColor,
+        shoesColor: editShoesColor,
+        facialHair: editFacialHair,
+      },
+      gender
+    );
+    setEditGender(next.gender as Gender);
+    setEditHairStyle(next.hairStyle);
+    setEditTopStyle(next.topStyle ?? editTopStyle);
+    setEditBottomStyle(next.bottomStyle ?? editBottomStyle);
+    setEditShirt(next.shirtColor);
+    setEditHair(next.hairColor);
+    setEditBottomColor(next.bottomColor ?? editBottomColor);
+    setEditFacialHair(next.facialHair ?? 'none');
   };
 
   const openAvatarEditor = () => {
@@ -1249,6 +1270,7 @@ export default function DashboardPage() {
                   <AppIcon name="star" /> Upgrade Account
                 </NeoButton>
               )}
+              {!session.isGuest && <PlanCard session={session} />}
               {!session.isGuest && <AiAddonCard session={session} onPurchased={initSession} />}
               <NeoButton
                 variant="danger"
@@ -1313,14 +1335,15 @@ export default function DashboardPage() {
         <div className={styles.upgradeCard}>
           <p>
             Guest sessions are temporary. Create a free account to keep your avatar, friends, and
-            spaces. During the beta, every account gets Member features for free:
+            spaces. During the beta, every registered account gets Plus features for free (and locks in 50% off Plus
+            for life at launch):
           </p>
           <ul className={styles.upgradeList}>
-            <li><AppIcon name="sparkles" /> Up to 10 Virtual Spaces</li>
-            <li><AppIcon name="users" /> Rooms of up to 50 players</li>
-            <li><AppIcon name="palette" /> Custom Map Decorator & Persistent Furniture</li>
+            <li><AppIcon name="sparkles" /> Up to {PLAN_LIMITS.plus.maps} Virtual Spaces</li>
+            <li><AppIcon name="users" /> Rooms of up to {PLAN_LIMITS.plus.capacity} players</li>
+            <li><AppIcon name="palette" /> Custom Map Decorator &amp; Persistent Furniture</li>
           </ul>
-          <p>The AI Companion (60 messages every 5 hours, with memory) is a paid add-on.</p>
+          <p>The AI Companion (60 messages every 5 hours, with memory) is a separate paid add-on.</p>
           <NeoButton
             variant="primary"
             size="lg"

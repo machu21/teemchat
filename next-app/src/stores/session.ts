@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { UserSession, createGuestSession } from '@/lib/models/user';
+import type { PlanId } from '@/lib/membership';
 import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
 import { SpaceService } from '@/lib/services/spaces';
 import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
@@ -16,6 +17,14 @@ import {
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+function resolveProfilePlan(rawPlan: unknown, isGuest: boolean, isPaid: boolean): PlanId {
+  if (isGuest) return 'free';
+  if (rawPlan === 'free' || rawPlan === 'plus' || rawPlan === 'host' || rawPlan === 'team') {
+    return rawPlan;
+  }
+  return isPaid ? 'plus' : 'free';
+}
 
 interface SessionState {
   session: UserSession | null;
@@ -76,6 +85,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
+        const plan = resolveProfilePlan(profileRecord?.plan, isGuest, isPaid);
 
         const userSession: UserSession = {
           id: session.user.id,
@@ -87,6 +97,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
           isGuest,
           tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+          plan,
           isPaid,
           hasAiCompanion: profile?.has_ai_companion ?? isPaid,
         };
@@ -172,6 +183,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
+        const plan = resolveProfilePlan(profileRecord?.plan, isGuest, isPaid);
 
         E2EEManager.initUser(newSession.user.id).catch(() => {});
         set({
@@ -185,6 +197,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
             isGuest,
             tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+            plan,
             isPaid,
             hasAiCompanion: profile?.has_ai_companion ?? isPaid,
           },
@@ -288,6 +301,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             avatarConfig,
             isGuest: true,
             tier: 'free',
+            plan: 'free',
             isPaid: false,
             hasAiCompanion: false,
             countryCode: (res as { country_code?: string })?.country_code || guestIdentity?.country || 'XX',
@@ -360,6 +374,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
+        const plan = resolveProfilePlan(profileRecord?.plan, false, isPaid);
 
         E2EEManager.syncPasswordBackup(user.id, password).catch(() => {});
         set({
@@ -373,6 +388,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
             isGuest: false,
             tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+            plan,
             isPaid,
             hasAiCompanion: profile?.has_ai_companion ?? isPaid,
           },
@@ -398,6 +414,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const rawGender = String(profileRecord?.gender || meta.gender || (profileRecord?.avatar_config as Record<string, unknown> | undefined)?.gender || 'male').toLowerCase();
         const gender: Gender = rawGender === 'female' ? 'female' : 'male';
         const isPaid = profile?.is_paid ?? false;
+        const plan = resolveProfilePlan(profileRecord?.plan, false, isPaid);
 
         E2EEManager.syncPasswordBackup(data.user.id, password).catch(() => {});
         set({
@@ -411,6 +428,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             avatarConfig: normalizeAvatarConfig(profile?.avatar_config, gender),
             isGuest: false,
             tier: ((profile?.tier as 'paid' | 'free') || (isPaid ? 'paid' : 'free')) as 'paid' | 'free',
+            plan,
             isPaid,
             hasAiCompanion: profile?.has_ai_companion ?? isPaid,
           },
@@ -518,6 +536,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             avatarConfig,
             isGuest: false,
             tier: 'free',
+            plan: 'free',
             isPaid: false,
             hasAiCompanion: false,
           },

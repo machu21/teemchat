@@ -14,6 +14,7 @@
   --hero-highlight: #EA580C;
 
   --neo-border-width: 2.5px;
+  --neo-shadow-color: #18181B;
   --neo-shadow: 3.5px 3.5px 0px #18181B;
   --neo-shadow-hover: 1.5px 1.5px 0px #18181B;
   --neo-radius: 12px;
@@ -40,6 +41,7 @@
   --hero-highlight: #E879F9;
 
   --neo-border-width: 2.5px;
+  --neo-shadow-color: #000000;
   --neo-shadow: 3.5px 3.5px 0px #000000;
   --neo-shadow-hover: 1.5px 1.5px 0px #000000;
   --focus-ring: #E2F952;
@@ -64,6 +66,7 @@ body {
 button {
   cursor: pointer;
   font-family: inherit;
+  color: inherit;
 }
 
 input, textarea, select {
@@ -130,6 +133,7 @@ html[data-text-scale='1.3'] {
   --cta-text: #000000;
   --hero-highlight: #9A3412;
   --neo-border-width: 3px;
+  --neo-shadow-color: #000000;
   --neo-shadow: 3px 3.5px 0px #000000;
   --neo-shadow-hover: 1.5px 1.5px 0px #000000;
   --focus-ring: #000000;
@@ -150,6 +154,7 @@ html[data-text-scale='1.3'] {
   --cta-text: #000000;
   --hero-highlight: #F5D0FE;
   --neo-border-width: 3px;
+  --neo-shadow-color: #FFFFFF;
   --neo-shadow: 3px 3.5px 0px #FFFFFF;
   --neo-shadow-hover: 1.5px 1.5px 0px #FFFFFF;
   --focus-ring: #E2F952;

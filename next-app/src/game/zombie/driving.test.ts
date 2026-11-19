@@ -3,7 +3,7 @@ import { MAP_HEIGHT, MAP_WIDTH } from '../collision';
 import { getBoundaryWallsForMap, getBuildingsForMap } from '../map/mapRegistry';
 import { ZombieMode, type ZombieFrameInput, type ZombieHud } from './zombieMode';
 import { TILE_SOLID } from './grid';
-import { VEHICLE_SPECS, outlinePoints, type VehicleState } from './survival/vehicles';
+import { exitPoints, VEHICLE_SPECS, outlinePoints, type VehicleState } from './survival/vehicles';
 import type { VehicleSystem } from './vehicleSystem';
 import type { ZombieBuildOp, ZombieSnapshot, ZombieStrike } from '../../lib/services/zombieSync';
 import type { VehicleRow } from './survival/vehicles';
@@ -136,6 +136,23 @@ describe('getting in and driving', () => {
     expect(mode.isBlocked({ x: out.x - 6, y: out.y - 8, w: 12, h: 10 })).toBe(false);
     const g = mode.sim.grid;
     expect(g.flags[Math.floor(v.y / 16) * g.cols + Math.floor(v.x / 16)] & TILE_SOLID).toBeTruthy();
+  });
+
+  it('exit checks the full player hitbox and extra obstacle callback instead of dropping you inside walls or props', () => {
+    const { mode } = makeMode();
+    step(mode, 0.1);
+    mode.worldAction('v:enter');
+    // Park right next to the north perimeter wall (y: 0..32, clear of Town Hall) so the driver-side
+    // exit center (y = 38) is outside the wall tile, yet the 12x10 player hitbox (y: 30..40) clips it.
+    const parked = { ...car(mode), x: 650, y: 64, angle: 0, speed: 0 };
+    p(mode).vehicles.set(parked);
+    const exits = exitPoints(parked, VEHICLE_SPECS.sedan);
+    // Block the second exit via extraExitBlocked (simulating a street lamp / FurnitureEntity)
+    mode.setExitBlocked((box) => box.y <= exits[1].y && box.y + box.h >= exits[1].y && box.x <= exits[1].x && box.x + box.w >= exits[1].x);
+    expect(mode.exitVehicle()).toBe(true);
+    const out = mode.takeExitPoint()!;
+    // Must skip both the north wall clip (exits[0]) and the prop (exits[1]) and pick exits[2] (rear)
+    expect(out).toEqual(exits[2]);
   });
 
   it('no key: Hotwire (Electrical 1 + Mechanics 2) takes a few seconds, then it starts', () => {

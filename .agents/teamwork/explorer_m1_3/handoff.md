@@ -3,7 +3,7 @@
 **From**: `explorer_m1_3` (teamwork_explorer)  
 **To**: `orchestrator` / `parent` (`b94baafd-665a-4ce2-870b-448b49783b93`)  
 **Target Milestone**: Milestone 1: Production Admin Dashboard UI  
-**Artifact Path**: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md`  
+**Artifact Path**: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md`  
 
 ---
 
@@ -80,7 +80,7 @@ The designs:
 To independently verify this specification and its findings:
 
 1. **Verify Plan Artifact**:
-   Inspect `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md`.
+   Inspect `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_3\payments_logs_crud_plan.md`.
 2. **Verify Database & API Alignments**:
    - Inspect `next-app/src/lib/admin/schemas.ts` lines 81-97 (`WHITELISTED_CRUD_ENTITIES`).
    - Inspect `next-app/src/app/api/admin/crud/[entity]/route.ts` lines 27-46.

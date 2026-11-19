@@ -1,14 +1,14 @@
 # Task Assignment: Code Review - Architecture, Security & API Integration
 
 **Role**: teamwork_reviewer
-**Working Directory**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_1\
-**Workspace Root**: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson
+**Working Directory**: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_1\
+**Workspace Root**: c:\\Users\\LENOVO\\teemchat
 
 ## Mandatory Background Files to Read:
-1. `ORIGINAL_REQUEST.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md`
-2. `PROJECT.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md`
-3. `TEST_INFRA.md`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md`
-4. `worker_m1_2 handoff`: `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md`
+1. `ORIGINAL_REQUEST.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md`
+2. `PROJECT.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md`
+3. `TEST_INFRA.md`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md`
+4. `worker_m1_2 handoff`: `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md`
 
 ## Primary Target Files to Review:
 - `next-app/src/lib/services/adminClient.ts`
@@ -44,21 +44,21 @@ Write `handoff.md` with your verdict: **APPROVE** or **REQUEST_CHANGES** (with d
 ## 2026-11-05T23:03:25Z
 You are reviewer_m1_1, assigned as Code Reviewer for Milestone 1 (Architecture, Security & API Integration).
 Your working directory is:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_1\
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_1\
 
 Read your dispatch instructions at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\reviewer_m1_1\DISPATCH.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\reviewer_m1_1\DISPATCH.md
 
 Read ORIGINAL_REQUEST.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 
 Read PROJECT.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
 
 Read TEST_INFRA.md at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 Read worker_m1_2's handoff report at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\handoff.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\handoff.md
 
 Review the code and tests, run verification commands (npm run lint, npm test), write your handoff.md with verdict APPROVE or REQUEST_CHANGES, and send_message back to parent when done.

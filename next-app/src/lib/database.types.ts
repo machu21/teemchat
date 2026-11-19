@@ -226,6 +226,24 @@ export type Database = {
           },
         ]
       }
+      billing_settings: {
+        Row: {
+          beta_free_membership: boolean
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          beta_free_membership?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          beta_free_membership?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       buddy_conversations: {
         Row: {
           created_at: string
@@ -1050,6 +1068,7 @@ export type Database = {
           has_ai_companion: boolean
           id: string
           is_paid: boolean
+          plan: string
           public_key: string | null
           status: string
           status_message: string | null
@@ -1067,6 +1086,7 @@ export type Database = {
           has_ai_companion?: boolean
           id: string
           is_paid?: boolean
+          plan?: string
           public_key?: string | null
           status?: string
           status_message?: string | null
@@ -1084,6 +1104,7 @@ export type Database = {
           has_ai_companion?: boolean
           id?: string
           is_paid?: boolean
+          plan?: string
           public_key?: string | null
           status?: string
           status_message?: string | null
@@ -1991,8 +2012,16 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
+          has_ai_addon: boolean
           has_ai_unlimited: boolean
           id: string
+          is_founding_member: boolean
+          membership_cancel_at_period_end: boolean
+          membership_interval: string | null
+          membership_period_end: string | null
+          membership_plan: string
+          membership_status: string | null
+          membership_stripe_subscription_id: string | null
           metadata: Json | null
           plan_id: string
           status: string
@@ -2006,8 +2035,16 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          has_ai_addon?: boolean
           has_ai_unlimited?: boolean
           id?: string
+          is_founding_member?: boolean
+          membership_cancel_at_period_end?: boolean
+          membership_interval?: string | null
+          membership_period_end?: string | null
+          membership_plan?: string
+          membership_status?: string | null
+          membership_stripe_subscription_id?: string | null
           metadata?: Json | null
           plan_id?: string
           status?: string
@@ -2021,8 +2058,16 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          has_ai_addon?: boolean
           has_ai_unlimited?: boolean
           id?: string
+          is_founding_member?: boolean
+          membership_cancel_at_period_end?: boolean
+          membership_interval?: string | null
+          membership_period_end?: string | null
+          membership_plan?: string
+          membership_status?: string | null
+          membership_stripe_subscription_id?: string | null
           metadata?: Json | null
           plan_id?: string
           status?: string
@@ -2255,6 +2300,9 @@ export type Database = {
     }
     Functions: {
       am_i_space_moderator: { Args: { p_space: string }; Returns: boolean }
+      effective_plan: { Args: { p_user_id: string }; Returns: string }
+      plan_capacity_limit: { Args: { p_plan: string }; Returns: number }
+      plan_map_limit: { Args: { p_plan: string }; Returns: number }
       contact_permissions: { Args: { p_other: string }; Returns: Json }
       get_my_safety: { Args: never; Returns: Json }
       moderate_space_member: {

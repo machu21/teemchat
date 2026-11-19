@@ -5,6 +5,7 @@ import { findLevelAt, findStairAt, getStairLinks } from '../buildings';
 import { buildZombieGrid } from '../../zombie/zombieGrid';
 import { TILE_ENTRANCE, TILE_OPAQUE, TILE_SOLID, tileIndex } from '../../zombie/grid';
 import { Zombie, ZombieSim, ZOMBIE } from '../../zombie/zombieSim';
+import { exitPoints, VEHICLE_SPECS } from '../../zombie/survival/vehicles';
 import { FurnitureEntity } from '../../entities/furniture';
 import { generateCity } from './cityPlan';
 
@@ -245,5 +246,52 @@ describe('zombie_city hordes', () => {
     expect(mode.sim.countNear(fx, fy, 45)).toBeGreaterThanOrEqual(25);
     expect(mode.sim.countNear(sx, sy, 45)).toBeLessThan(local);
     expect(mode.sim.zombies.length).toBeLessThanOrEqual(150);
+  });
+});
+
+describe('zombie_city vehicle exits and spawn clearance', () => {
+  it('keeps parked cars clear of street lamps and gives every car a free exit', () => {
+    const props = city.defaultProps
+      .map((p, i) => new FurnitureEntity(`p${i}`, p.type, p.x, p.y).getHitbox())
+      .filter((r): r is NonNullable<typeof r> => !!r);
+    const propIdx = new WallIndex(props);
+    const wallIdx = new WallIndex(city.boundaryWalls);
+    const lowIdx = new WallIndex(city.lowWalls ?? []);
+    const lamps = city.defaultProps
+      .filter((p) => p.type === 'streetLantern')
+      .map((p, i) => new FurnitureEntity(`l${i}`, p.type, p.x, p.y).getHitbox()!)
+      .filter(Boolean);
+    const lampIdx = new WallIndex(lamps);
+
+    for (const v of city.vehicles ?? []) {
+      const spec = VEHICLE_SPECS[v.kind];
+      const free = exitPoints(v, spec).some((pt) => {
+        const box = { x: pt.x - 6, y: pt.y - 8, w: 12, h: 10 };
+        return !wallIdx.hits(box) && !lowIdx.hits(box) && !propIdx.hits(box);
+      });
+      expect(free, `vehicle #${v.id} (${v.kind}) @(${v.x},${v.y}) has no free exit`).toBe(true);
+      // No parked car sits pinched right against a street lamp on its driver/passenger side
+      const pad = Math.hypot(spec.length, spec.width) / 2;
+      expect(
+        exitPoints(v, spec)
+          .slice(0, 2)
+          .some((pt) => lampIdx.hits({ x: pt.x - 6, y: pt.y - 8, w: 12, h: 10 })),
+        `vehicle #${v.id} @(${v.x},${v.y}) side exit hits a street lamp`
+      ).toBe(false);
+      void pad;
+    }
+  });
+
+  it('keeps defaultSpawn plus jitter clear of park obstacles', () => {
+    const props = city.defaultProps
+      .map((p, i) => new FurnitureEntity(`p${i}`, p.type, p.x, p.y).getHitbox())
+      .filter((r): r is NonNullable<typeof r> => !!r);
+    const allIdx = new WallIndex([...city.boundaryWalls, ...(city.lowWalls ?? []), ...props]);
+    for (let dx = -20; dx <= 20; dx += 4) {
+      for (let dy = -20; dy <= 20; dy += 4) {
+        const hb = { x: city.defaultSpawn.x + dx + 10, y: city.defaultSpawn.y + dy + 20, w: 12, h: 10 };
+        expect(allIdx.hits(hb), `spawn offset (${dx},${dy}) blocked`).toBe(false);
+      }
+    }
   });
 });

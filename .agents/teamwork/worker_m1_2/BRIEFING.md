@@ -6,7 +6,7 @@ Complete Milestone 1: Verify, test, and polish the Production Admin Dashboard UI
 ## 🔒 My Identity
 - Archetype: teamwork_worker
 - Roles: implementer, qa, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m1_2\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m1_2\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1: Production Admin Dashboard UI Implementation & Test Suite
 

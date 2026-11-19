@@ -6,13 +6,13 @@ Probe and document the complete specification of existing admin backend API rout
 ## 🔒 My Identity
 - Archetype: specification_miner
 - Roles: teamwork_spec_miner
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Phase 0: Survey & Discovery
 
 ## 🔒 Key Constraints
 - Do NOT implement anything — read-only spec mining.
-- Write findings to `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_spec_miner_1\api_specifications.md` and `handoff.md`.
+- Write findings to `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_spec_miner_1\api_specifications.md` and `handoff.md`.
 - Adhere strictly to Teamwork communication and handoff guidelines.
 - .agents/teamwork/ holds only metadata (plans, progress, handoffs) — no source code or tests.
 

@@ -6,13 +6,13 @@ Investigate test infrastructure and execution options for testing Next.js API ro
 ## 🔒 My Identity
 - Archetype: teamwork_explorer
 - Roles: Test Infra Explorer
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_2
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_explorer_survey_2
 - Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
 - Milestone: Survey Phase
 
 ## 🔒 Key Constraints
 - Read-only investigation — do NOT implement or modify application code/tests
-- Write only to working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_explorer_survey_2\
+- Write only to working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_explorer_survey_2\
 - Do not copy code from existing open-source projects for core logic
 
 ## Current Parent

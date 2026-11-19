@@ -50,7 +50,7 @@
   font-weight: bold;
   font-size: 1rem;
   color: var(--text-main);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -60,7 +60,7 @@
 @media (hover: hover) and (pointer: fine) {
   .closeBtn:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 

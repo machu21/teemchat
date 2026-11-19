@@ -29,10 +29,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-main);
   background-color: var(--card-inner);
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
   cursor: pointer;
   transition: transform 0.1s;
 }
@@ -40,7 +41,7 @@
 @media (hover: hover) and (pointer: fine) {
   .iconBtn:hover {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0px var(--card-border);
+    box-shadow: 1px 1px 0px var(--neo-shadow-color);
   }
 }
 
@@ -52,7 +53,15 @@
 .iconBtn.selectedIcon {
   background-color: #EDE9FE;
   border-color: #7C3AED;
+  color: #6D28D9;
   box-shadow: 2px 2px 0px #7C3AED;
+}
+
+[data-theme='dark'] .iconBtn.selectedIcon {
+  background-color: rgba(139, 92, 246, 0.28);
+  border-color: var(--primary);
+  color: #EDE9FE;
+  box-shadow: 2px 2px 0px #000000;
 }
 
 .friendsSelector {

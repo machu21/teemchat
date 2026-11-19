@@ -5,7 +5,7 @@ Admin workflow and endpoints testing, bug detection, logic error and inefficienc
 
 ## 🔒 My Identity
 - Archetype: sentinel
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\sentinel\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\sentinel\
 - Orchestrator: 07e623c4-695e-4410-b7be-65810324dd22
 - Victory Auditor: cfde3f09-3d8c-41b2-8cf4-18c78dab5955
 
@@ -34,7 +34,7 @@ Admin workflow and endpoints testing, bug detection, logic error and inefficienc
 - **Retry count**: 0
 
 ## Artifact Index
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md — Authoritative record of approved task request
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\handoff.md — Orchestrator completion report
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_victory_auditor_1\handoff.md — Victory Auditor report
-- c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\sentinel\handoff.md — Sentinel final handoff report
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md — Authoritative record of approved task request
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\handoff.md — Orchestrator completion report
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_victory_auditor_1\handoff.md — Victory Auditor report
+- c:\\Users\\LENOVO\\teemchat\.agents\teamwork\sentinel\handoff.md — Sentinel final handoff report

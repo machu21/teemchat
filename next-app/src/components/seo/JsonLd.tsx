@@ -1,5 +1,6 @@
 import React from 'react';
 import { SITE_NAME, SITE_DESCRIPTION, getSiteUrl } from '@/lib/constants/site';
+import { PLAN_PRICES } from '@/lib/membership';
 
 interface JsonLdProps {
   faqItems?: Array<{ question: string; answer: string }>;
@@ -44,10 +45,13 @@ export function JsonLd({ faqItems = defaultFaqItems }: JsonLdProps) {
     description: SITE_DESCRIPTION,
     applicationCategory: 'CommunicationApplication',
     operatingSystem: 'Web, Android, iOS',
+    // Free tier plus paid monthly plans (Plus, Host).
     offers: {
-      '@type': 'Offer',
-      price: '0',
+      '@type': 'AggregateOffer',
+      lowPrice: '0',
+      highPrice: String(PLAN_PRICES.host.month),
       priceCurrency: 'USD',
+      offerCount: 1 + Object.keys(PLAN_PRICES).length,
     },
     featureList: [
       '16-Bit Retro Virtual Canvas World',

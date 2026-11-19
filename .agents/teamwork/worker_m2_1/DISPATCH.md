@@ -1,19 +1,19 @@
 ## 2026-11-06T03:23:45Z
 You are worker_m2_1.
-Your working directory is: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\
+Your working directory is: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\
 
 You MUST read the authoritative request at:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\ORIGINAL_REQUEST.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\ORIGINAL_REQUEST.md
 before starting your work.
 
 Also read the architecture and plan in:
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\PROJECT.md
-c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\orchestrator\TEST_INFRA.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\PROJECT.md
+c:\\Users\\LENOVO\\teemchat\.agents\teamwork\orchestrator\TEST_INFRA.md
 
 And thoroughly review the detailed findings and code solutions in the 3 Explorer handoff reports:
-1. c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_1\handoff.md (Backend routes, type safety, ESLint solutions, RBAC)
-2. c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_2\handoff.md (Test suite gaps, new metrics test blueprint, audit assertions blueprint)
-3. c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_3\handoff.md (DB trigger fixes, RPC security & indexes, space_settings PK, updated_at safe injection, space_roles sorting, comma search sanitization)
+1. c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_1\handoff.md (Backend routes, type safety, ESLint solutions, RBAC)
+2. c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_2\handoff.md (Test suite gaps, new metrics test blueprint, audit assertions blueprint)
+3. c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_3\handoff.md (DB trigger fixes, RPC security & indexes, space_settings PK, updated_at safe injection, space_roles sorting, comma search sanitization)
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
@@ -100,7 +100,7 @@ CORE TASKS TO IMPLEMENT:
    - `npx tsc --noEmit` in `next-app` (0 compilation errors)
    - `npm run build` in `next-app` (production build succeeds)
 
-Write your full completion handoff to `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\worker_m2_1\handoff.md` and notify me via send_message.
+Write your full completion handoff to `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\worker_m2_1\handoff.md` and notify me via send_message.
 
 
 ## 2026-11-06T03:36:28Z

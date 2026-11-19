@@ -13,7 +13,7 @@
    - Command: `cd next-app; npx vitest run tests/api/admin_ tests/admin_adversarial_guard.test.ts`
    - Output:
      ```
-     RUN  v5.0.4 C:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson/next-app
+     RUN  v5.0.4 c:/Users/LENOVO/teemchat/next-app
 
      ✓ tests/api/admin_metrics.test.ts (11 tests) 403ms
      ✓ tests/admin_adversarial_guard.test.ts (49 tests) 323ms

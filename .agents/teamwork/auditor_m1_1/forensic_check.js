@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const rootDir = 'c:/Users/ACER.DESKTOP-FLMICGU/Documents/antigravity/clever-carson';
+const rootDir = 'c:/Users/LENOVO/teemchat';
 const files = [
   'next-app/src/lib/services/adminClient.ts',
   'next-app/src/app/admin/admin.module.css',

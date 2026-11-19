@@ -3,7 +3,7 @@
 **Agent**: teamwork_explorer_survey_2  
 **Role**: Test Infra Explorer  
 **Date**: 2026-11-03T20:29:00Z  
-**Target Repository**: `next-app` (`c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\next-app`)  
+**Target Repository**: `next-app` (`c:\\Users\\LENOVO\\teemchat\next-app`)  
 
 ---
 

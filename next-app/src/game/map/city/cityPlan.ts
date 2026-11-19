@@ -544,7 +544,7 @@ function buildPark(
   props.push({ type: 'logBench', x: (plaza.c + pw - 4) * T, y: (plaza.r + ph - 2) * T - 10 });
   props.push({ type: 'logBench', x: (plaza.c + 1) * T, y: (plaza.r + 1) * T - 10 });
   props.push({ type: 'logBench', x: (plaza.c + pw - 4) * T, y: (plaza.r + 1) * T - 10 });
-  props.push({ type: 'trashCan', x: (plaza.c + 4) * T + 2, y: (plaza.r + ph - 2) * T + 2 });
+  props.push({ type: 'trashCan', x: (plaza.c + 2) * T + 2, y: (plaza.r + ph - 2) * T + 2 });
   props.push({ type: 'streetLantern', x: plaza.c * T - 4, y: plaza.r * T - 29 });
   props.push({ type: 'streetLantern', x: (plaza.c + pw - 1) * T - 4, y: plaza.r * T - 29 });
 
@@ -566,7 +566,19 @@ function buildPark(
 
 /** Lamp posts along sidewalks and parked cars in the curb lanes. */
 function addStreetProps(rng: Rng, props: CityProp[]): void {
-  const lamp = (c: number, r: number) => props.push({ type: 'streetLantern', x: c * T - 4, y: r * T - 29 });
+  const lampTiles = new Set<string>();
+  const lamp = (c: number, r: number) => {
+    lampTiles.add(`${c},${r}`);
+    props.push({ type: 'streetLantern', x: c * T - 4, y: r * T - 29 });
+  };
+  const hasLampNear = (c0: number, r0: number, c1: number, r1: number): boolean => {
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (lampTiles.has(`${c},${r}`)) return true;
+      }
+    }
+    return false;
+  };
   const nearAvenue = (c: number) => AVENUE_COLS.some((a) => c >= a - 2 && c <= a + ROAD_W + 1);
   const nearStreet = (r: number) => STREET_ROWS.some((s) => r >= s - 2 && r <= s + ROAD_W + 1);
   for (const s of STREET_ROWS) {
@@ -589,9 +601,12 @@ function addStreetProps(rng: Rng, props: CityProp[]): void {
       const lo = AVENUE_COLS[i] + ROAD_W + 1;
       const hi = AVENUE_COLS[i + 1] - 5;
       for (const lane of [s + 1, s + 3]) {
+        const sidewalkRow = lane === s + 1 ? s : s + ROAD_W - 1;
         let c = lo + randInt(rng, 0, 6);
         while (c <= hi) {
-          if (rng() < 0.45) props.push({ type: 'car', dir: 'h', variant: randInt(rng, 0, 5), x: c * T, y: lane * T + 2 });
+          if (rng() < 0.45 && !hasLampNear(c - 1, sidewalkRow, c + 3, sidewalkRow)) {
+            props.push({ type: 'car', dir: 'h', variant: randInt(rng, 0, 5), x: c * T, y: lane * T + 2 });
+          }
           c += 4 + randInt(rng, 2, 10);
         }
       }
@@ -603,9 +618,12 @@ function addStreetProps(rng: Rng, props: CityProp[]): void {
       const lo = STREET_ROWS[j] + ROAD_W + 1;
       const hi = STREET_ROWS[j + 1] - 5;
       for (const lane of [a + 1, a + 3]) {
+        const sidewalkCol = lane === a + 1 ? a : a + ROAD_W - 1;
         let r = lo + randInt(rng, 0, 6);
         while (r <= hi) {
-          if (rng() < 0.35) props.push({ type: 'car', dir: 'v', variant: randInt(rng, 0, 5), x: lane * T + 2, y: r * T });
+          if (rng() < 0.35 && !hasLampNear(sidewalkCol, r - 1, sidewalkCol, r + 3)) {
+            props.push({ type: 'car', dir: 'v', variant: randInt(rng, 0, 5), x: lane * T + 2, y: r * T });
+          }
           r += 4 + randInt(rng, 2, 10);
         }
       }

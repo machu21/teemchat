@@ -6,7 +6,7 @@ Conduct a rigorous forensic integrity audit on Milestone 1 (Admin Dashboard UI &
 ## 🔒 My Identity
 - Archetype: forensic_auditor
 - Roles: critic, specialist, auditor
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\auditor_m1_1\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\auditor_m1_1\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Target: Milestone 1: Production Admin Dashboard UI & Test Verification
 

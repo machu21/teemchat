@@ -33,7 +33,7 @@
   border: 2px solid var(--card-border);
   background: var(--card-inner);
   color: var(--text-main);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,7 +53,7 @@
 
 .carouselArrowBtn:active {
   transform: translate(1px, 1px);
-  box-shadow: 0.5px 0.5px 0px var(--card-border);
+  box-shadow: 0.5px 0.5px 0px var(--neo-shadow-color);
 }
 
 /* Selected World Callout (Prominent on Mobile) */
@@ -66,7 +66,7 @@
   background-color: var(--card-inner);
   border: 2px solid var(--primary, #7C3AED);
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 .calloutIcon {
@@ -178,7 +178,7 @@
   border: 2px solid var(--card-border);
   background-color: var(--card-bg);
   color: var(--text-main);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
@@ -188,13 +188,13 @@
 
 .categoryTab:active {
   transform: translate(1px, 1px);
-  box-shadow: 0.5px 0.5px 0px var(--card-border);
+  box-shadow: 0.5px 0.5px 0px var(--neo-shadow-color);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .categoryTab:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0px var(--card-border);
+    box-shadow: 2px 2px 0px var(--neo-shadow-color);
   }
 }
 
@@ -202,7 +202,7 @@
   background-color: var(--primary, #7C3AED);
   color: #FFFFFF;
   border-color: var(--card-border);
-  box-shadow: 2px 2px 0px var(--card-border);
+  box-shadow: 2px 2px 0px var(--neo-shadow-color);
 }
 
 /* Map Grid */
@@ -234,7 +234,7 @@
 .mapCard {
   background: var(--card-bg);
   border: var(--neo-border-width) solid var(--card-border);
-  box-shadow: 3px 3px 0px var(--card-border);
+  box-shadow: 3px 3px 0px var(--neo-shadow-color);
   border-radius: var(--neo-radius);
   padding: 12px 14px;
   cursor: pointer;
@@ -255,13 +255,13 @@
 
 .mapCard:active {
   transform: translate(1px, 1px);
-  box-shadow: 1.5px 1.5px 0px var(--card-border);
+  box-shadow: 1.5px 1.5px 0px var(--neo-shadow-color);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .mapCard:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 5px 5px 0px var(--card-border);
+    box-shadow: 5px 5px 0px var(--neo-shadow-color);
   }
 }
 

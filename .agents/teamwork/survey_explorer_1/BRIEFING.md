@@ -6,7 +6,7 @@ Investigate Backend Admin API Route Handlers, Helper Services, Type Safety, RBAC
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: survey_explorer, security_auditor, type_safety_specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\survey_explorer_1
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\survey_explorer_1
 - Original parent: 07e623c4-695e-4410-b7be-65810324dd22
 - Milestone: survey_investigation
 

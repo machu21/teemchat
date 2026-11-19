@@ -6,7 +6,7 @@ Architect and produce concrete implementation specification for Admin Dashboard 
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: investigation, synthesis
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\
 - Original parent: b94baafd-665a-4ce2-870b-448b49783b93
 - Milestone: Milestone 1: Production Admin Dashboard UI (UI Shell & Users Architect)
 
@@ -55,5 +55,5 @@ Architect and produce concrete implementation specification for Admin Dashboard 
 - Specified full user management suite in `UsersTab.tsx` with search, filters, table, and 4 modal dialogs (Create, Edit, Delete, Dossier).
 
 ## Artifact Index
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md` — Core implementation specification
-- `c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\explorer_m1_2\handoff.md` — 5-component handoff report
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\ui_shell_users_plan.md` — Core implementation specification
+- `c:\\Users\\LENOVO\\teemchat\.agents\teamwork\explorer_m1_2\handoff.md` — 5-component handoff report

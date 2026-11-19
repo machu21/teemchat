@@ -6,7 +6,7 @@ Adversarially challenge the API test suites in `next-app/tests/api/` and route h
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
-- Working directory: c:\Users\ACER.DESKTOP-FLMICGU\Documents\antigravity\clever-carson\.agents\teamwork\teamwork_challenger_m1_2
+- Working directory: c:\\Users\\LENOVO\\teemchat\.agents\teamwork\teamwork_challenger_m1_2
 - Original parent: f7d714a1-bf43-49e6-b994-19f708dca4d9
 - Milestone: m1
 - Instance: 2 of 2

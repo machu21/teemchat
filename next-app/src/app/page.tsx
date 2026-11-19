@@ -11,7 +11,7 @@ import {
 const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
-  title: `${SITE_NAME} - 16-Bit Proximity Virtual Space`,
+  title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   alternates: {
     canonical: siteUrl,
@@ -51,7 +51,7 @@ export default function Page() {
       {/* Crawlable Semantic Fallback for Non-JS Crawlers & Assistive Tech */}
       <noscript>
         <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-          <h1>TeemChat - 16-Bit Proximity Virtual Space</h1>
+          <h1>{SITE_TITLE}</h1>
           <p>{SITE_DESCRIPTION}</p>
           <h2>Frequently Asked Questions</h2>
           <dl>
