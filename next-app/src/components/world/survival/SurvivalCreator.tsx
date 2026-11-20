@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { PixelAvatar } from '@/components/neo/PixelAvatar';
 import type { AvatarConfig, BottomStyle, ExtendedHairStyle, FacialHair, TopStyle } from '@/lib/models/avatar';
+import { switchAvatarGender } from '@/lib/models/avatar';
 import {
   NAME_MAX,
   OCCUPATIONS,
@@ -173,7 +174,7 @@ export function SurvivorCreator({ initialLook, defaultName, again, onStart }: Su
                   <span className={styles.creatorLabel}>Presents as</span>
                   <div className={styles.creatorToggle} role="radiogroup" aria-label="Gender presentation">
                     {(['male', 'female'] as const).map((g) => (
-                      <button key={g} type="button" role="radio" aria-checked={look.gender === g} className={look.gender === g ? styles.toggleOn : undefined} onClick={() => setL(g === 'female' ? { gender: g, facialHair: 'none' } : { gender: g })}>
+                      <button key={g} type="button" role="radio" aria-checked={look.gender === g} className={look.gender === g ? styles.toggleOn : undefined} onClick={() => setLook((l) => switchAvatarGender(l, g))}>
                         {g === 'male' ? 'Masculine' : 'Feminine'}
                       </button>
                     ))}
