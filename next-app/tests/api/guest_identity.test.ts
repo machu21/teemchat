@@ -227,7 +227,7 @@ describe('GET /api/auth/guest-identity', () => {
       const data = await res.json();
 
       expect(data.success).toBe(true);
-      expect(data.warning).toBe('Simulated crypto/hashing failure');
+      expect(data.warning).toBe('Failed to determine guest identity');
       expect(data.ipTag).toMatch(/^[0-9A-F]{3,4}$/);
       expect(data.username).toBe(`guest_${data.ipTag.toLowerCase()}`);
       expect(data.displayName).toBe(`Explorer #${data.ipTag}`);

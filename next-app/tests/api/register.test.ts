@@ -519,8 +519,8 @@ describe('POST /api/auth/register', () => {
       expect(data.error).toBe('Username may only contain letters, numbers, hyphens, and underscores.');
     });
 
-    it('rejects password shorter than 6 characters with status 400', async () => {
-      const payload = { ...validBasePayload(), password: '12345' };
+    it('rejects password shorter than 8 characters with status 400', async () => {
+      const payload = { ...validBasePayload(), password: '1234567' };
       const req = new NextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -530,7 +530,7 @@ describe('POST /api/auth/register', () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe('Password must be at least 6 characters long.');
+      expect(data.error).toBe('Password must be 8 to 128 characters long.');
     });
 
     it('rejects non-string password with status 400', async () => {
@@ -544,7 +544,7 @@ describe('POST /api/auth/register', () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe('Password must be at least 6 characters long.');
+      expect(data.error).toBe('Password must be 8 to 128 characters long.');
     });
   });
 
@@ -769,7 +769,8 @@ describe('POST /api/auth/register', () => {
       const res = await POST(req);
       expect(res.status).toBe(500);
       const data = await res.json();
-      expect(data.error).toBe('Fatal socket network timeout');
+      expect(data.error).toBe('Registration failed. Please try again.');
+      expect(JSON.stringify(data)).not.toContain('Fatal socket network timeout');
     });
   });
 });

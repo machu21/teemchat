@@ -68,10 +68,35 @@ function getRandomValues(array: Uint8Array): Uint8Array {
   throw new Error('No secure random number generator available.');
 }
 
+/**
+ * PBKDF2-HMAC-SHA256 work factor for key backups. New backups use OWASP's current
+ * recommendation (600k) and record it in the stored salt as `p<iterations>:<base64>`;
+ * backups written before that carry a bare salt and were made with 100k.
+ */
+export const PBKDF2_ITERATIONS = 600_000;
+export const LEGACY_PBKDF2_ITERATIONS = 100_000;
+const MAX_PBKDF2_ITERATIONS = 5_000_000;
+
+export function encodeBackupSalt(salt: Uint8Array, iterations: number = PBKDF2_ITERATIONS): string {
+  return `p${iterations}:${bufferToBase64(salt)}`;
+}
+
+export function decodeBackupSalt(stored: string): { salt: Uint8Array; iterations: number } {
+  const match = /^p(\d{1,7}):(.+)$/.exec(stored);
+  if (!match) return { salt: base64ToBuffer(stored), iterations: LEGACY_PBKDF2_ITERATIONS };
+  const iterations = Number(match[1]);
+  if (iterations < LEGACY_PBKDF2_ITERATIONS || iterations > MAX_PBKDF2_ITERATIONS) {
+    // Refuse a downgraded or absurd work factor rather than silently trusting it.
+    throw new Error('Unsupported key backup format.');
+  }
+  return { salt: base64ToBuffer(match[2]), iterations };
+}
+
 async function derivePbkdf2WrapKey(
   passphraseOrPin: string,
   salt: Uint8Array,
-  usage: 'encrypt' | 'decrypt'
+  usage: 'encrypt' | 'decrypt',
+  iterations: number = PBKDF2_ITERATIONS
 ): Promise<CryptoKey> {
   const subtle = getSubtleCrypto();
   const keyMaterial = await subtle.importKey(
@@ -86,7 +111,7 @@ async function derivePbkdf2WrapKey(
     {
       name: 'PBKDF2',
       salt: sliceArrayBuffer(salt),
-      iterations: 100_000,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -486,7 +511,7 @@ export class CryptoService {
 
     return {
       encryptedPrivateKey: bufferToBase64(cipher),
-      salt: bufferToBase64(salt),
+      salt: encodeBackupSalt(salt),
       iv: bufferToBase64(iv),
     };
   }
@@ -499,10 +524,10 @@ export class CryptoService {
     passphraseOrPin: string
   ): Promise<string> {
     const subtle = getSubtleCrypto();
-    const salt = base64ToBuffer(backup.salt);
+    const { salt, iterations } = decodeBackupSalt(backup.salt);
     const iv = base64ToBuffer(backup.iv);
     const cipher = base64ToBuffer(backup.encryptedPrivateKey);
-    const wrapKey = await derivePbkdf2WrapKey(passphraseOrPin, salt, 'decrypt');
+    const wrapKey = await derivePbkdf2WrapKey(passphraseOrPin, salt, 'decrypt', iterations);
 
     const decrypted = await subtle.decrypt(
       {

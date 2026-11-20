@@ -572,7 +572,8 @@ describe('POST /api/companion/chat', () => {
       expect(res.status).toBe(500);
 
       const data = await res.json();
-      expect(data.error).toContain('Resource has been exhausted');
+      expect(data.error).toBe('AI is unavailable right now. Please try again shortly.');
+      expect(JSON.stringify(data)).not.toContain('Resource has been exhausted');
     });
 
     it('returns status 500 when request body contains unparseable JSON', async () => {

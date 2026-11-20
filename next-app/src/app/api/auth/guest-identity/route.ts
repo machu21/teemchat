@@ -49,7 +49,9 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to determine guest identity';
+    // The internal error stays in the server log; the client only learns a fallback was used (OWASP A10).
+    console.warn('Guest identity fallback:', err);
+    const msg = 'Failed to determine guest identity';
     const fallbackTag = Math.floor(Math.random() * 9000 + 1000).toString(16).toUpperCase();
     const fallback = formatGuestHandles(fallbackTag);
 

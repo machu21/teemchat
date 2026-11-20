@@ -207,8 +207,8 @@ export async function POST(req: NextRequest) {
       bondXp,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // Details go to the server log only; clients get a generic message (OWASP A10).
     console.error('Error generating companion response:', err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 500 });
   }
 }

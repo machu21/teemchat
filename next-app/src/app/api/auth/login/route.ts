@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // Details go to the server log only; clients get a generic message (OWASP A10).
     console.error('Login handler error:', err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
   }
 }

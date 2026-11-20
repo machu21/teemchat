@@ -55,8 +55,10 @@ export function KeyBackupModal({ isOpen, onClose, userId, onSuccess }: KeyBackup
     setError(null);
     setStatusMessage(null);
 
-    if (pin.trim().length < 6) {
-      setError('Please enter a Security PIN or passphrase of at least 6 characters.');
+    // New backups need 8+ characters (OWASP A04/A07); restores still accept older 6-character PINs.
+    const minLength = mode === 'backup' ? 8 : 6;
+    if (pin.trim().length < minLength) {
+      setError(`Please enter a Security PIN or passphrase of at least ${minLength} characters.`);
       return;
     }
 
@@ -129,11 +131,11 @@ export function KeyBackupModal({ isOpen, onClose, userId, onSuccess }: KeyBackup
 
         <form className={styles.stack} onSubmit={handleSubmit}>
           <NeoInput
-            label={mode === 'backup' ? 'Security PIN or Passphrase (6+ chars)' : 'Enter Security PIN or Password'}
+            label={mode === 'backup' ? 'Security PIN or Passphrase (8+ chars)' : 'Enter Security PIN or Password'}
             type="password"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
-            placeholder="Minimum 6 characters"
+            placeholder={mode === 'backup' ? 'Minimum 8 characters' : 'Your PIN or password'}
             autoComplete={mode === 'backup' ? 'new-password' : 'current-password'}
           />
 

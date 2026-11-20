@@ -300,7 +300,8 @@ describe('POST /api/auth/login', () => {
 
       expect(res.status).toBe(500);
       const data = await res.json();
-      expect(data.error).toBe('Database connection reset');
+      expect(data.error).toBe('Login failed. Please try again.');
+      expect(JSON.stringify(data)).not.toContain('Database connection reset');
     });
   });
 });

@@ -125,9 +125,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Password Quality Check
-    if (!password || typeof password !== 'string' || password.length < 6) {
+    // OWASP A07 / NIST 800-63B: at least 8 characters. The upper bound stops oversized
+    // payloads (bcrypt only reads the first 72 bytes anyway).
+    if (!password || typeof password !== 'string' || password.length < 8 || password.length > 128) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters long.' },
+        { error: 'Password must be 8 to 128 characters long.' },
         { status: 400 }
       );
     }
@@ -239,8 +241,8 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // Details go to the server log only; clients get a generic message (OWASP A10).
     console.error('Registration handler error:', err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Registration failed. Please try again.' }, { status: 500 });
   }
 }
