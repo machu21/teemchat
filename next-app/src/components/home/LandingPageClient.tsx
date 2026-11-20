@@ -1169,7 +1169,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </div>
               <div className={styles.stepTitle}>Voice huts & Proximity</div>
               <div className={styles.stepDesc}>
-                High-bitrate LiveKit spatial WebRTC audio. Walk near players to hear them; walk away to fade.
+                Crystal-clear proximity voice. Walk near players to hear them; walk away to fade.
               </div>
             </NeoCard>
 
@@ -1177,7 +1177,7 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               <div className={styles.featIconBox}>
                 <BotIcon size={24} color="#E76F51" />
               </div>
-              <div className={styles.stepTitle}>Buddy chat & AI RAG</div>
+              <div className={styles.stepTitle}>Buddy chat & AI Companion</div>
               <div className={styles.stepDesc}>
                 Your personal AI Companion travels with you, learns from your talks, and remembers past facts.
               </div>
@@ -1497,12 +1497,12 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               </div>
 
               <p className={styles.platformDescription}>
-                Download the native Android APK package directly to your phone or tablet. Experience high-fidelity spatial WebRTC proximity voice, on-screen joystick, and full haptic touch feedback.
+                Download the native Android APK package directly to your phone or tablet. Experience high-fidelity proximity voice, on-screen joystick, and full haptic touch feedback.
               </p>
 
               <div className={styles.platformPillTags}>
                 <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Android 8.0+</span>
-                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> WebRTC Voice</span>
+                <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Proximity Voice</span>
                 <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Retro Joystick</span>
                 <span className={styles.platformPill}><CheckIcon size={12} color="currentColor" /> Fast Direct APK</span>
               </div>

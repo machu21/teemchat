@@ -25,7 +25,7 @@ export const defaultFaqItems = [
   {
     question: 'Do I need to download an app to use TeemChat?',
     answer:
-      'No installation is required. TeemChat runs directly in all modern desktop and mobile browsers, with dedicated mobile support powered by Capacitor.',
+      'No installation is required. TeemChat runs directly in all modern desktop and mobile browsers, and there is also a dedicated Android app.',
   },
   {
     question: 'How do I invite teammates to my virtual space?',
@@ -55,11 +55,20 @@ export function JsonLd({ faqItems = defaultFaqItems }: JsonLdProps) {
     },
     featureList: [
       '16-Bit Retro Virtual Canvas World',
-      'Spatial Proximity Voice Chat (WebRTC/LiveKit)',
+      'Spatial Proximity Voice Chat',
       'Customizable 2D Pixel Avatars',
       'Interactive AI Companion',
       'Instant Shareable Room Invite Links',
     ],
+  };
+
+  // Tells Google to show "TeemChat" as the site name instead of the bare domain.
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    alternateName: ['Teem Chat', 'teemchat.chat'],
+    url: `${siteUrl}/`,
   };
 
   const organizationSchema = {
@@ -92,6 +101,10 @@ export function JsonLd({ faqItems = defaultFaqItems }: JsonLdProps) {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppSchema) }}

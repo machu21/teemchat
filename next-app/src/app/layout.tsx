@@ -68,18 +68,15 @@ export const metadata: Metadata = {
     creator: "@teemchat",
   },
   icons: {
+    // One file per size, all multiples of 48px (Google's favicon rule), no duplicates.
     icon: [
+      { url: "/favicon.ico", type: "image/x-icon" },
       { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
       { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icon.png", sizes: "96x96", type: "image/png" },
       { url: "/icons/Icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
     ],
     shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
-    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.json",
   ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION && {
