@@ -82,6 +82,7 @@ describe('POST /api/auth/register', () => {
       expect(data.success).toBe(true);
       expect(data.user).toEqual({ id: 'usr-12345', email: 'newplayer@example.com' });
       expect(data.session).toEqual({ access_token: 'fake-jwt-token', refresh_token: 'fake-refresh-token' });
+      expect(data.needsVerification).toBe(false);
 
       // Verify Supabase Auth sign-up called with normalized parameters
       expect(mockSignUp).toHaveBeenCalledWith({
@@ -113,6 +114,28 @@ describe('POST /api/auth/register', () => {
       // Verify rate limit headers
       expect(res.headers.get('x-ratelimit-limit')).toBe('5');
       expect(res.headers.get('x-ratelimit-remaining')).toBeDefined();
+    });
+
+    it('flags needsVerification when Supabase holds the account for the emailed code', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: {
+          user: { id: 'usr-pending', email: 'newplayer@example.com', identities: [{ id: 'idn-1' }] },
+          session: null,
+        },
+        error: null,
+      });
+      const req = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '198.51.100.19' },
+        body: JSON.stringify(validBasePayload()),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.session).toBeNull();
+      expect(data.needsVerification).toBe(true);
     });
 
     it('defaults optional fields: gender to male and displayName to username', async () => {

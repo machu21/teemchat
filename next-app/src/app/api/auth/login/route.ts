@@ -82,6 +82,17 @@ export async function POST(req: NextRequest) {
       password,
     });
 
+    // Correct password but the 6-digit sign-up code was never entered.
+    if (authError?.code === 'email_not_confirmed') {
+      return NextResponse.json(
+        {
+          error: 'Please verify your email to finish creating your account.',
+          code: 'email_unconfirmed',
+        },
+        { status: 403, headers: getRateLimitHeaders(accountRateResult) }
+      );
+    }
+
     if (authError || !data.user) {
       return NextResponse.json(
         {

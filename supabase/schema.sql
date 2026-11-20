@@ -52,22 +52,12 @@ create policy "Users can update their own profile" on public.profiles
   for update using (auth.uid() = id);
 
 -- ==========================================================
--- 2. AUTOMATIC PROFILE PROVISIONING & EMAIL CONFIRMATION TRIGGER
+-- 2. AUTOMATIC PROFILE PROVISIONING
 -- ==========================================================
-create or replace function public.auto_confirm_new_user()
-returns trigger as $$
-begin
-  if new.email_confirmed_at is null then
-    new.email_confirmed_at := now();
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
-
+-- Email/password sign-ups must verify a 6-digit email code (Supabase "Confirm email"),
+-- so the old auto-confirm trigger is removed (see 20261121_require_email_verification.sql).
 drop trigger if exists on_auth_user_created_auto_confirm on auth.users;
-create trigger on_auth_user_created_auto_confirm
-  before insert on auth.users
-  for each row execute procedure public.auto_confirm_new_user();
+drop function if exists public.auto_confirm_new_user();
 
 create or replace function public.handle_new_user()
 returns trigger as $$
@@ -3376,7 +3366,6 @@ $$;
 -- ==========================================================
 
 -- 1. Trigger-only functions: no client role should call them directly.
-revoke execute on function public.auto_confirm_new_user()      from public, anon, authenticated;
 revoke execute on function public.handle_new_user()            from public, anon, authenticated;
 revoke execute on function public.sync_space_member_count()    from public, anon, authenticated;
 revoke execute on function public.purge_expired_messages()     from public, anon, authenticated;
@@ -3403,7 +3392,6 @@ grant  execute on function public.join_space_via_invite(text)           to authe
 -- 4. Pin search_path on every function the advisor flagged as mutable.
 alter function public.handle_new_user()             set search_path = public, pg_temp;
 alter function public.sync_space_member_count()     set search_path = public, pg_temp;
-alter function public.auto_confirm_new_user()       set search_path = public, pg_temp;
 alter function public.purge_expired_messages()      set search_path = public, pg_temp;
 alter function public.guard_profile_system_role()   set search_path = public, pg_temp;
 alter function public.is_system_admin(uuid)         set search_path = public, pg_temp;

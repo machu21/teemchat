@@ -216,11 +216,14 @@ export async function POST(req: NextRequest) {
       console.warn('Initial profile provisioning warning:', e);
     }
 
+    // With "Confirm email" on, Supabase returns no session and emails a 6-digit code.
+    // The client must verify it (verifyOtp type 'signup') before the account can sign in.
     return NextResponse.json(
       {
         success: true,
         user: data.user,
         session: data.session,
+        needsVerification: !data.session,
       },
       {
         status: 200,

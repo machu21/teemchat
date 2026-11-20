@@ -1862,6 +1862,51 @@
   color: var(--text-muted);
 }
 
+/* ── Email Verification Step ── */
+.verifyIntro {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.verifyIntro strong {
+  color: var(--text-primary, inherit);
+  font-weight: 800;
+}
+
+.verifyCodeInput {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+
+.verifyNotice {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1.5px solid #22C55E;
+  padding: 8px 12px;
+  border-radius: var(--neo-radius-sm);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+[data-theme='dark'] .verifyNotice {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86EFAC;
+}
+
+.verifyLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 /* ── Gender Selection & Avatar Preview ── */
 .genderSection {
   display: flex;
