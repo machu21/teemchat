@@ -4,6 +4,7 @@ import { AvatarConfig, defaultAvatarConfig, normalizeAvatarConfig } from '../mod
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { DashboardPresenceService } from './dashboardPresence';
 import { E2EEManager } from './e2eeManager';
+import { EMAIL_VERIFY_REQUIRED_MESSAGE, isKnownUnverified } from '../auth/emailVerification';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -454,6 +455,10 @@ export class FriendService {
     // Account-to-account requests are DB-backed: the DB id is what accept_friend_request needs,
     // so no temporary copy is kept and the broadcast carries the real id.
     if (UUID_REGEX.test(senderId) && UUID_REGEX.test(receiverId)) {
+      // RLS refuses this too; checking first gives a clear reason instead of a generic failure.
+      if (isKnownUnverified()) {
+        return { success: false, message: EMAIL_VERIFY_REQUIRED_MESSAGE };
+      }
       try {
         const { data, error } = await supabase
           .from('friend_requests')

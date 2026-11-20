@@ -99,16 +99,8 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
   // Fallback for older APK builds without the UA token: detect Capacitor client-side.
   const isNativeClient = useIsNativeApp();
   const appMode = variant === 'app' || isNativeClient;
-  const {
-    session,
-    isGuest,
-    signInGuest,
-    signInWithPassword,
-    signUpWithPassword,
-    verifyEmailCode,
-    resendEmailCode,
-    initSession,
-  } = useSessionStore();
+  const { session, isGuest, signInGuest, signInWithPassword, signUpWithPassword, initSession } =
+    useSessionStore();
   const { theme, initTheme } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -122,11 +114,6 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
   const [authError, setAuthError] = useState('');
   const [authErrorCode, setAuthErrorCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ── Email Verification Step (6-digit code emailed at sign-up) ──
-  const [verifyStep, setVerifyStep] = useState(false);
-  const [verifyCode, setVerifyCode] = useState('');
-  const [verifyNotice, setVerifyNotice] = useState('');
 
   // ── Anti-Bot Defense State ──
   const [honeypot, setHoneypot] = useState('');
@@ -297,24 +284,18 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
         if (res.error) {
           setAuthError(res.error);
           setAuthErrorCode(res.code || '');
-        } else if (res.code === 'verify_email') {
-          setVerifyCode('');
-          setVerifyNotice('');
-          setVerifyStep(true);
+          if (res.code === 'email_unconfirmed') {
+            // Account exists now; the next step is logging in after confirming the email
+            setIsSignUp(false);
+            setPassword('');
+          }
         } else {
           setAuthModalOpen(false);
           router.push('/dashboard');
         }
       } else {
         const res = await signInWithPassword(email, password);
-        if (res.code === 'email_unconfirmed') {
-          // Right password, but sign-up was never verified: send a fresh code and ask for it.
-          const resend = await resendEmailCode(email);
-          setVerifyCode('');
-          setVerifyNotice(resend.error ? '' : 'We sent a new code to your email.');
-          if (resend.error) setAuthError(resend.error);
-          setVerifyStep(true);
-        } else if (res.error) {
+        if (res.error) {
           setAuthError(res.error);
         } else {
           setAuthModalOpen(false);
@@ -326,47 +307,6 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleVerifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    setVerifyNotice('');
-    setIsSubmitting(true);
-    try {
-      const res = await verifyEmailCode(email, verifyCode, password);
-      if (res.error) {
-        setAuthError(res.error);
-      } else {
-        setVerifyStep(false);
-        setAuthModalOpen(false);
-        router.push('/dashboard');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    setAuthError('');
-    setVerifyNotice('');
-    setIsSubmitting(true);
-    try {
-      const res = await resendEmailCode(email);
-      if (res.error) setAuthError(res.error);
-      else setVerifyNotice('New code sent. Check your inbox and spam folder.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const leaveVerifyStep = () => {
-    setVerifyStep(false);
-    setVerifyCode('');
-    setVerifyNotice('');
-    setAuthError('');
-    setAuthErrorCode('');
-    setIsSignUp(false);
   };
 
   const handleCopySafariLink = async () => {
@@ -400,66 +340,8 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
         <NeoModal
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
-          title={verifyStep ? 'Check your Email' : isSignUp ? 'Create your Account' : 'Welcome Back'}
+          title={isSignUp ? 'Create your Account' : 'Welcome Back'}
         >
-          {verifyStep ? (
-            <form onSubmit={handleVerifySubmit} className={styles.authForm}>
-              <p className={styles.verifyIntro}>
-                We sent a 6-digit code to <strong>{email.trim()}</strong>. Enter it below to finish
-                creating your account.
-              </p>
-
-              {verifyNotice && (
-                <div className={styles.verifyNotice} role="status">
-                  {verifyNotice}
-                </div>
-              )}
-              {authError && (
-                <div className={styles.errorAlert} role="alert">
-                  {authError}
-                </div>
-              )}
-
-              <NeoInput
-                label="VERIFICATION CODE"
-                id="signup-verify-code"
-                className={styles.verifyCodeInput}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                placeholder="000000"
-                value={verifyCode}
-                onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                autoFocus
-                required
-              />
-
-              <NeoButton
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={isSubmitting || verifyCode.length !== 6}
-              >
-                {isSubmitting ? 'Checking...' : 'Verify & Enter'}
-              </NeoButton>
-
-              <div className={styles.verifyLinks}>
-                <button
-                  type="button"
-                  className={styles.guestSkipLink}
-                  onClick={handleResendCode}
-                  disabled={isSubmitting}
-                >
-                  Send a new code
-                </button>
-                <button type="button" className={styles.guestSkipLink} onClick={leaveVerifyStep}>
-                  Use a different email
-                </button>
-              </div>
-            </form>
-          ) : (
-          <>
           <div className={styles.authTogglePill}>
             <button
               type="button"
@@ -642,8 +524,6 @@ export function LandingPageClient({ variant = 'web' }: LandingPageClientProps = 
               Skip for now &amp; enter as Guest <AppIcon name="arrowRight" />
             </button>
           </form>
-          </>
-          )}
         </NeoModal>
 
         {/* ── Guest Character Selection Modal ── */}

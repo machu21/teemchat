@@ -5,11 +5,12 @@ import { messagePreview } from '../games/types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { CryptoService } from './cryptoService';
 import { E2EEManager } from './e2eeManager';
+import { EMAIL_VERIFY_REQUIRED_MESSAGE, isKnownUnverified } from '../auth/emailVerification';
 
 /** The recipient does not accept messages from this sender (block, privacy or Family Mode). */
 export class DirectMessageNotAllowedError extends Error {
-  constructor() {
-    super('This player only accepts messages from friends.');
+  constructor(message = 'This player only accepts messages from friends.') {
+    super(message);
     this.name = 'DirectMessageNotAllowedError';
   }
 }
@@ -269,6 +270,11 @@ export class DirectMessageService {
   }): Promise<SocialMessageModel> {
     const { conversationId, senderId, senderName, content, recipientId } = params;
     const trimmed = content.trim();
+
+    // RLS refuses DMs from unverified email accounts; say why before trying.
+    if (isKnownUnverified()) {
+      throw new DirectMessageNotAllowedError(EMAIL_VERIFY_REQUIRED_MESSAGE);
+    }
 
     const localMsg: SocialMessageModel = {
       id: `dm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

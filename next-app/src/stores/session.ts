@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabase';
 import { UserSession, createGuestSession } from '@/lib/models/user';
 import type { PlanId } from '@/lib/membership';
 import { getOrFetchGuestIdentity } from '@/lib/security/guestIdentity';
-import { normalizeEmail } from '@/lib/security/disposableEmails';
 import { SpaceService } from '@/lib/services/spaces';
 import { DashboardPresenceService } from '@/lib/services/dashboardPresence';
 import { E2EEManager } from '@/lib/services/e2eeManager';
+import { useEmailVerificationStore } from '@/lib/auth/emailVerification';
 import { PlayerStatus } from '@/lib/world/emotes';
 import {
   AvatarConfig,
@@ -33,11 +33,7 @@ interface SessionState {
   isGuest: boolean;
   initSession: () => Promise<void>;
   signInGuest: (displayName?: string, gender?: Gender, preferredUsername?: string) => Promise<void>;
-  signInWithPassword: (email: string, password: string) => Promise<{ error?: string; code?: string }>;
-  /** Checks the 6-digit code Supabase emailed at sign-up and signs the user in. */
-  verifyEmailCode: (email: string, code: string, password?: string) => Promise<{ error?: string }>;
-  /** Emails a fresh sign-up code. */
-  resendEmailCode: (email: string) => Promise<{ error?: string }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithPassword: (
     email: string,
     password: string,
@@ -355,10 +351,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const result = await res.json().catch(() => ({}));
 
       if (!res.ok || !result.success) {
-        return {
-          error: result.error || result.message || 'Login failed',
-          code: typeof result.code === 'string' ? result.code : undefined,
-        };
+        return { error: result.error || result.message || 'Login failed' };
       }
 
       // Synchronize client-side Supabase session if returned
@@ -408,11 +401,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       console.warn('API login route error, attempting direct client fallback:', e);
       // Fallback: direct Supabase client call if network or API route is unavailable
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        return error.code === 'email_not_confirmed'
-          ? { error: 'Please verify your email to finish creating your account.', code: 'email_unconfirmed' }
-          : { error: error.message };
-      }
+      if (error) return { error: error.message };
 
       if (data.user) {
         const { data: profile } = await supabase
@@ -495,18 +484,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         };
       }
 
-      // No session yet: Supabase emailed a 6-digit code that must be verified first.
-      if (!result.session) {
-        return { code: 'verify_email' };
-      }
-
       // Only treat the user as signed in once Supabase holds a real session for them.
       let authedUserId: string | undefined;
-      const { data: setRes, error: setErr } = await supabase.auth.setSession({
-        access_token: result.session.access_token,
-        refresh_token: result.session.refresh_token,
-      });
-      if (!setErr) authedUserId = setRes.user?.id;
+      if (result.session) {
+        const { data: setRes, error: setErr } = await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+        if (!setErr) authedUserId = setRes.user?.id;
+      } else {
+        const loginRes = await supabase.auth.signInWithPassword({ email, password });
+        if (!loginRes.error) authedUserId = loginRes.data.user?.id;
+        else if (/not confirmed/i.test(loginRes.error.message)) {
+          return {
+            error: 'Account created! Check your email to confirm it, then log in.',
+            code: 'email_unconfirmed',
+          };
+        }
+      }
 
       if (!authedUserId || authedUserId !== result.user?.id) {
         return { error: 'Your account could not be signed in. Please try logging in.' };
@@ -554,51 +549,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Registration network error';
       return { error: message };
-    }
-  },
-
-  verifyEmailCode: async (email, code, password) => {
-    const token = code.replace(/\s+/g, '');
-    if (!/^\d{6}$/.test(token)) {
-      return { error: 'Enter the 6-digit code from your email.' };
-    }
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: normalizeEmail(email),
-        token,
-        type: 'signup',
-      });
-      if (error || !data.session) {
-        return {
-          error: /expired|invalid/i.test(error?.message || '')
-            ? 'That code is wrong or has expired. Check it, or send a new one.'
-            : error?.message || 'Could not verify the code. Please try again.',
-        };
-      }
-      // The profile row (username, gender) was already created by the auth trigger.
-      if (password && data.user) {
-        E2EEManager.syncPasswordBackup(data.user.id, password).catch(() => {});
-      }
-      await get().initSession();
-      return {};
-    } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : 'Verification network error' };
-    }
-  },
-
-  resendEmailCode: async (email) => {
-    try {
-      const { error } = await supabase.auth.resend({ type: 'signup', email: normalizeEmail(email) });
-      if (error) {
-        return {
-          error: /security purposes|rate limit/i.test(error.message)
-            ? 'Please wait a minute before asking for another code.'
-            : error.message,
-        };
-      }
-      return {};
-    } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : 'Could not send a new code.' };
     }
   },
 
@@ -679,6 +629,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   signOut: async () => {
     const current = get().session;
+    useEmailVerificationStore.getState().setStatus('unknown');
     // Leave dashboard presence first, while the socket and JWT are still valid,
     // so friends see this user go offline immediately.
     await DashboardPresenceService.leave();

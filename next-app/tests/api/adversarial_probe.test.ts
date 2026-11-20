@@ -34,6 +34,7 @@ const {
 // 2. Mock path aliases
 vi.mock('@/lib/rateLimit', () => import('../../src/lib/rateLimit'));
 vi.mock('@/lib/security/disposableEmails', () => import('../../src/lib/security/disposableEmails'));
+vi.mock('@/lib/security/emailDomain', () => ({ emailDomainAcceptsMail: async () => true }));
 vi.mock('@/lib/security/guestIdentity', () => import('../../src/lib/security/guestIdentity'));
 vi.mock('@/lib/companionAuth', () => import('../../src/lib/companionAuth'));
 vi.mock('@/lib/companion/prompt', () => import('../../src/lib/companion/prompt'));

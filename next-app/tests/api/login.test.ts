@@ -183,20 +183,6 @@ describe('POST /api/auth/login', () => {
       expect(data.remainingAttempts).toBe(4);
       expect(res.headers.get('x-ratelimit-remaining')).toBe('4');
     });
-
-    it('returns 403 email_unconfirmed when the sign-up code was never verified', async () => {
-      mockSignInWithPassword.mockResolvedValueOnce({
-        data: { user: null, session: null },
-        error: { message: 'Email not confirmed', code: 'email_not_confirmed' },
-      });
-
-      const res = await POST(createRequest(validPayload()));
-
-      expect(res.status).toBe(403);
-      const data = await res.json();
-      expect(data.code).toBe('email_unconfirmed');
-      expect(data.success).toBeUndefined();
-    });
   });
 
   describe('Account-Level Rate Limiting (Brute Force Defense)', () => {

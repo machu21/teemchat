@@ -14,6 +14,7 @@ import {
   validateFormTiming,
   validateUsername,
 } from '@/lib/security/disposableEmails';
+import { emailDomainAcceptsMail } from '@/lib/security/emailDomain';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
@@ -103,6 +104,16 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanEmail = normalizeEmail(email);
+
+    if (!(await emailDomainAcceptsMail(cleanEmail))) {
+      return NextResponse.json(
+        {
+          error: "That email domain can't receive mail. Check the address for typos.",
+          code: 'email_domain_invalid',
+        },
+        { status: 400 }
+      );
+    }
 
     // 5. Username Validation
     const userCheck = validateUsername(typeof username === 'string' ? username : '');
@@ -216,14 +227,11 @@ export async function POST(req: NextRequest) {
       console.warn('Initial profile provisioning warning:', e);
     }
 
-    // With "Confirm email" on, Supabase returns no session and emails a 6-digit code.
-    // The client must verify it (verifyOtp type 'signup') before the account can sign in.
     return NextResponse.json(
       {
         success: true,
         user: data.user,
         session: data.session,
-        needsVerification: !data.session,
       },
       {
         status: 200,

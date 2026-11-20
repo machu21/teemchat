@@ -33,6 +33,7 @@ import {
 import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
 import { MessengerDrawer } from '@/components/dashboard/MessengerDrawer';
+import { EmailVerifyBanner } from '@/components/dashboard/EmailVerifyBanner';
 import { CompanionPanel } from '@/components/companion/CompanionPanel';
 import { BotIcon, GlobeIcon, LockIcon, LogOutIcon } from '@/components/icons/DockIcons';
 import { FriendRequestModal } from '@/components/dashboard/FriendRequestModal';
@@ -612,6 +613,8 @@ export default function DashboardPage() {
             this device only. Sign out and join again to get a full guest account.
           </div>
         )}
+
+        {session && <EmailVerifyBanner userId={session.id} isGuest={session.isGuest} />}
 
         {myMeetings.length > 0 && (
           <section className={boardStyles.item} aria-label="Upcoming meetings" style={{ marginBottom: 16 }}>
