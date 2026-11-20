@@ -33,6 +33,8 @@ export const RATE_LIMITS = {
   AUTH_LOGIN_ACCOUNT: { max: 5, windowMs: 15 * 60 * 1000 } as const,
   // Guest session generation limit
   GUEST_CREATE: { max: 10, windowMs: 15 * 60 * 1000 } as const,
+  // Self-service account deletion (per IP)
+  ACCOUNT_DELETE: { max: 3, windowMs: 15 * 60 * 1000 } as const,
   // Standard API routes limit
   DEFAULT_API: { max: 60, windowMs: 60 * 1000 } as const,
   // Admin API reading limit

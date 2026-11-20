@@ -10,6 +10,7 @@ import { SpaceMode, SpaceModel, spaceTiers } from '@/lib/models/space';
 import { membershipLabel, PLAN_LIMITS } from '@/lib/membership';
 import { PlanCard } from '@/components/billing/PlanCard';
 import { AiAddonCard } from '@/components/billing/AiAddonCard';
+import { DeleteAccountDialog, DeleteAccountTrigger } from '@/components/settings/DeleteAccount';
 import { NeoButton } from '@/components/neo/NeoButton';
 import { NeoBadge } from '@/components/neo/NeoBadge';
 import { NeoModal } from '@/components/neo/NeoModal';
@@ -85,6 +86,7 @@ export default function DashboardPage() {
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [companionOpen, setCompanionOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [gamesPickerOpen, setGamesPickerOpen] = useState(false);
@@ -1286,10 +1288,29 @@ export default function DashboardPage() {
               >
                 <LogOutIcon size={18} /> Sign Out
               </NeoButton>
+              {/* Guests are already deleted on sign-out; registered accounts delete here */}
+              {!session.isGuest && (
+                <DeleteAccountTrigger
+                  onClick={() => {
+                    setAvatarDrawerOpen(false);
+                    setDeleteAccountOpen(true);
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
       </NeoModal>
+
+      <DeleteAccountDialog
+        open={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onDeleted={async () => {
+          setDeleteAccountOpen(false);
+          await signOut();
+          router.push('/');
+        }}
+      />
 
       {/* Delete Space Confirmation Modal */}
       <NeoModal

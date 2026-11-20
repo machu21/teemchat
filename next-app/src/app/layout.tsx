@@ -86,6 +86,9 @@ export const metadata: Metadata = {
   }),
 };
 
+/** User-agent marker the Capacitor apps append (keep in sync with lib/platform/nativeApp.ts). */
+const NATIVE_APP_UA_TOKEN = 'TeemChatApp';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
@@ -104,32 +107,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NativeThemeBars />
         <AccessibilityBoot />
         {children}
-        {gtmId && (
+        {(gtmId || gaId) && (
           <script
-            async
-            src={`https://www.googletagmanager.com/gtm.js?id=${gtmId}`}
-          />
-        )}
-        {gaId && (
-          <>
-            <script
-              async
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-            />
-            <script
-              id="google-analytics"
-              dangerouslySetInnerHTML={{
-                __html: `
+            id="analytics-loader"
+            // Web only: the Android/iOS apps (user agent contains NATIVE_APP_UA_TOKEN)
+            // load no analytics, which keeps the store privacy declarations simple.
+            dangerouslySetInnerHTML={{
+              __html: `(function(){
+                if (navigator.userAgent.indexOf(${JSON.stringify(NATIVE_APP_UA_TOKEN)}) !== -1) return;
+                function load(src){var s=document.createElement('script');s.async=true;s.src=src;document.head.appendChild(s);}
+                var gtm=${JSON.stringify(gtmId ?? '')}, ga=${JSON.stringify(gaId ?? '')};
+                if (gtm) load('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(gtm));
+                if (ga) {
                   window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${gaId}', {
-                    page_path: window.location.pathname,
-                  });
-                `,
-              }}
-            />
-          </>
+                  window.gtag = function(){ window.dataLayer.push(arguments); };
+                  window.gtag('js', new Date());
+                  window.gtag('config', ga, { page_path: window.location.pathname });
+                  load('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(ga));
+                }
+              })();`,
+            }}
+          />
         )}
       </body>
     </html>

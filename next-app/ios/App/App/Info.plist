@@ -68,6 +68,8 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>TeemChat uses your camera for video in direct and group calls, and only while you have your camera turned on.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>TeemChat needs access to your microphone for real-time proximity voice chat in the virtual world.</string>
 	<key>CFBundleURLTypes</key>

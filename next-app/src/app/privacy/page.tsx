@@ -86,6 +86,12 @@ export default function PrivacyPage() {
         <li>Edit your profile and avatar in the app.</li>
         <li>Clear your AI Companion history from the companion panel.</li>
         <li>Cancel the AI add-on at any time from Manage billing.</li>
+        <li id="delete-account">
+          Delete your account yourself: open your profile (your avatar at the top of the dashboard), choose{' '}
+          <strong>Delete account</strong> and confirm. This works on the website and in the Android and iOS
+          apps. It permanently removes your profile, spaces, messages, friends, AI Companion and saved survivors,
+          and cancels any paid plan right away.
+        </li>
         <li>
           Ask for a copy of your data, a correction, or deletion of your account by emailing{' '}
           <a href={`mailto:${supportEmail}`}>{supportEmail}</a>. Depending on where you live, you may have extra

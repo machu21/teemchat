@@ -30,6 +30,7 @@ import {
   NATIVE_AUTH_CALLBACK,
   completeNativeGoogleSignIn,
   parseAuthCallback,
+  startAppleSignIn,
   startGoogleSignIn,
 } from '../src/lib/auth/googleAuth';
 
@@ -69,6 +70,18 @@ describe('Google sign-in', () => {
       options: { redirectTo: NATIVE_AUTH_CALLBACK, skipBrowserRedirect: true },
     });
     expect(browserOpen).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://accounts.google.com/x' }));
+  });
+
+  it('Sign in with Apple uses the same app deep link flow (App Store 4.8)', async () => {
+    isNativePlatform.mockReturnValue(true);
+    signInWithOAuth.mockResolvedValue({ data: { url: 'https://appleid.apple.com/x' }, error: null });
+
+    expect(await startAppleSignIn()).toEqual({});
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'apple',
+      options: { redirectTo: NATIVE_AUTH_CALLBACK, skipBrowserRedirect: true },
+    });
+    expect(browserOpen).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://appleid.apple.com/x' }));
   });
 
   it('reports a provider error instead of throwing', async () => {

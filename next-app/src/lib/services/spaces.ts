@@ -10,6 +10,15 @@ import {
 } from '../membership';
 import { MAP_REGISTRY, MapThemeId } from '../../game/map/mapRegistry';
 
+/**
+ * Inside the Android/iOS apps paid plans can't be bought, so limit messages
+ * don't point to an upgrade there (store payment rules). Same user-agent
+ * marker as lib/platform/nativeApp.ts; inlined because this file also runs on the server.
+ */
+function inNativeApp(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent.includes('TeemChatApp');
+}
+
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 // Only characters that are safe to interpolate into a PostgREST `.or()` filter string
@@ -148,7 +157,7 @@ export const SpaceService = {
     if (isGuest) {
       if (hydrateGuestTemporaryMap(session)) {
         throw new Error(
-          'Guests can only create 1 temporary map. Upgrade to a paid account to create unlimited spaces, or delete your current temporary map.'
+          'Guests can have 1 temporary map. Delete it to make a new one, or create a free account to keep your spaces.'
         );
       }
 
@@ -226,12 +235,16 @@ export const SpaceService = {
         }
         if (plan === 'free') {
           throw new Error(
-            `Free accounts can have 1 map. Upgrade to Plus for up to ${PLAN_LIMITS.plus.maps} maps!`
+            inNativeApp()
+              ? 'Your account can have 1 map. Delete it to create a new one.'
+              : `Free accounts can have 1 map. Upgrade to Plus for up to ${PLAN_LIMITS.plus.maps} maps!`
           );
         }
         if (plan === 'plus') {
           throw new Error(
-            `You've reached the limit of ${mapLimit} maps. Upgrade to Host for up to ${PLAN_LIMITS.host.maps} maps, or delete a map to create a new one.`
+            inNativeApp()
+              ? `You've reached the limit of ${mapLimit} maps. Delete a map to create a new one.`
+              : `You've reached the limit of ${mapLimit} maps. Upgrade to Host for up to ${PLAN_LIMITS.host.maps} maps, or delete a map to create a new one.`
           );
         }
         throw new Error(

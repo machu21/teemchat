@@ -5,6 +5,7 @@ import styles from './CallControls.module.css';
 import { useCallStore } from '@/stores/call';
 import { useSessionStore } from '@/stores/session';
 import { canUseCallVideo } from '@/lib/membership';
+import { useIsNativeApp } from '@/lib/platform/nativeApp';
 import {
   MicIcon,
   MicOffIcon,
@@ -44,6 +45,8 @@ export function CallControls({
   } = useCallStore();
   const session = useSessionStore((s) => s.session);
   const allowCallVideo = canUseCallVideo(session);
+  // Plans can't be bought inside the apps, so the hint there doesn't point to an upgrade
+  const isNativeApp = useIsNativeApp();
 
   return (
     <div className={styles.controlsDock}>
@@ -69,7 +72,9 @@ export function CallControls({
         aria-disabled={!allowCallVideo}
         title={
           !allowCallVideo
-            ? 'Upgrade to Plus to use camera in calls'
+            ? isNativeApp
+              ? "Camera in calls isn't included in your plan"
+              : 'Upgrade to Plus to use camera in calls'
             : isCameraActive
               ? 'Turn Off Camera'
               : 'Turn On Camera'
@@ -89,7 +94,9 @@ export function CallControls({
         aria-disabled={!allowCallVideo}
         title={
           !allowCallVideo
-            ? 'Upgrade to Plus to share your screen'
+            ? isNativeApp
+              ? "Screen sharing isn't included in your plan"
+              : 'Upgrade to Plus to share your screen'
             : isScreenSharing
               ? 'Stop Screen Share'
               : 'Share Screen'

@@ -12,7 +12,7 @@ export const NATIVE_AUTH_CALLBACK = 'com.antigravity.virtualworld://auth/callbac
 /** Web return page; must be listed under Supabase Auth redirect URLs too. */
 export const WEB_AUTH_CALLBACK_PATH = '/auth/callback';
 
-const FALLBACK_ERROR = 'Google sign-in is unavailable right now. Please try again.';
+const FALLBACK_ERROR = 'Sign-in is unavailable right now. Please try again.';
 
 function isNativePlatform(): boolean {
   try {
@@ -29,10 +29,23 @@ function isNativePlatform(): boolean {
  * user back (handled by completeNativeGoogleSignIn).
  */
 export async function startGoogleSignIn(): Promise<{ error?: string }> {
+  return startOAuthSignIn('google');
+}
+
+/**
+ * "Continue with Apple". Required on iOS whenever Google sign-in is offered
+ * (App Store guideline 4.8). Same flow and deep link as Google; the Apple
+ * provider must be enabled in Supabase Auth.
+ */
+export async function startAppleSignIn(): Promise<{ error?: string }> {
+  return startOAuthSignIn('apple');
+}
+
+async function startOAuthSignIn(provider: 'google' | 'apple'): Promise<{ error?: string }> {
   try {
     if (isNativePlatform()) {
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: { redirectTo: NATIVE_AUTH_CALLBACK, skipBrowserRedirect: true },
       });
       if (error || !data?.url) return { error: error?.message || FALLBACK_ERROR };
@@ -42,12 +55,12 @@ export async function startGoogleSignIn(): Promise<{ error?: string }> {
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: { redirectTo: `${window.location.origin}${WEB_AUTH_CALLBACK_PATH}` },
     });
     return error ? { error: error.message || FALLBACK_ERROR } : {};
   } catch (e) {
-    console.warn('Google sign-in error:', e);
+    console.warn(`${provider} sign-in error:`, e);
     return { error: FALLBACK_ERROR };
   }
 }

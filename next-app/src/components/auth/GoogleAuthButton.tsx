@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { startGoogleSignIn } from '@/lib/auth/googleAuth';
+import { startAppleSignIn, startGoogleSignIn } from '@/lib/auth/googleAuth';
 import styles from './GoogleAuthButton.module.css';
 
 interface GoogleAuthButtonProps {
@@ -22,28 +22,47 @@ function GoogleMark() {
   );
 }
 
+/** Apple logo for the Sign in with Apple button (Apple's button guidelines require it). */
+function AppleMark() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">
+      <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+    </svg>
+  );
+}
+
 /**
- * "Continue with Google" for the login and sign-up popups. One button covers
- * both: a new Google user gets an account automatically.
+ * "Continue with Apple" and "Continue with Google" for the login and sign-up
+ * popups. Each covers both: a new user gets an account automatically. Apple is
+ * required on iOS whenever Google is offered (App Store guideline 4.8).
  */
 export function GoogleAuthButton({ label, disabled }: GoogleAuthButtonProps) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState('');
 
-  const handleClick = async () => {
+  const start = async (provider: 'google' | 'apple') => {
     setError('');
-    setBusy(true);
-    const res = await startGoogleSignIn();
+    setBusy(provider);
+    const res = provider === 'apple' ? await startAppleSignIn() : await startGoogleSignIn();
     // On the web a successful start navigates away; only errors land here.
     if (res.error) setError(res.error);
-    setBusy(false);
+    setBusy(null);
   };
 
   return (
     <div className={styles.wrap}>
-      <button type="button" className={styles.button} onClick={handleClick} disabled={disabled || busy}>
+      <button
+        type="button"
+        className={`${styles.button} ${styles.apple}`}
+        onClick={() => start('apple')}
+        disabled={disabled || busy !== null}
+      >
+        <AppleMark />
+        <span>{busy === 'apple' ? 'Opening Apple…' : label.replace('Google', 'Apple')}</span>
+      </button>
+      <button type="button" className={styles.button} onClick={() => start('google')} disabled={disabled || busy !== null}>
         <GoogleMark />
-        <span>{busy ? 'Opening Google…' : label}</span>
+        <span>{busy === 'google' ? 'Opening Google…' : label}</span>
       </button>
       {error && (
         <p className={styles.error} role="alert">
