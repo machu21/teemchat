@@ -164,6 +164,9 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
   const [characterOpen, setCharacterOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [craftOpen, setCraftOpen] = useState(false);
+  // Phones: the survival card and weapon chip start compact; tap to see everything
+  const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [weaponsOpen, setWeaponsOpen] = useState(false);
   // Survival menu (M): map, notification log, sound / feedback settings, controls
   const [menuTab, setMenuTab] = useState<MenuTab | null>(null);
   useEffect(() => {
@@ -821,6 +824,8 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
               {!zombieHud.world.power && <AppIcon name="powerOff" className={styles.weatherOff} />}
               {zombieHud.world.helicopter && <AppIcon name="helicopter" className={styles.weatherWarn} />}
             </span>
+            {/* Inline beside the clock on wide screens, a vertical rail under it on phones */}
+            <div className={styles.toolRail}>
             <button
               type="button"
               className={`${styles.flashlightBtn} ${zombieHud.flashlight ? styles.flashlightOn : ''}`}
@@ -871,6 +876,7 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
             >
               <AppIcon name="map" />
             </button>
+            </div>
           </div>
           {menuTab && (
             <SurvivalMenu
@@ -920,7 +926,13 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
               onUseSupply={(id) => gameRef.current?.zombieUseSupply(id)}
             />
           )}
-          <div className={styles.zombieHud} role="status" aria-live="polite">
+          <div
+            className={`${styles.zombieHud} ${vitalsOpen ? styles.zombieHudOpen : ''}`}
+            role="status"
+            aria-live="polite"
+            onClick={() => setVitalsOpen((open) => !open)}
+            title={vitalsOpen ? 'Tap to shrink' : 'Tap for kills, threat and effects'}
+          >
             <div className={styles.zombieHudTitle}><AppIcon name="biohazard" /> Survival</div>
             <div
               className={styles.zombieHpTrack}
@@ -1084,7 +1096,7 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
           )}
           <div {...layerProps}>
           <div
-            className={styles.weaponBar}
+            className={`${styles.weaponBar} ${weaponsOpen ? styles.weaponBarOpen : ''}`}
             role="group"
             aria-label="Weapons"
             data-ctl="weapons"
@@ -1092,7 +1104,16 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className={styles.weaponCurrent}>
-              <span className={styles.weaponIcon} aria-hidden="true"><AppIcon name={zombieHud.weapon.icon} /></span>
+              {/* On phones the chip is compact: this shows the weapon slots and supplies */}
+              <button
+                type="button"
+                className={styles.weaponIcon}
+                onClick={() => setWeaponsOpen((open) => !open)}
+                aria-expanded={weaponsOpen}
+                aria-label={`${zombieHud.weapon.name}: show weapons and supplies`}
+              >
+                <AppIcon name={zombieHud.weapon.icon} />
+              </button>
               <span className={styles.weaponName}>{zombieHud.weapon.name}</span>
               {zombieHud.weapon.mag !== null && (
                 <span className={styles.weaponAmmo} aria-label="Ammo">
@@ -1119,7 +1140,7 @@ const GameCanvasInner: React.FC<GameCanvasProps> = ({
               aria-label="Shove, or stomp a downed zombie"
               title={`Shove / stomp (${primaryLabel(bindings, 'shove')})`}
             >
-              <AppIcon name="hand" /> Shove <kbd>{primaryLabel(bindings, 'shove')}</kbd>
+              <AppIcon name="hand" /> <span className={styles.shoveLabel}>Shove</span> <kbd>{primaryLabel(bindings, 'shove')}</kbd>
             </button>
             {zombieHud.weapon.reloading > 0 && (
               <span className={styles.weaponReloadBar} aria-hidden="true">

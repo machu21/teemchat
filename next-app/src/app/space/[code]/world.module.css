@@ -75,6 +75,43 @@
   white-space: nowrap;
 }
 
+/* Name (+ area on phones) stacked inside the title chip */
+.spaceTitleText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.spaceZoneLine {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spaceZoneDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+}
+
+.hudZoneBadge {
+  display: contents;
+}
+
+/* Phone-only menu button; desktop keeps every tool in the top bar and dock */
+.hudMenuBtn {
+  display: none !important;
+}
+
 /* Status Feedback Pill / Toast */
 .mediaStatusPill {
   position: absolute;
@@ -1519,4 +1556,81 @@
   margin-top: 6px;
   border: 2px solid var(--card-border);
   border-radius: var(--neo-radius-sm);
+}
+
+/* ── Phone layout (portrait phones and short landscape phones) ──────────
+   One-row top bar: back, title chip (name + area), status, menu. The tools
+   people open now and then (teleport, build, music, meetings, invite,
+   settings) live in the More sheet instead of the bar and the dock. */
+@media (max-width: 640px), (max-height: 500px) and (orientation: landscape) {
+  .topHud {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hudLeft {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
+  .hudRight {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .hudDesktopOnly,
+  .dockDesktopOnly,
+  .hudTeleportBtn,
+  .hudZoneBadge {
+    display: none !important;
+  }
+
+  .hudMenuBtn {
+    display: inline-flex !important;
+  }
+
+  .hudLeaveLabel {
+    display: none;
+  }
+
+  /* Icon-only round buttons in the bar */
+  .hudLeaveBtn,
+  .hudMenuBtn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 50% !important;
+  }
+
+  /* Status: the coloured icon says enough here; the label shows in its menu */
+  .hudRight [aria-haspopup='menu'] > span {
+    display: none;
+  }
+
+  .spaceTitleBadge {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 240px;
+    padding: 3px 12px;
+    font-size: 0.8rem;
+    border-radius: var(--neo-radius-full);
+    line-height: 1.2;
+  }
+
+  .spaceZoneLine {
+    display: flex;
+  }
+
+  /* The bar is one row now, so things under it can sit higher */
+  .mediaStatusPill {
+    top: calc(62px + env(safe-area-inset-top, 0px));
+  }
+
+  .buildPalette {
+    top: calc(62px + env(safe-area-inset-top, 0px));
+  }
 }

@@ -56,6 +56,7 @@ import { useWorldSocial } from '@/lib/hooks/useWorldSocial';
 import { EmoteWheel } from '@/components/world/EmoteWheel';
 import { StatusPicker } from '@/components/world/StatusPicker';
 import { RoomHud } from '@/components/world/RoomHud';
+import { MoreSheet, type MoreSheetItem } from '@/components/world/MoreSheet';
 import { FocusTimer } from '@/components/world/FocusTimer';
 import { useMeetings } from '@/lib/hooks/useMeetings';
 import type { MeetingNote } from '@/lib/services/meetingNotes';
@@ -179,6 +180,9 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
   // Modals & Panels
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  // Phones: rarely used tools live in one bottom sheet instead of the top bar and dock
+  const [moreOpen, setMoreOpen] = useState(false);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [buildModeOpen, setBuildModeOpen] = useState(false);
@@ -1111,6 +1115,37 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
     );
   }
 
+  const openPlaylist = () => {
+    setPlaylistState((prev) => ({
+      ...prev,
+      currentTime: PlaylistService.currentTime,
+      duration: PlaylistService.duration,
+    }));
+    setPlaylistModalOpen(true);
+  };
+
+  // Everything the phone layout moves out of the top bar and dock
+  const moreItems: MoreSheetItem[] = [
+    ...(!zombieMode
+      ? [{ id: 'teleport', icon: 'rocket' as const, label: 'Teleport', onSelect: () => setMapTeleportModalOpen(true) }]
+      : []),
+    {
+      id: 'build',
+      icon: 'hammer',
+      label: zombieMode ? 'Furniture' : 'Build',
+      active: buildModeOpen,
+      onSelect: () => setBuildModeOpen(!buildModeOpen),
+    },
+    { id: 'music', icon: 'music', label: 'Music', active: playlistState.isPlaying, onSelect: openPlaylist },
+    { id: 'meetings', icon: 'calendar', label: 'Meetings', onSelect: () => meetings.setPanelOpen(true) },
+    { id: 'invite', icon: 'ticket', label: 'Invite', onSelect: () => setInviteModalOpen(true) },
+    ...(isMapOwner && !isSurvivalSpace
+      ? [{ id: 'theme', icon: 'map' as const, label: 'Map theme', onSelect: () => setMapThemeModalOpen(true) }]
+      : []),
+    { id: 'controls', icon: 'settings', label: 'Controls', onSelect: () => setControlsOpen(true) },
+    { id: 'safety', icon: 'shield', label: 'Safety', onSelect: () => setSafetyOpen(true) },
+  ];
+
   return (
     <div className={styles.worldLayout}>
       {/* Game Canvas Viewport */}
@@ -1153,14 +1188,29 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
       {/* Top HUD */}
       <header className={styles.topHud}>
         <div className={styles.hudLeft}>
-          <NeoButton size="sm" variant="secondary" onClick={() => router.push('/dashboard')}>
-            <AppIcon name="arrowLeft" /> Leave
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            onClick={() => router.push('/dashboard')}
+            aria-label="Leave space"
+            className={styles.hudLeaveBtn}
+          >
+            <AppIcon name="arrowLeft" /> <span className={styles.hudLeaveLabel}>Leave</span>
           </NeoButton>
           <div className={styles.spaceTitleBadge}>
             <span className={styles.spaceIcon}><AppIcon name={mapConfig.icon} /></span>
-            <span className={styles.spaceName}>{space.name}</span>
+            <span className={styles.spaceTitleText}>
+              <span className={styles.spaceName}>{space.name}</span>
+              {/* Phones show the area under the name instead of a separate badge */}
+              <span className={styles.spaceZoneLine}>
+                <span className={styles.spaceZoneDot} style={{ backgroundColor: mapConfig.badgeColor }} aria-hidden="true" />
+                {currentZone}
+              </span>
+            </span>
           </div>
-          <NeoBadge color={mapConfig.badgeColor}>{currentZone}</NeoBadge>
+          <span className={styles.hudZoneBadge}>
+            <NeoBadge color={mapConfig.badgeColor}>{currentZone}</NeoBadge>
+          </span>
           {safetyRestrictions.familyMode && (
             <span className={safetyStyles.familyBadge} title="Family Mode is on for this account">
               <AppIcon name="shield" /> <span className={styles.hudBtnLabel}>Family Mode</span>
@@ -1173,6 +1223,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
             <NeoButton
               size="sm"
               variant="secondary"
+              className={styles.hudDesktopOnly}
               onClick={() => setMapThemeModalOpen(true)}
               title="Change realm map theme (Map Owner)"
             >
@@ -1195,6 +1246,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           <NeoButton
             size="sm"
             variant="secondary"
+            className={styles.hudDesktopOnly}
             onClick={() => setControlsOpen(true)}
             title="Controls: keys, touch layout and button positions"
             aria-label="Controls settings"
@@ -1204,6 +1256,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           <NeoButton
             size="sm"
             variant="secondary"
+            className={styles.hudDesktopOnly}
             onClick={() => setSafetyOpen(true)}
             title="Safety & accessibility: chat filter, blocked players, text size"
             aria-label="Safety and accessibility settings"
@@ -1213,17 +1266,31 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           <NeoButton
             size="sm"
             variant="secondary"
+            className={styles.hudDesktopOnly}
             onClick={() => meetings.setPanelOpen(true)}
             title="Meetings: schedule, invite and past notes"
             aria-label="Meetings"
           >
             <AppIcon name="calendar" /> <span className={styles.hudBtnLabel}>Meetings</span>
           </NeoButton>
-          <NeoButton size="sm" variant="secondary" onClick={() => setInviteModalOpen(true)}>
+          <NeoButton size="sm" variant="secondary" className={styles.hudDesktopOnly} onClick={() => setInviteModalOpen(true)}>
             <AppIcon name="ticket" /> <span className={styles.hudBtnLabel}>Invite Friends</span>
+          </NeoButton>
+          <NeoButton
+            size="sm"
+            variant="secondary"
+            className={styles.hudMenuBtn}
+            onClick={() => setMoreOpen(true)}
+            aria-label="More: teleport, build, music, meetings, invite and settings"
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+          >
+            <AppIcon name="menu" />
           </NeoButton>
         </div>
       </header>
+
+      <MoreSheet open={moreOpen} onClose={closeMore} items={moreItems} />
 
       {objectPrompt && !openObject && (
         <button
@@ -1496,7 +1563,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </div>
 
         <button
-          className={`${styles.dockBtn} ${buildModeOpen ? styles.dockBtnActive : ''}`}
+          className={`${styles.dockBtn} ${styles.dockDesktopOnly} ${buildModeOpen ? styles.dockBtnActive : ''}`}
           onClick={() => setBuildModeOpen(!buildModeOpen)}
           title="Build Mode"
           aria-label="Build Mode"
@@ -1505,15 +1572,8 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
         </button>
 
         <button
-          className={`${styles.dockBtn} ${playlistState.isPlaying ? styles.dockBtnActive : ''}`}
-          onClick={() => {
-            setPlaylistState((prev) => ({
-              ...prev,
-              currentTime: PlaylistService.currentTime,
-              duration: PlaylistService.duration,
-            }));
-            setPlaylistModalOpen(true);
-          }}
+          className={`${styles.dockBtn} ${styles.dockDesktopOnly} ${playlistState.isPlaying ? styles.dockBtnActive : ''}`}
+          onClick={openPlaylist}
           title={
             playlistState.currentTrack
               ? `Music: ${playlistState.currentTrack.title} (${
@@ -1531,7 +1591,7 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
 
         {!zombieMode && (
           <button
-            className={`${styles.dockBtn} ${mapTeleportModalOpen ? styles.dockBtnActive : ''}`}
+            className={`${styles.dockBtn} ${styles.dockDesktopOnly} ${mapTeleportModalOpen ? styles.dockBtnActive : ''}`}
             onClick={() => setMapTeleportModalOpen(!mapTeleportModalOpen)}
             title="Teleport Across Map"
             aria-label="Teleport Across Map"

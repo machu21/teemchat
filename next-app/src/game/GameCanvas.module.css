@@ -796,7 +796,17 @@
 }
 
 .weaponIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   font-size: 1.2rem;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .weaponName {
@@ -1559,5 +1569,190 @@
 
   .zombieToastStack {
     top: calc(272px + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Survival tool buttons: inline beside the clock by default */
+.toolRail {
+  display: contents;
+}
+
+/* Pinch zooms the map on touch phones, so the +/- stack only costs space there */
+@media (pointer: coarse) and (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
+  .zoomControls {
+    display: none;
+  }
+}
+
+/* ── Phone survival layout (portrait) ──────────────────────────────────
+   The space top bar is a single row here (~50px), so the survival cards sit
+   right under it. Vitals and weapons start compact and expand on tap; the
+   panel buttons form a rail on the right edge; attack, jump, sprint and the
+   weapon chip make one thumb cluster bottom-right. Custom positions from
+   Controls (inline styles on [data-ctl]) still override these defaults. */
+@media (max-width: 640px) {
+  .zombieHud {
+    top: calc(60px + env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px) + 4px);
+    width: 118px;
+    padding: 6px 8px;
+    gap: 4px;
+    pointer-events: auto;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .zombieHudOpen {
+    width: 176px;
+  }
+
+  .zombieHud:not(.zombieHudOpen) .zombieHudTitle,
+  .zombieHud:not(.zombieHudOpen) .zombieStats,
+  .zombieHud:not(.zombieHudOpen) .effectChips {
+    display: none;
+  }
+
+  .zombieHpTrack {
+    height: 14px;
+  }
+
+  .dayClock {
+    top: calc(60px + env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px) + 4px);
+    flex-wrap: nowrap;
+    max-width: none;
+    padding: 4px 10px;
+  }
+
+  .dayClock::after {
+    content: none;
+  }
+
+  .toolRail {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: -2px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toolRail > button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .zombieToastStack {
+    top: calc(104px + env(safe-area-inset-top, 0px));
+    left: 138px;
+    right: 60px;
+    max-width: none;
+    transform: none;
+  }
+
+  .specialWarn {
+    top: calc(150px + env(safe-area-inset-top, 0px));
+  }
+
+  /* Thumb cluster: attack in the corner, jump to its left, sprint above */
+  .zombieAttackBtn {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px) + 12px);
+    width: 62px;
+    height: 62px;
+  }
+
+  .zombieJumpBtn {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    right: max(92px, env(safe-area-inset-right, 0px) + 88px);
+    width: 46px;
+    height: 46px;
+  }
+
+  .zombieSprintBtn {
+    bottom: calc(166px + env(safe-area-inset-bottom, 0px));
+    right: max(72px, env(safe-area-inset-right, 0px) + 68px);
+    width: 46px;
+    height: 46px;
+  }
+
+  /* Weapon chip above the cluster: weapon + ammo + shove on one row */
+  .weaponBar {
+    left: auto;
+    right: max(12px, env(safe-area-inset-right, 0px) + 8px);
+    bottom: calc(226px + env(safe-area-inset-bottom, 0px));
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: min(260px, calc(100% - 24px));
+    padding: 5px 7px;
+  }
+
+  .weaponBar > button {
+    order: 1;
+  }
+
+  .weaponBar > :not(.weaponCurrent):not(button) {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .weaponBar:not(.weaponBarOpen) .weaponSlots,
+  .weaponBar:not(.weaponBarOpen) .supplyBar {
+    display: none;
+  }
+
+  .shoveLabel {
+    display: none;
+  }
+}
+
+/* Short landscape phones: same compact vitals and weapon chip, landscape positions kept */
+@media (max-height: 500px) and (orientation: landscape) {
+  .zombieHud {
+    width: 118px;
+    pointer-events: auto;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .zombieHudOpen {
+    width: 170px;
+  }
+
+  .zombieHud:not(.zombieHudOpen) .zombieHudTitle,
+  .zombieHud:not(.zombieHudOpen) .zombieStats,
+  .zombieHud:not(.zombieHudOpen) .effectChips {
+    display: none;
+  }
+
+  .weaponBar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 240px;
+    padding: 5px 7px;
+  }
+
+  .weaponBar > button {
+    order: 1;
+  }
+
+  .weaponBar > :not(.weaponCurrent):not(button) {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .weaponBar:not(.weaponBarOpen) .weaponSlots,
+  .weaponBar:not(.weaponBarOpen) .supplyBar {
+    display: none;
+  }
+
+  .shoveLabel {
+    display: none;
   }
 }
