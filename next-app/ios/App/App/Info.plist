@@ -4,6 +4,18 @@
 <dict>
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>GADApplicationIdentifier</key>
+	<!-- Google's sample AdMob app id. Replace with the real TeemChat AdMob app id before release. -->
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Free accounts see ads. Allowing tracking lets us show ads that are more relevant to you. TeemChat works the same either way.</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>

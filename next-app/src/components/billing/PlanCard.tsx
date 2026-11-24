@@ -122,7 +122,7 @@ export function PlanCard({ session }: PlanCardProps) {
 
         <div className={styles.planGroup}>
           <span className={styles.planRowLabel}>
-            Plus · {PLAN_LIMITS.plus.maps} maps · {PLAN_LIMITS.plus.capacity} players · call video
+            Plus · {PLAN_LIMITS.plus.maps} maps · {PLAN_LIMITS.plus.capacity} players · call video · no ads
           </span>
           <div className={styles.actions}>
             <NeoButton
@@ -148,7 +148,7 @@ export function PlanCard({ session }: PlanCardProps) {
 
         <div className={styles.planGroup}>
           <span className={styles.planRowLabel}>
-            Host · {PLAN_LIMITS.host.maps} maps · {PLAN_LIMITS.host.capacity} players · moderation
+            Host · {PLAN_LIMITS.host.maps} maps · {PLAN_LIMITS.host.capacity} players · moderation · no ads
           </span>
           <div className={styles.actions}>
             <NeoButton

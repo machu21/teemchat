@@ -228,16 +228,19 @@ export type Database = {
       }
       billing_settings: {
         Row: {
+          ads_enabled: boolean
           beta_free_membership: boolean
           id: boolean
           updated_at: string
         }
         Insert: {
+          ads_enabled?: boolean
           beta_free_membership?: boolean
           id?: boolean
           updated_at?: string
         }
         Update: {
+          ads_enabled?: boolean
           beta_free_membership?: boolean
           id?: boolean
           updated_at?: string

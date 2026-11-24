@@ -24,5 +24,8 @@
   "dependencies": {
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
+  },
+  "overrides": {
+    "@capacitor/core": "8.5.3"
   }
 }

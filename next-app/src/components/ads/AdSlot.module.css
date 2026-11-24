@@ -1,0 +1,83 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 10px 12px 12px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius);
+  box-shadow: 3px 3.5px 0 var(--neo-shadow-color);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label {
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-full);
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--cta-text);
+  background: var(--cta-btn);
+  border: 2px solid var(--card-border);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0 var(--neo-shadow-color);
+  cursor: pointer;
+}
+
+.remove:hover {
+  background: var(--cta-btn-hover);
+}
+
+.remove:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Fixed height so the page does not jump when the ad fills. */
+.frame {
+  height: 90px;
+  overflow: hidden;
+  border-radius: var(--neo-radius-sm);
+  background: var(--card-inner, transparent);
+}
+
+.ins {
+  display: block;
+  width: 100%;
+  height: 90px;
+}
+
+@media (max-width: 480px) {
+  .frame,
+  .ins {
+    height: 60px;
+  }
+}
+
+/* Room for the AdMob adaptive banner pinned to the bottom of the native app. */
+.nativeSpacer {
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+}

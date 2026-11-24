@@ -57,6 +57,7 @@ export default function PrivacyPage() {
         <li>to run TeemChat: accounts, spaces, voice, chat and the AI Companion;</li>
         <li>to give your companion memory so it can remember you between conversations;</li>
         <li>to apply usage limits and process payments;</li>
+        <li>to show ads to Free and Guest accounts (paid plans see no ads);</li>
         <li>to keep the service safe, prevent abuse and fix problems;</li>
         <li>to contact you about your account, billing or important changes.</li>
       </ul>
@@ -67,7 +68,24 @@ export default function PrivacyPage() {
         <li><strong>Real-time communications provider</strong>: live voice and video.</li>
         <li><strong>AI service provider</strong>: generates AI Companion and Screen Help replies.</li>
         <li><strong>Stripe</strong>: payments and billing.</li>
+        <li>
+          <strong>Google AdSense and Google AdMob</strong>: ads for Free and Guest accounts on the website and in
+          the apps.
+        </li>
       </ul>
+
+      <h2 id="ads">Ads</h2>
+      <p>
+        Free and Guest accounts may see a small number of ads, on the dashboard and when leaving a space. Ads never
+        appear while you are playing or talking in a space, and paid plans see none. We never show ads to accounts
+        under 13. Accounts aged 13 to 17, and accounts without a birth date on file, only get non-personalized ads.
+      </p>
+      <p>
+        Our ad partners may use cookies or your device&apos;s advertising ID to show and measure ads. Where the law
+        requires it, we ask for your consent first; you can change your choice at any time from the privacy options
+        in the consent message. In the iOS app, ads are personalized only if you allow tracking. You can also reset
+        or limit your advertising ID in your device settings, or remove ads entirely by upgrading to a paid plan.
+      </p>
       <p>
         These providers process data only to deliver their part of the service. We may also share information if
         the law requires it, or to protect people from harm.
@@ -86,6 +104,7 @@ export default function PrivacyPage() {
         <li>Edit your profile and avatar in the app.</li>
         <li>Clear your AI Companion history from the companion panel.</li>
         <li>Cancel the AI add-on at any time from Manage billing.</li>
+        <li>Turn off personalized ads from the consent options, or remove ads by upgrading to a paid plan.</li>
         <li id="delete-account">
           Delete your account yourself: open your profile (your avatar at the top of the dashboard), choose{' '}
           <strong>Delete account</strong> and confirm. This works on the website and in the Android and iOS

@@ -34,6 +34,7 @@ import { FriendsHubPanel } from '@/components/dashboard/FriendsHubPanel';
 import { SpaceTabsFilter, SpaceCategoryTab } from '@/components/dashboard/SpaceTabsFilter';
 import { MessengerDrawer } from '@/components/dashboard/MessengerDrawer';
 import { EmailVerifyBanner } from '@/components/dashboard/EmailVerifyBanner';
+import { AdSlot } from '@/components/ads/AdSlot';
 import { CompanionPanel } from '@/components/companion/CompanionPanel';
 import { BotIcon, GlobeIcon, LockIcon, LogOutIcon } from '@/components/icons/DockIcons';
 import { FriendRequestModal } from '@/components/dashboard/FriendRequestModal';
@@ -852,6 +853,13 @@ export default function DashboardPage() {
               </nav>
             )}
           </>
+        )}
+
+        {session && (
+          <AdSlot
+            placement="dashboard"
+            onRemoveAds={() => (session.isGuest ? setUpgradeModalOpen(true) : setAvatarDrawerOpen(true))}
+          />
         )}
       </main>
 

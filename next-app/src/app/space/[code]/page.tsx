@@ -92,6 +92,7 @@ const TaskBoardModal = nextDynamic(() =>
 import { canHear } from '@/lib/world/rooms';
 import { AppIcon } from '@/components/icons/AppIcon';
 import type { IconName } from '@/lib/icons';
+import { useExitInterstitial } from '@/lib/ads/useExitInterstitial';
 
 export const WORLD_ZONES = MAP_REGISTRY.village.zones;
 
@@ -101,6 +102,7 @@ const formatFurnitureLabel = (type: string) =>
 
 export default function WorldPage({ params }: { params: Promise<{ code: string }> }) {
   const router = useRouter();
+  const showExitAd = useExitInterstitial();
   const searchParams = useSearchParams();
   const initialTargetZone = searchParams?.get('zone') || null;
   const urlTheme = searchParams?.get('theme') || undefined;
@@ -1191,7 +1193,10 @@ export default function WorldPage({ params }: { params: Promise<{ code: string }
           <NeoButton
             size="sm"
             variant="secondary"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => {
+              showExitAd();
+              router.push('/dashboard');
+            }}
             aria-label="Leave space"
             className={styles.hudLeaveBtn}
           >

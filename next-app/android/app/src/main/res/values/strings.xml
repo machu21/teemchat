@@ -4,4 +4,6 @@
     <string name="title_activity_main">TeemChat</string>
     <string name="package_name">com.antigravity.virtualworld</string>
     <string name="custom_url_scheme">com.antigravity.virtualworld</string>
+    <!-- Google's sample AdMob app id. Replace with the real TeemChat AdMob app id before release. -->
+    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
 </resources>

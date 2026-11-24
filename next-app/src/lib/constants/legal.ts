@@ -11,7 +11,7 @@ export const LEGAL = {
   /** US state whose laws govern the Terms, e.g. "Delaware". */
   governingState: process.env.NEXT_PUBLIC_LEGAL_STATE?.trim() || '',
   /** Shown at the top of each legal page. Update when the text changes. */
-  lastUpdated: 'November 20, 2026',
+  lastUpdated: 'November 21, 2026',
 } as const;
 
 /** AI Companion add-on prices in USD, shown on the pricing and legal pages. */

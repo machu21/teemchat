@@ -4028,6 +4028,10 @@ create policy "Service role can manage billing settings" on public.billing_setti
   for all using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
+-- Ads kill switch (2026-11-22): ads show to Free/Guest only while true.
+alter table public.billing_settings
+  add column if not exists ads_enabled boolean not null default false;
+
 alter table public.profiles
   add column if not exists plan text not null default 'free';
 
